@@ -12,21 +12,35 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 import os
 from pathlib import Path
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Load environment variables from .env file
+env_file = Path(f'{BASE_DIR}/.env')
+if env_file.exists():
+    print(f"Loading environment variables from .env file in {env_file.absolute()}!")
+    load_dotenv(env_file, override=True)
+else:
+    print(f"No .env file found in {env_file.absolute()}, using predefined environment variables or default values!")
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-3%1y9=l0hq-(5+j&3nq-!8=_(3lb3uis*3@8miu0ucthzpv^-*')
-print(f"Using secret key provided by environment var 'DJANGO_SECRET_KEY'!")
+if 'DJANGO_SECRET_KEY' in os.environ:
+    print(f"Using secret key provided by environment var 'DJANGO_SECRET_KEY'!")
+else:
+    print("No secret key provided by environment var 'DJANGO_SECRET_KEY', using hardcoded secret in DEBUG mode!")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False if 'DJANGO_PRODUCTION' in os.environ else True
-print(f"DEBUG: {DEBUG}")
+if 'DJANGO_PRODUCTION' in os.environ:
+    print(f"Using production mode, as environment var 'DJANGO_PRODUCTION' is set!")
+else:
+    print("Using development mode, DEBUG is enabled!")
 
 ALLOWED_HOSTS = ['nbagrid.pythonanywhere.com']
 print(f"ALLOWED_HOSTS: {ALLOWED_HOSTS}")
