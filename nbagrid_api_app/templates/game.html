@@ -317,79 +317,14 @@
             background-color: #2a4d6e;
         }
 
-        /* Media Queries for Responsive Design */
-        @media screen and (min-width: 768px) {
-            body {
-                padding: 20px;
-            }
-            .game-container {
-                padding: 20px;
-            }
-            .cell {
-                padding: 15px;
-                font-size: 16px;
-                min-height: 80px;
-            }
-            .header-cell {
-                font-size: 16px;
-                padding: 20px;
-            }
-            .game-title-large {
-                font-size: 36px;
-            }
-            .nav-arrow {
-                font-size: 24px;
-            }
-            .current-date {
-                font-size: 18px;
-            }
-            .game-attempts #attempts-remaining {
-                font-size: 36px;
-            }
-            .modal-content,
-            .correct-players-content,
-            .about-content {
-                margin: 10% auto;
-                padding: 20px;
-                width: 80%;
-            }
-            .player-suggestion {
-                padding: 10px;
-                margin: 5px 0;
-                font-size: 16px;
-            }
-            .player-suggestion button {
-                padding: 5px 10px;
-                font-size: 16px;
-                margin-left: 15px;
-            }
-            #player-search {
-                padding: 10px;
-                font-size: 16px;
-                width: 90%;
-                margin: 10px;
-            }
-            .share-button,
-            .close-about {
-                padding: 10px 20px;
-                font-size: 16px;
-            }
-            .completion-message {
-                font-size: 24px;
-            }
-        }
-
         @media screen and (max-width: 480px) {
-            .grid-container {
-                gap: 1px;
-            }
             .cell {
                 padding: 8px;
-                font-size: 12px;
+                font-size: 28px;
                 min-height: 50px;
             }
             .header-cell {
-                font-size: 12px;
+                font-size: 28px;
                 padding: 10px;
             }
             .game-title-large {
@@ -401,8 +336,11 @@
             .current-date {
                 font-size: 14px;
             }
+            .game-attempts .attempts-label {
+                font-size: 28px;
+            }
             .game-attempts #attempts-remaining {
-                font-size: 24px;
+                font-size: 36px;
             }
             .modal-content,
             .correct-players-content,
@@ -410,20 +348,21 @@
                 margin: 5% auto;
                 padding: 10px;
                 width: 95%;
+                max-width: 95%;
             }
             .player-suggestion {
                 padding: 6px;
                 margin: 3px 0;
-                font-size: 12px;
+                font-size: 28px;
             }
             .player-suggestion button {
                 padding: 3px 6px;
-                font-size: 12px;
+                font-size: 28px;
                 margin-left: 8px;
             }
             #player-search {
                 padding: 6px;
-                font-size: 12px;
+                font-size: 28px;
                 width: 90%;
                 margin: 10px;
             }
