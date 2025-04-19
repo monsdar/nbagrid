@@ -90,21 +90,21 @@ LOGGING = {
     "disable_existing_loggers": False,  # retain the default loggers
     "loggers": {
         "nbagrid_api_app.admin": {
-            "level": "DEBUG",
+            "level": "WARNING" if 'DJANGO_PRODUCTION' in os.environ else "DEBUG",
             "handlers": ["console"],
         },
         "nbagrid_api_app.GameBuilder": {
-            "level": "DEBUG",
+            "level": "WARNING" if 'DJANGO_PRODUCTION' in os.environ else "DEBUG",
             "handlers": ["console"],
         },
         "nbagrid_api_app.views": {
-            "level": "DEBUG",
+            "level": "WARNING" if 'DJANGO_PRODUCTION' in os.environ else "DEBUG",
             "handlers": ["console"],
         },
     },
     "handlers": {
         "console": {
-            "level": "DEBUG",
+            "level": "WARNING" if 'DJANGO_PRODUCTION' in os.environ else "DEBUG",
             "class": "logging.StreamHandler",
             "formatter": "verbose",
         },
