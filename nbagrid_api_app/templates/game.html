@@ -653,11 +653,8 @@
             result += '\nPlay at: {{ request.scheme }}://{{ request.get_host }}{% url "game" year=year month=month_num day=day %}';
             
             // Copy to clipboard
-            navigator.clipboard.writeText(result).then(() => {
-                alert('Results copied to clipboard!');
-            }).catch(err => {
+            navigator.clipboard.writeText(result).then(() => {}).catch(err => {
                 console.error('Failed to copy results: ', err);
-                alert('Failed to copy results. Please try again.');
             });
         }
         
