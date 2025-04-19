@@ -1,0 +1,20 @@
+{% extends 'admin/change_list.html' %}
+
+{% block object-tools %}
+    <div>
+        <form action="init_players_from_static_players/" method="POST">
+            {% csrf_token %}
+                <button type="submit">Init players from static_players</button>
+        </form>
+        <form action="sync_players_from_nba_stats/" method="POST">
+            {% csrf_token %}
+                <button type="submit">Sync player data from stats.nba.com</button>
+        </form>
+        <form action="sync_player_stats_from_nba_stats/" method="POST">
+            {% csrf_token %}
+                <button type="submit">Sync player stats from stats.nba.com</button>
+        </form>
+    </div>
+    <br />
+    {{ block.super }}
+{% endblock %}

@@ -1,0 +1,236 @@
+from abc import abstractmethod
+from django.db.models import Manager, Count
+from nbagrid_api_app.models import Player, Team
+import random
+import logging
+
+logger = logging.getLogger(__name__)
+
+class GameFilter(object):
+    @abstractmethod
+    def apply_filter(self, players:Manager[Player]) -> Manager[Player]:
+        pass
+    @abstractmethod
+    def get_desc(self) -> str:
+        pass
+
+class DynamicGameFilter(GameFilter):
+    def __init__(self, config):
+        self.config = config
+        self.current_value = self._get_initial_value()
+        
+    def _get_initial_value(self):
+        if 'initial_value_step' in self.config:
+            return random.choice(range(self.config['initial_min_value'], self.config['initial_max_value'], self.config['initial_value_step']))
+        if 'initial_min_value' in self.config and 'initial_max_value' in self.config:
+            return random.randint(self.config['initial_min_value'], self.config['initial_max_value'])
+        return 0
+    
+    def apply_filter(self, players:Manager[Player]) -> Manager[Player]:
+        field = self.config['field']
+        return players.filter(**{f"{field}__gte": self.current_value})
+    
+    def get_desc(self) -> str:
+        description = self.config['description']
+        return f"{description} {self.current_value}+"
+    
+    def widen_filter(self):
+        if 'widen_step' in self.config:
+            self.current_value -= self.config['widen_step']
+        elif 'initial_min_value' in self.config:
+            self.current_value = max(self.config['initial_min_value'], self.current_value - 1)
+            
+    def narrow_filter(self):
+        if 'narrow_step' in self.config:
+            self.current_value += self.config['narrow_step']
+        else:
+            self.current_value += 1
+
+class PositionFilter(GameFilter):
+    def __init__(self, seed: int = 0):
+        random.seed(seed)
+        self.positions = ['Guard', 'Forward', 'Center']
+        self.selected_position = random.choice(self.positions)
+    def apply_filter(self, players:Manager[Player]) -> Manager[Player]:
+        return players.filter(position__contains=self.selected_position) # position field can contain multiple positions like 'Guard, Forward'
+    def get_desc(self) -> str:
+        return f"Plays {self.selected_position} position"
+
+class CountryFilter(GameFilter):
+    def __init__(self, seed: int = 0):
+        random.seed(seed)
+        
+        # NOTE: Most countries do not have enough players for this filter to work
+        #       A few results from querying in April 2025:
+        #       - num_players_per_country=40: [USA]
+        #       - num_players_per_country=20: ['USA', 'Canada']
+        #       - num_players_per_country=10: ['USA', 'Canada', 'Australia', 'France']
+        #       - num_players_per_country=5:  ['USA', 'Canada', 'Australia', 'France', 'Serbia', 'Cameroon', 'Germany']
+        # For now let's keep the filter to 30 players per country, even if it's only USA players getting returned
+        num_players_per_country = 30
+        countries = [country for country in Player.objects.all().values_list('country', flat=True).distinct() 
+                    if Player.objects.filter(country=country).count() >= num_players_per_country]
+        self.country_name = random.choice(countries)
+    def apply_filter(self, players:Manager[Player]) -> Manager[Player]:
+        return players.filter(country=self.country_name)
+    def get_desc(self) -> str:
+        return f"From country: {self.country_name}"
+
+class TeamFilter(GameFilter):
+    def __init__(self, seed: int = 0):
+        random.seed(seed)
+        teams = list(Team.objects.all())
+        self.team_name = random.choice(teams).name
+    def apply_filter(self, players:Manager[Player]) -> Manager[Player]:
+        return players.filter(teams__name=self.team_name)
+    def get_desc(self) -> str:
+        return f"Played for {self.team_name}"
+
+class BooleanFilter(GameFilter):
+    def __init__(self, field: str, description: str, value: bool = True):
+        self.field = field
+        self.description = description
+        self.value = value
+    def apply_filter(self, players:Manager[Player]) -> Manager[Player]:
+        return players.filter(**{self.field: self.value})
+    def get_desc(self) -> str:
+        return self.description
+
+class TeamCountFilter(DynamicGameFilter):
+    def apply_filter(self, players:Manager[Player]) -> Manager[Player]:
+        return players.annotate(num_teams=Count('teams')).filter(num_teams__gte=self.current_value)
+    def get_desc(self) -> str:
+        return f"Played for {self.current_value}+ teams"
+
+def get_dynamic_filters(seed:int=0) -> list[DynamicGameFilter]:
+    random.seed(seed)
+    return [
+        DynamicGameFilter({
+            'field': 'career_ppg',
+            'description': 'Career points per game:',
+            'initial_min_value': 10,
+            'initial_max_value': 30,
+            'initial_value_step': 2,
+            'widen_step': 2,
+            'narrow_step': 2
+        }),
+        DynamicGameFilter({
+            'field': 'career_rpg',
+            'description': 'Career rebounds per game:',
+            'initial_min_value': 5,
+            'initial_max_value': 15,
+            'initial_value_step': 1,
+            'widen_step': 1,
+            'narrow_step': 1
+        }),
+        DynamicGameFilter({
+            'field': 'career_apg',
+            'description': 'Career assists per game:',
+            'initial_min_value': 2,
+            'initial_max_value': 10,
+            'initial_value_step': 1,
+            'widen_step': 1,
+            'narrow_step': 1
+        }),
+        DynamicGameFilter({
+            'field': 'career_gp',
+            'description': 'Career games played:',
+            'initial_min_value': 300,
+            'initial_max_value': 800,
+            'initial_value_step': 50,
+            'widen_step': 50,
+            'narrow_step': 50
+        }),
+        DynamicGameFilter({
+            'field': 'num_seasons',
+            'description': 'Career seasons:',
+            'initial_min_value': 5,
+            'initial_max_value': 20,
+            'initial_value_step': 1,
+            'widen_step': 1,
+            'narrow_step': 1
+        }),
+        DynamicGameFilter({
+            'field': 'height_cm',
+            'description': 'Taller than',
+            'initial_min_value': 180,
+            'initial_max_value': 220,
+            'initial_value_step': 5,
+            'widen_step': 5,
+            'narrow_step': 5
+        }),
+        DynamicGameFilter({
+            'field': 'weight_kg',
+            'description': 'Heavier than',
+            'initial_min_value': 80,
+            'initial_max_value': 120,
+            'initial_value_step': 5,
+            'widen_step': 5,
+            'narrow_step': 5
+        }),
+        DynamicGameFilter({
+            'field': 'career_high_pts',
+            'description': 'Career high points:',
+            'initial_min_value': 30,
+            'initial_max_value': 60,
+            'initial_value_step': 5,
+            'widen_step': 5,
+            'narrow_step': 5
+        }),
+        DynamicGameFilter({
+            'field': 'career_high_reb',
+            'description': 'Career high rebounds:',
+            'initial_min_value': 10,
+            'initial_max_value': 25,
+            'initial_value_step': 5,
+            'widen_step': 5,
+            'narrow_step': 5
+        }),
+        DynamicGameFilter({
+            'field': 'career_high_ast',
+            'description': 'Career high assists:',
+            'initial_min_value': 10,
+            'initial_max_value': 25,
+            'initial_value_step': 5,
+            'widen_step': 5,
+            'narrow_step': 5
+        }),
+        DynamicGameFilter({
+            'field': 'career_high_stl',
+            'description': 'Career high steals:',
+            'initial_min_value': 1,
+            'initial_max_value': 10,
+            'initial_value_step': 1,
+            'widen_step': 1,
+            'narrow_step': 1
+        }),
+        DynamicGameFilter({
+            'field': 'career_high_blk',
+            'description': 'Career high blocks:',
+            'initial_min_value': 1,
+            'initial_max_value': 10,
+            'initial_value_step': 1,
+            'widen_step': 1,
+            'narrow_step': 1
+        }),
+        TeamCountFilter({
+            'description': 'Teams played for:',
+            'initial_min_value': 2,
+            'initial_max_value': 8,
+            'initial_value_step': 1,
+            'widen_step': 1,
+            'narrow_step': 1
+        })
+    ]
+
+def get_static_filters(seed:int=0) -> list[GameFilter]:
+    return [
+        CountryFilter(seed),
+        TeamFilter(seed),
+        #BooleanFilter('draft_round', 'First round draft pick', 1),
+        BooleanFilter('draft_number__lte', 'Top 10 draft pick', 10),
+        PositionFilter(seed),
+        # These filters return not enough results to be useful
+        # BooleanFilter('is_greatest_75', 'Selected for NBA Greatest 75'),
+        # BooleanFilter('is_undrafted', 'Undrafted player'),
+    ]
