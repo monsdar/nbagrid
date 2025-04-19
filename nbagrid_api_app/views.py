@@ -108,9 +108,23 @@ def game(request, year, month, day):
             selected_cells[cell_key] = cell_data
             logger.debug(f"Updated cell {cell_key} with data: {cell_data}")
             
-            # Check if game is finished
+            # Check if game is finished (either by running out of attempts or completing all cells)
             if attempts_remaining == 0:
                 is_finished = True
+            else:
+                # Check if all cells are correctly guessed
+                all_correct = True
+                for r in range(len(dynamic_filters)):
+                    for c in range(len(static_filters)):
+                        cell_key = f'{r}_{c}'
+                        if not selected_cells.get(cell_key, {}).get('is_correct', False):
+                            all_correct = False
+                            break
+                    if not all_correct:
+                        break
+                is_finished = all_correct
+            
+            if is_finished:
                 # Get all correct players for each cell
                 correct_players = {}
                 for r in range(len(dynamic_filters)):
