@@ -10,12 +10,12 @@
             color: white;
             font-family: Arial, sans-serif;
             margin: 0;
-            padding: 20px;
+            padding: 10px;
         }
         .game-container {
             background-color: #000000;
             border-radius: 10px;
-            padding: 20px;
+            padding: 15px;
             max-width: 1200px;
             margin: 0 auto;
             box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
@@ -24,20 +24,22 @@
             display: grid;
             grid-template-columns: repeat(4, 1fr);
             grid-template-rows: repeat(4, 1fr);
-            gap: 3px;
-            max-width: 1200px;
+            gap: 2px;
+            max-width: 100%;
             margin: 0 auto;
         }
         .cell {
             background-color: #2a2a2a;
-            padding: 15px;
+            padding: 10px;
             display: flex;
             align-items: center;
             justify-content: center;
             text-align: center;
-            font-size: 16px;
+            font-size: 14px;
             transition: background-color 0.3s;
             color: white;
+            min-height: 60px;
+            word-break: break-word;
         }
         .cell:not(.header-cell):not(.game-title-cell):not(.correct):hover {
             background-color: #3a3a3a;
@@ -45,9 +47,9 @@
         }
         .header-cell {
             font-weight: bold;
-            font-size: 16px;
+            font-size: 14px;
             cursor: default;
-            padding: 20px;
+            padding: 15px;
             border-radius: 0px;
             margin: 0px;
             color: white;
@@ -71,23 +73,15 @@
             min-height: 70px;
             color: white;
         }
-        .game-title {
-            font-size: 24px;
-            font-weight: bold;
-            margin-bottom: 10px;
-        }
-        .game-date {
-            font-size: 16px;
-            margin-bottom: 10px;
-        }
         .game-attempts {
             font-size: 14px;
         }
         .game-attempts #attempts-remaining {
-            font-size: 36px;
+            font-size: 28px;
             font-weight: bold;
             display: block;
             margin-bottom: 5px;
+            color: #1e8a1e; /* Green for > 3 attempts */
         }
         .game-attempts #attempts-remaining.low-attempts {
             color: #ffa500;  /* Orange for <= 3 attempts */
@@ -99,23 +93,13 @@
         .game-attempts.low-attempts .attempts-label {
             color: #ffa500;  /* Orange for <= 3 attempts */
         }
-        .game-title-cell.finished {
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-        .game-title-cell.finished:hover {
-            background-color: #2a4d6e;
-        }
-        .share-text {
-            font-size: 24px;
-            font-weight: bold;
-            color: white;
-        }
         #attempts-remaining {
             color: #1e8a1e; /* Green for > 3 attempts */
             font-weight: bold;
         }
-        .modal {
+        .modal,
+        .correct-players-modal,
+        .about-modal {
             display: none;
             position: fixed;
             top: 0;
@@ -125,17 +109,24 @@
             background-color: rgba(0, 0, 0, 0.7);
             z-index: 1000;
         }
-        .modal-content {
+        .modal-content,
+        .correct-players-content,
+        .about-content {
             background-color: #2a2a2a;
-            margin: 15% auto;
-            padding: 20px;
-            width: 80%;
+            margin: 5% auto;
+            padding: 15px;
+            width: 90%;
             max-width: 500px;
-            border-radius: 10px;
+            border-radius: 0px;
+            color: white;
         }
         .player-suggestion {
-            padding: 10px;
-            margin: 5px 0;
+            padding: 8px;
+            margin: 4px 0;
+            font-size: 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             background-color: #3a3a3a;
             border-radius: 5px;
             cursor: pointer;
@@ -145,13 +136,14 @@
             background-color: #4a4a4a;
         }
         .player-suggestion button {
-            float: right;
             background-color: #1e3d59;
             color: white;
             border: none;
-            padding: 5px 10px;
+            padding: 4px 8px;
             border-radius: 3px;
             cursor: pointer;
+            font-size: 14px;
+            margin-left: 10px;
         }
         .player-suggestion button:hover {
             background-color: #2a4d6e;
@@ -160,21 +152,18 @@
             background-color: #666;
             cursor: not-allowed;
         }
-        #player-search {
-            width: 100%;
-            padding: 10px;
-            margin-bottom: 10px;
-            background-color: #3a3a3a;
-            border: none;
-            border-radius: 5px;
-            color: white;
-        }
         @keyframes flashRed {
             0% { background-color: #4a1e1e; }
             100% { background-color: #2a2a2a; }
         }
         .flash-red {
             animation: flashRed 1s ease-out;
+        }
+        #player-search {
+            padding: 8px;
+            font-size: 14px;
+            width: 90%;
+            margin: 10px;
         }
         .exhausted {
             background-color: #4a1e1e !important;
@@ -183,28 +172,6 @@
         }
         .exhausted:hover {
             background-color: #5a2e2e !important;
-        }
-        .correct-players-modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.7);
-            z-index: 1000;
-        }
-        .correct-players-content {
-            background-color: #2a2a2a;
-            margin: 10% auto;
-            padding: 20px;
-            width: 80%;
-            max-width: 500px;
-            border-radius: 10px;
-            color: white;
-            max-height: 60vh;
-            display: flex;
-            flex-direction: column;
         }
         .correct-players-content h2 {
             margin: 0 0 15px 0;
@@ -243,9 +210,9 @@
             padding: 0 20px;
         }
         .game-title-large {
-            font-size: 36px;
+            font-size: 28px;
             font-weight: bold;
-            color: white;  /* NBA Blue */
+            color: white;
             margin-bottom: 10px;
         }
         .date-navigation {
@@ -256,8 +223,8 @@
             margin-bottom: 20px;
         }
         .nav-arrow {
-            font-size: 24px;
-            color: white;  /* NBA Blue */
+            font-size: 20px;
+            color: white;
             text-decoration: none;
             cursor: pointer;
             opacity: 0.5;
@@ -270,8 +237,8 @@
             opacity: 0.2;
         }
         .current-date {
-            font-size: 18px;
-            color: white;  /* NBA Blue */
+            font-size: 16px;
+            color: white;
         }
         .game-completion {
             display: none;
@@ -286,24 +253,13 @@
             display: block;
         }
         .completion-message {
-            font-size: 24px;
-            font-weight: bold;
-            color: white;
-            margin-bottom: 20px;
+            font-size: 20px;
+            padding: 10px 0px;
         }
-        .share-button {
-            background-color: #1d428a;
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 0px;
-            cursor: pointer;
-            font-size: 18px;
-            font-weight: bold;
-            transition: all 0.3s ease;
-        }
-        .share-button:hover {
-            background-color: #2a4d6e;
+        .share-button,
+        .close-about {
+            padding: 8px 16px;
+            font-size: 14px;
         }
         .about-link {
             color: white;
@@ -315,25 +271,6 @@
         .about-link:hover {
             color: #2a4d6e;
         }
-        .about-modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.7);
-            z-index: 1000;
-        }
-        .about-content {
-            background-color: #2a2a2a;
-            margin: 10% auto;
-            padding: 30px;
-            width: 80%;
-            max-width: 600px;
-            border-radius: 0px;
-            color: white;
-        }
         .about-content h2 {
             color: white;
             margin-top: 0;
@@ -344,11 +281,11 @@
             line-height: 1.6;
         }
         .about-content a {
-            color: white;
+            color: #2b82d4;
             text-decoration: none;
         }
         .about-content a:hover {
-            color: #2a4d6e;
+            color: #2268aa;
         }
         .support-section {
             margin-top: 30px;
@@ -359,7 +296,11 @@
             color: white;
             margin-bottom: 15px;
         }
-        .close-about {
+        .support-section p {
+            margin-bottom: 15px;
+        }
+        .support-section .buy-coffee {
+            display: block;
             background-color: #1d428a;
             color: white;
             border: none;
@@ -367,11 +308,133 @@
             border-radius: 0px;
             cursor: pointer;
             font-size: 16px;
-            margin-top: 20px;
+            margin-bottom: 20px;
+            text-align: center;
+            text-decoration: none;
             transition: background-color 0.3s ease;
         }
-        .close-about:hover {
+        .support-section .buy-coffee:hover {
             background-color: #2a4d6e;
+        }
+
+        /* Media Queries for Responsive Design */
+        @media screen and (min-width: 768px) {
+            body {
+                padding: 20px;
+            }
+            .game-container {
+                padding: 20px;
+            }
+            .cell {
+                padding: 15px;
+                font-size: 16px;
+                min-height: 80px;
+            }
+            .header-cell {
+                font-size: 16px;
+                padding: 20px;
+            }
+            .game-title-large {
+                font-size: 36px;
+            }
+            .nav-arrow {
+                font-size: 24px;
+            }
+            .current-date {
+                font-size: 18px;
+            }
+            .game-attempts #attempts-remaining {
+                font-size: 36px;
+            }
+            .modal-content,
+            .correct-players-content,
+            .about-content {
+                margin: 10% auto;
+                padding: 20px;
+                width: 80%;
+            }
+            .player-suggestion {
+                padding: 10px;
+                margin: 5px 0;
+                font-size: 16px;
+            }
+            .player-suggestion button {
+                padding: 5px 10px;
+                font-size: 16px;
+                margin-left: 15px;
+            }
+            #player-search {
+                padding: 10px;
+                font-size: 16px;
+                width: 90%;
+                margin: 10px;
+            }
+            .share-button,
+            .close-about {
+                padding: 10px 20px;
+                font-size: 16px;
+            }
+            .completion-message {
+                font-size: 24px;
+            }
+        }
+
+        @media screen and (max-width: 480px) {
+            .grid-container {
+                gap: 1px;
+            }
+            .cell {
+                padding: 8px;
+                font-size: 12px;
+                min-height: 50px;
+            }
+            .header-cell {
+                font-size: 12px;
+                padding: 10px;
+            }
+            .game-title-large {
+                font-size: 24px;
+            }
+            .nav-arrow {
+                font-size: 18px;
+            }
+            .current-date {
+                font-size: 14px;
+            }
+            .game-attempts #attempts-remaining {
+                font-size: 24px;
+            }
+            .modal-content,
+            .correct-players-content,
+            .about-content {
+                margin: 5% auto;
+                padding: 10px;
+                width: 95%;
+            }
+            .player-suggestion {
+                padding: 6px;
+                margin: 3px 0;
+                font-size: 12px;
+            }
+            .player-suggestion button {
+                padding: 3px 6px;
+                font-size: 12px;
+                margin-left: 8px;
+            }
+            #player-search {
+                padding: 6px;
+                font-size: 12px;
+                width: 90%;
+                margin: 10px;
+            }
+            .share-button,
+            .close-about {
+                padding: 6px 12px;
+                font-size: 12px;
+            }
+            .completion-message {
+                font-size: 18px;
+            }
         }
     </style>
 </head>
@@ -466,7 +529,7 @@
             <div class="support-section">
                 <h3>Support This Project</h3>
                 <p>While hosting this service isn't extremely expensive, it's not free either. If you enjoy playing NBAGrid and would like to support its development and maintenance, consider buying me a coffee!</p>
-                <a href="https://buymeacoffee.com/monsdar" target="_blank" class="close-about">Buy Me a Coffee</a>
+                <a href="https://buymeacoffee.com/monsdar" target="_blank" class="buy-coffee">Buy Me a Coffee</a>
             </div>
             
             <button class="close-about" onclick="closeAboutModal()">Close</button>
@@ -559,10 +622,6 @@
                     } else {
                         currentCell.textContent = "";
                         currentCell.classList.add('flash-red');
-                        setTimeout(() => {
-                            currentCell.textContent = '';
-                            currentCell.classList.remove('flash-red');
-                        }, 1000);
                         currentCell.classList.add('incorrect');
                     }
                     updateAttemptsCounter(data.attempts_remaining);
