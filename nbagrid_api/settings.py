@@ -22,13 +22,14 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-3%1y9=l0hq-(5+j&3nq-!8=_(3lb3uis*3@8miu0ucthzpv^-*')
+print(f"Using secret key provided by environment var 'DJANGO_SECRET_KEY'!")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False if 'DJANGO_PRODUCTION' in os.environ else True
+print(f"DEBUG: {DEBUG}")
 
 ALLOWED_HOSTS = ['nbagrid.pythonanywhere.com']
-
-
+print(f"ALLOWED_HOSTS: {ALLOWED_HOSTS}")
 # Application definition
 
 INSTALLED_APPS = [
