@@ -42,7 +42,7 @@ if 'DJANGO_PRODUCTION' in os.environ:
 else:
     print("Using development mode, DEBUG is enabled!")
 
-ALLOWED_HOSTS = ['nbagrid.pythonanywhere.com']
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost', 'nbagrid.pythonanywhere.com']
 print(f"ALLOWED_HOSTS: {ALLOWED_HOSTS}")
 # Application definition
 

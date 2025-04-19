@@ -237,11 +237,15 @@
             text-align: center;
             margin-bottom: 20px;
             color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
         }
         .game-title-large {
             font-size: 36px;
             font-weight: bold;
-            color: #1d428a;  /* NBA Blue */
+            color: white;  /* NBA Blue */
             margin-bottom: 10px;
         }
         .date-navigation {
@@ -253,7 +257,7 @@
         }
         .nav-arrow {
             font-size: 24px;
-            color: #1d428a;  /* NBA Blue */
+            color: white;  /* NBA Blue */
             text-decoration: none;
             cursor: pointer;
             opacity: 0.5;
@@ -267,7 +271,7 @@
         }
         .current-date {
             font-size: 18px;
-            color: #1d428a;  /* NBA Blue */
+            color: white;  /* NBA Blue */
         }
         .game-completion {
             display: none;
@@ -301,11 +305,80 @@
         .share-button:hover {
             background-color: #2a4d6e;
         }
+        .about-link {
+            color: white;
+            text-decoration: none;
+            font-size: 16px;
+            cursor: pointer;
+            transition: color 0.3s ease;
+        }
+        .about-link:hover {
+            color: #2a4d6e;
+        }
+        .about-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+        }
+        .about-content {
+            background-color: #2a2a2a;
+            margin: 10% auto;
+            padding: 30px;
+            width: 80%;
+            max-width: 600px;
+            border-radius: 0px;
+            color: white;
+        }
+        .about-content h2 {
+            color: white;
+            margin-top: 0;
+            margin-bottom: 20px;
+        }
+        .about-content p {
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+        .about-content a {
+            color: white;
+            text-decoration: none;
+        }
+        .about-content a:hover {
+            color: #2a4d6e;
+        }
+        .support-section {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #3a3a3a;
+        }
+        .support-section h3 {
+            color: white;
+            margin-bottom: 15px;
+        }
+        .close-about {
+            background-color: #1d428a;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 0px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 20px;
+            transition: background-color 0.3s ease;
+        }
+        .close-about:hover {
+            background-color: #2a4d6e;
+        }
     </style>
 </head>
 <body>
     <div class="game-container">
         <div class="game-header">
+            <a class="about-link" onclick="openAboutModal()">About</a>
             <div class="game-title-large">NBAGrid</div>
             <div class="date-navigation">
                 {% if show_prev %}
@@ -381,6 +454,22 @@
             <h2>Correct Players</h2>
             <div id="correct-players-list"></div>
             <button onclick="closeCorrectPlayersModal()" style="margin-top: 20px; padding: 10px 20px; background-color: #1e3d59; color: white; border: none; border-radius: 5px; cursor: pointer;">Close</button>
+        </div>
+    </div>
+
+    <div id="aboutModal" class="about-modal">
+        <div class="about-content">
+            <h2>About NBAGrid</h2>
+            <p>NBAGrid is a daily puzzle game where you try to find NBA players that match specific criteria. Each day presents a new grid with different combinations of player attributes to discover.</p>
+            <p>Created by <a href="https://nils.brink.men" target="_blank">Nils Brinkmann</a>, this game is inspired by popular grid-based puzzle game <a href="https://www.geogridgame.com" target="_blank">GeoGrid</a> but with a unique NBA twist.</p>
+            <p>The code for this game is open source and available on <a href="https://github.com/monsdar/nbagrid" target="_blank">GitHub</a>.</p>
+            <div class="support-section">
+                <h3>Support This Project</h3>
+                <p>While hosting this service isn't extremely expensive, it's not free either. If you enjoy playing NBAGrid and would like to support its development and maintenance, consider buying me a coffee!</p>
+                <a href="https://buymeacoffee.com/monsdar" target="_blank" class="close-about">Buy Me a Coffee</a>
+            </div>
+            
+            <button class="close-about" onclick="closeAboutModal()">Close</button>
         </div>
     </div>
 
@@ -517,6 +606,9 @@
             if (event.target == document.getElementById('correctPlayersModal')) {
                 closeCorrectPlayersModal();
             }
+            if (event.target == document.getElementById('aboutModal')) {
+                closeAboutModal();
+            }
         }
         
         searchInput.addEventListener('input', function() {
@@ -572,6 +664,14 @@
                 console.error('Failed to copy results: ', err);
                 alert('Failed to copy results. Please try again.');
             });
+        }
+        
+        function openAboutModal() {
+            document.getElementById('aboutModal').style.display = 'block';
+        }
+        
+        function closeAboutModal() {
+            document.getElementById('aboutModal').style.display = 'none';
         }
     </script>
 </body>
