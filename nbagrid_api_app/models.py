@@ -145,3 +145,53 @@ class Team(models.Model):
     def __str__(self):
         return f"{self.abbr} {self.name}" if self.abbr else self.name
     
+class GameResult(models.Model):
+    date = models.DateField()
+    cell_key = models.CharField(max_length=10)  # e.g., "0_1" for row 0, col 1
+    player = models.ForeignKey(Player, on_delete=models.CASCADE)
+    guess_count = models.IntegerField(default=1)  # Number of times this player was correctly guessed for this cell
+
+    class Meta:
+        unique_together = ['date', 'cell_key', 'player']  # Ensure we can track multiple correct players per cell
+
+    @classmethod
+    def get_cell_stats(cls, date, cell_key):
+        """Get all correct players and their guess counts for a specific cell on a specific date."""
+        return cls.objects.filter(date=date, cell_key=cell_key).select_related('player')
+
+    @classmethod
+    def get_most_common_players(cls, date, cell_key, limit=5):
+        """Get the most commonly guessed players for a specific cell on a specific date."""
+        return cls.objects.filter(date=date, cell_key=cell_key)\
+            .select_related('player')\
+            .order_by('-guess_count')[:limit]
+
+    @classmethod
+    def get_rarest_players(cls, date, cell_key, limit=5):
+        """Get the rarest correct guesses for a specific cell on a specific date."""
+        return cls.objects.filter(date=date, cell_key=cell_key)\
+            .select_related('player')\
+            .order_by('guess_count')[:limit]
+
+    @classmethod
+    def get_player_rarity_score(cls, date, cell_key, player):
+        """Calculate a rarity score for a player in a specific cell on a specific date.
+        Score is between 0 and 1, where 1 is the rarest (least guessed) and 0 is the most common.
+        Returns 1.0 for first-time guesses on that date."""
+        try:
+            # Check if this player has been guessed for this cell on this date
+            result = cls.objects.get(date=date, cell_key=cell_key, player=player)
+            # If this is the first guess for this player in this cell, return 1.0
+            if result.guess_count == 1:
+                return 1.0
+            # Get total guesses for this cell on this date
+            total_guesses = cls.objects.filter(date=date, cell_key=cell_key).aggregate(
+                total=models.Sum('guess_count')
+            )['total'] or 1
+            return 1 - (result.guess_count / total_guesses)
+        except cls.DoesNotExist:
+            return 1.0  # Player hasn't been guessed yet for this cell on this date
+
+    def __str__(self):
+        return f"{self.date} - {self.cell_key} - {self.player.name} ({self.guess_count} guesses)"
+    

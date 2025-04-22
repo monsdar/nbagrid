@@ -1,10 +1,10 @@
 from django.test import TestCase
-from django.db.models import Count
 
 from nbagrid_api_app.GameFilter import DynamicGameFilter, PositionFilter, CountryFilter, TeamFilter, BooleanFilter, TeamCountFilter
 from nbagrid_api_app.GameBuilder import GameBuilder
-from nbagrid_api_app.models import Player, Team
+from nbagrid_api_app.models import Player, Team, GameResult
 from nba_api.stats.endpoints import commonplayerinfo, playercareerstats
+from datetime import date
 
 import random
 
@@ -258,4 +258,97 @@ class PlayerTest(TestCase):
             elif high['STAT'] == 'FGM': player.career_high_fg = high['STAT_VALUE']
             elif high['STAT'] == 'FG3M': player.career_high_3p = high['STAT_VALUE']
             elif high['STAT'] == 'FTA': player.career_high_ft = high['STAT_VALUE']
-        player.save()        
+        player.save()
+
+class GameResultTests(TestCase):
+    def setUp(self):
+        # Create test teams
+        self.team1 = Team.objects.create(stats_id=1, name="Team 1", abbr="T1")
+        self.team2 = Team.objects.create(stats_id=2, name="Team 2", abbr="T2")
+
+        # Create test players
+        self.player1 = Player.objects.create(stats_id=1, name="Player 1")
+        self.player1.teams.add(self.team1)
+        self.player2 = Player.objects.create(stats_id=2, name="Player 2")
+        self.player2.teams.add(self.team2)
+        self.player3 = Player.objects.create(stats_id=3, name="Player 3")
+        self.player3.teams.add(self.team1)
+
+        # Set test date
+        self.test_date = date.today()
+        self.cell_key = "0_1"
+
+    def test_get_cell_stats(self):
+        # Create some game results
+        GameResult.objects.create(date=self.test_date, cell_key=self.cell_key, player=self.player1, guess_count=5)
+        GameResult.objects.create(date=self.test_date, cell_key=self.cell_key, player=self.player2, guess_count=3)
+
+        stats = GameResult.get_cell_stats(self.test_date, self.cell_key)
+        self.assertEqual(stats.count(), 2)
+        self.assertEqual(stats[0].player.name, "Player 1")
+        self.assertEqual(stats[1].player.name, "Player 2")
+
+    def test_get_most_common_players(self):
+        # Create game results with different guess counts
+        GameResult.objects.create(date=self.test_date, cell_key=self.cell_key, player=self.player1, guess_count=5)
+        GameResult.objects.create(date=self.test_date, cell_key=self.cell_key, player=self.player2, guess_count=3)
+        GameResult.objects.create(date=self.test_date, cell_key=self.cell_key, player=self.player3, guess_count=7)
+
+        common_players = GameResult.get_most_common_players(self.test_date, self.cell_key)
+        self.assertEqual(common_players[0].player.name, "Player 3")  # Most guessed
+        self.assertEqual(common_players[1].player.name, "Player 1")
+        self.assertEqual(common_players[2].player.name, "Player 2")
+
+    def test_get_rarest_players(self):
+        # Create game results with different guess counts
+        GameResult.objects.create(date=self.test_date, cell_key=self.cell_key, player=self.player1, guess_count=5)
+        GameResult.objects.create(date=self.test_date, cell_key=self.cell_key, player=self.player2, guess_count=3)
+        GameResult.objects.create(date=self.test_date, cell_key=self.cell_key, player=self.player3, guess_count=7)
+
+        rare_players = GameResult.get_rarest_players(self.test_date, self.cell_key)
+        self.assertEqual(rare_players[0].player.name, "Player 2")  # Least guessed
+        self.assertEqual(rare_players[1].player.name, "Player 1")
+        self.assertEqual(rare_players[2].player.name, "Player 3")
+
+    def test_get_player_rarity_score(self):
+        # Create game results
+        GameResult.objects.create(date=self.test_date, cell_key=self.cell_key, player=self.player1, guess_count=5)
+        GameResult.objects.create(date=self.test_date, cell_key=self.cell_key, player=self.player2, guess_count=3)
+        GameResult.objects.create(date=self.test_date, cell_key=self.cell_key, player=self.player3, guess_count=7)
+
+        # Test rarity scores
+        score1 = GameResult.get_player_rarity_score(self.test_date, self.cell_key, self.player1)
+        score2 = GameResult.get_player_rarity_score(self.test_date, self.cell_key, self.player2)
+        score3 = GameResult.get_player_rarity_score(self.test_date, self.cell_key, self.player3)
+
+        # Player 2 should have the highest rarity score (least guessed)
+        self.assertGreater(score2, score1)
+        self.assertGreater(score2, score3)
+        # Player 3 should have the lowest rarity score (most guessed)
+        self.assertLess(score3, score1)
+        self.assertLess(score3, score2)
+
+    def test_get_player_rarity_score_new_player(self):
+        # Test rarity score for a player that hasn't been guessed yet
+        score = GameResult.get_player_rarity_score(self.test_date, self.cell_key, self.player1)
+        self.assertEqual(score, 1.0)  # Should be 1.0 (rarest possible) for a new player
+
+    def test_guess_count_increment(self):
+        # Test that guess count increments correctly
+        result = GameResult.objects.create(date=self.test_date, cell_key=self.cell_key, player=self.player1)
+        self.assertEqual(result.guess_count, 1)
+
+        # Simulate another correct guess
+        result.guess_count = GameResult.objects.get(
+            date=self.test_date,
+            cell_key=self.cell_key,
+            player=self.player1
+        ).guess_count + 1
+        result.save()
+
+        updated_result = GameResult.objects.get(
+            date=self.test_date,
+            cell_key=self.cell_key,
+            player=self.player1
+        )
+        self.assertEqual(updated_result.guess_count, 2)        

@@ -14,6 +14,9 @@ class GameFilter(object):
     def get_desc(self) -> str:
         pass
 
+    def __str__(self) -> str:
+        return self.get_desc()
+
 class DynamicGameFilter(GameFilter):
     def __init__(self, config):
         self.config = config

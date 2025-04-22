@@ -46,6 +46,7 @@
             min-height: 60px;
             word-break: break-word;
             padding: 10px;
+            position: relative;
         }
 
         .cell:not(.header-cell):not(.game-title-cell):not(.correct):hover {
@@ -71,7 +72,7 @@
         }
 
         .correct {
-            background-color: #1e8a1e;  /* Green for correct picks */
+            background-color: #004d00;  /* Green for correct picks */
             color: white;
             cursor: default;
         }
@@ -85,17 +86,16 @@
 
         .game-attempts {
             font-size: 14px;
+            margin-bottom: 10px;
         }
 
-        .game-attempts #attempts-remaining {
-            font-size: 28px;
-            font-weight: 700;
-            display: block;
-            margin-bottom: 5px;
-            color: #1e8a1e; /* Green for > 3 attempts */
+        .game-score {
+            font-size: 24px;
+            font-weight: bold;
+            color: #1d428a;
         }
 
-        .game-attempts .attempts-label {
+        .game-score-label {
             font-size: 14px;
             color: white;
         }
@@ -127,6 +127,7 @@
             color: #FFF;
             margin: 5% auto;
             padding: 15px;
+            position: relative;
         }
 
         .player-suggestion {
@@ -140,6 +141,8 @@
             transition: background-color .3s;
             margin: 4px 0;
             padding: 8px;
+            flex-wrap: wrap;
+            gap: 8px;
         }
 
         .player-suggestion:hover {
@@ -153,14 +156,23 @@
             border-radius: 3px;
             cursor: pointer;
             font-size: 14px;
-            margin-left: 10px;
             padding: 4px 8px;
+            white-space: nowrap;
+            flex-shrink: 0;
+            transition: background-color 0.3s;
         }
 
         .player-suggestion button:disabled {
             background-color: #666;
+            color: #999;
             cursor: not-allowed;
+            opacity: 0.7;
         }
+
+        .player-suggestion button:hover:not(:disabled) {
+            background-color: #2a4d6e;
+        }
+
         @keyframes flashRed {
             0% { background-color: #4a1e1e; }
             100% { background-color: #2a2a2a; }
@@ -172,9 +184,10 @@
 
         #player-search {
             font-size: 14px;
-            width: 90%;
-            margin: 10px;
+            width: 100%;
+            margin: 10px 0;
             padding: 8px;
+            box-sizing: border-box;
         }
 
         .exhausted {
@@ -194,11 +207,10 @@
         }
 
         #correct-players-list {
-            flex: 1;
+            max-height: 60vh;
             overflow-y: auto;
             padding-right: 10px;
             margin-bottom: 15px;
-            max-height: calc(60vh-100px);
         }
 
         .correct-player {
@@ -266,15 +278,51 @@
         }
 
         .game-completion {
-            display: none;
+            display: block;
             text-align: center;
-            margin-top: 20px;
-            background-color: #2a2a2a;
-            border-top: 3px solid #1d428a;
+            background-color: #1a1a1a;
             padding: 20px;
+            border-top: 2px solid #1d428a;
         }
 
-        .game-completion.finished {
+        .game-completion h2 {
+            color: #fff;
+            margin-bottom: 10px;
+            font-size: 24px;
+            display: none;
+        }
+
+        .game-completion .score {
+            color: #fff;
+            font-size: 36px;
+            font-weight: bold;
+            margin: 20px 0;
+        }
+
+        .game-completion .score-label {
+            color: #fff;
+            font-size: 16px;
+            margin-bottom: 20px;
+        }
+
+        .game-completion .share-button {
+            display: none;
+            background-color: #1d428a;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        .game-completion .share-button:hover {
+            background-color: #2a4d6e;
+        }
+
+        .game-completion.finished h2,
+        .game-completion.finished .share-button {
             display: block;
         }
 
@@ -360,6 +408,52 @@
             background-color: #2a4d6e;
         }
 
+        .cell.tier-common {
+            border: 2px solid #808080;  /* Gray for common */
+        }
+
+        .cell.tier-rare {
+            border: 2px solid #1e90ff;  /* Blue for rare */
+        }
+
+        .cell.tier-epic {
+            border: 2px solid #9370db;  /* Purple for epic */
+        }
+
+        .cell.tier-first {
+            border: 2px solid #ffd700;  /* Gold for first */
+        }
+
+        .cell.tier-first .tier-label {
+            background-color: #ffd700;
+            color: #000;
+        }
+
+        .cell .tier-label {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            font-size: 10px;
+            padding: 2px 4px;
+            border-radius: 3px;
+            text-transform: uppercase;
+        }
+
+        .cell.tier-common .tier-label {
+            background-color: #808080;
+            color: white;
+        }
+
+        .cell.tier-rare .tier-label {
+            background-color: #1e90ff;
+            color: white;
+        }
+
+        .cell.tier-epic .tier-label {
+            background-color: #9370db;
+            color: white;
+        }
+
         /* Mobile styles */
         @media screen and (max-width: 480px) {
             .cell {
@@ -377,13 +471,14 @@
                 font-size: 14px;
             }
 
-            .modal-content,
-            .correct-players-content,
-            .about-content {
-                width: 95%;
-                max-width: 95%;
-                margin: 5% auto;
+            .modal-content {
+                width: 100%;
+                max-width: 100%;
+                margin: 20% auto;
                 padding: 10px;
+                max-height: 80vh;
+                overflow-y: auto;
+                box-sizing: border-box;
             }
 
             .player-suggestion {
@@ -394,14 +489,13 @@
 
             .player-suggestion button {
                 font-size: 12px;
-                margin-right: 12px;
                 padding: 3px 6px;
-                min-width: 80px;
             }
 
             #player-search {
                 font-size: 12px;
                 padding: 6px;
+                margin: 5px 0;
             }
 
             .share-button,
@@ -463,12 +557,13 @@
             {% with col_str=col|stringformat:"s" %}
             {% with cell_key=row_str|add:"_"|add:col_str %}
             {% with cell_data=selected_cells|get_item:cell_key %}
-            <div class="cell {% if cell_data.is_correct %}correct{% endif %} {% if is_finished and not cell_data.is_correct %}exhausted{% endif %}"
-                onclick="{% if not is_finished %}openModal(this){% else %}showCorrectPlayers(this){% endif %}"
+            <div class="cell {% if cell_data.is_correct %}correct tier-{{ cell_data.tier }}{% endif %} {% if is_finished and not cell_data.is_correct %}exhausted{% endif %}"
+                onclick="{% if not is_finished and not cell_data.is_correct %}openModal(this){% elif is_finished and not cell_data.is_correct %}showCorrectPlayers(this){% endif %}"
                 data-row="{{ row }}" data-col="{{ col }}" {% if is_finished and not cell_data.is_correct %}
                 data-correct-players="{{ correct_players|get_item:cell_key|join:',' }}" {% endif %}>
                 {% if cell_data and cell_data.player_name and cell_data.is_correct %}
                 {{ cell_data.player_name }}
+                <span class="tier-label">{{ cell_data.tier }}</span>
                 {% elif is_finished and not cell_data.is_correct %}
                 ?
                 {% endif %}
@@ -481,12 +576,12 @@
             {% endfor %}
             {% endfor %}
         </div>
-        {% if is_finished %}
-        <div class="game-completion finished">
-            <div class="completion-message">Thanks for playing!</div>
+        <div class="game-completion {% if is_finished %}finished{% endif %}">
+            <h2>Thanks for playing!</h2>
+            <div class="score">{{ total_score|floatformat:2 }}</div>
+            <div class="score-label">Total Score</div>
             <button class="share-button" onclick="shareResults()">Share Results</button>
         </div>
-        {% endif %}
     </div>
 
     <div id="playerModal" class="modal">
@@ -566,21 +661,27 @@
         }
 
         function showCorrectPlayers(cell) {
-            const modal = document.getElementById('correctPlayersModal');
-            const list = document.getElementById('correct-players-list');
-            const players = cell.getAttribute('data-correct-players').split(',');
-
-            list.innerHTML = '';
-            players.forEach(player => {
-                if (player) {
-                    const div = document.createElement('div');
-                    div.className = 'correct-player';
-                    div.textContent = player;
-                    list.appendChild(div);
+            const cellKey = cell.getAttribute('data-cell-key');
+            const correctPlayers = cell.getAttribute('data-correct-players');
+            const dialog = document.getElementById('correctPlayersModal');
+            const content = document.getElementById('correct-players-list');
+            
+            if (!correctPlayers) {
+                content.innerHTML = '<p>No correct players found for this cell.</p>';
+            } else {
+                const players = correctPlayers.split(',').filter(p => p.trim());
+                if (players.length === 0) {
+                    content.innerHTML = '<p>No correct players found for this cell.</p>';
+                } else {
+                    let html = '';
+                    players.forEach(function(player) {
+                        html += `<div class="correct-player">${player.trim()}</div>`;
+                    });
+                    content.innerHTML = html;
                 }
-            });
-
-            modal.style.display = 'block';
+            }
+            
+            dialog.style.display = 'block';
         }
 
         function closeCorrectPlayersModal() {
@@ -589,6 +690,7 @@
 
         function selectPlayer(playerId, playerName) {
             if (!currentCell) return;
+            if (selectedPlayers.has(playerId)) return;  // Prevent selecting already selected players
 
             const row = currentCell.getAttribute('data-row');
             const col = currentCell.getAttribute('data-col');
@@ -598,52 +700,86 @@
             formData.append('col', col);
             formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
 
+            // Disable the button immediately
+            const button = document.querySelector(`button[onclick*="${playerId}"]`);
+            if (button) {
+                button.disabled = true;
+                button.textContent = 'Selected';
+            }
+
             fetch('/{{ year }}/{{ month_num }}/{{ day }}/', {
                 method: 'POST',
                 body: formData
             })
                 .then(response => response.json())
                 .then(data => {
-                    if (data.success) {
-                        if (data.is_correct) {
-                            currentCell.textContent = playerName;
-                            selectedPlayers.add(data.player_id);
-                            currentCell.classList.add('correct');
-                        } else {
-                            currentCell.textContent = "";
-                            currentCell.classList.add('flash-red');
-                            currentCell.classList.add('incorrect');
+                    if (data.error) {
+                        // Re-enable the button if there was an error
+                        if (button) {
+                            button.disabled = false;
+                            button.textContent = 'Select';
                         }
-                        updateAttemptsCounter(data.attempts_remaining);
+                        return;
+                    }
 
-                        // Handle finished game
-                        if (data.is_finished) {
-                            // Show completion message
-                            const completionDiv = document.createElement('div');
-                            completionDiv.className = 'game-completion finished';
-                            completionDiv.innerHTML = `
-                            <div class="completion-message">Thanks for playing!</div>
-                            <button class="share-button" onclick="shareResults()">Share Results</button>
-                        `;
-                            document.querySelector('.game-container').appendChild(completionDiv);
+                    if (data.is_correct) {
+                        currentCell.textContent = playerName;
+                        selectedPlayers.add(playerId);  // Add to selected players set
+                        currentCell.classList.add('correct');
+                        
+                        // Add tier class based on the score
+                        const tier = data.cell_data.tier;
+                        currentCell.classList.add(`tier-${tier}`);
+                        
+                        // Add tier label
+                        const tierLabel = document.createElement('span');
+                        tierLabel.className = 'tier-label';
+                        tierLabel.textContent = tier;
+                        currentCell.appendChild(tierLabel);
+                    } else {
+                        currentCell.textContent = "";
+                        currentCell.classList.add('flash-red');
+                        setTimeout(() => {
+                            currentCell.classList.remove('flash-red');
+                        }, 1000);
+                    }
 
-                            // Mark all incorrect cells as exhausted
-                            document.querySelectorAll('.cell:not(.correct)').forEach(cell => {
-                                if (!cell.classList.contains('header-cell') && !cell.classList.contains('game-title-cell')) {
-                                    const row = cell.getAttribute('data-row');
-                                    const col = cell.getAttribute('data-col');
-                                    const cellKey = `${row}_${col}`;
-                                    if (data.correct_players[cellKey]) {
-                                        cell.textContent = '?';
-                                        cell.classList.add('exhausted');
-                                        cell.setAttribute('data-correct-players', data.correct_players[cellKey].join(','));
-                                        cell.onclick = function () { showCorrectPlayers(this); };
-                                    }
+                    // Update score display if total_score is available
+                    if (data.total_score !== undefined) {
+                        document.querySelector('.game-completion .score').textContent = data.total_score.toFixed(2);
+                    }
+
+                    updateAttemptsCounter(data.attempts_remaining);
+
+                    // Handle finished game
+                    if (data.is_finished) {
+                        // Add finished class to show completion message and share button
+                        document.querySelector('.game-completion').classList.add('finished');
+
+                        // Mark all incorrect cells as exhausted
+                        document.querySelectorAll('.cell:not(.correct)').forEach(cell => {
+                            if (!cell.classList.contains('header-cell') && !cell.classList.contains('game-title-cell')) {
+                                const row = cell.getAttribute('data-row');
+                                const col = cell.getAttribute('data-col');
+                                const cellKey = `${row}_${col}`;
+                                if (data.correct_players && data.correct_players[cellKey]) {
+                                    cell.textContent = '?';
+                                    cell.classList.add('exhausted');
+                                    cell.setAttribute('data-correct-players', data.correct_players[cellKey].join(','));
+                                    cell.onclick = function () { showCorrectPlayers(this); };
                                 }
-                            });
-                        }
+                            }
+                        });
                     }
                     closeModal();
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    // Re-enable the button if there was an error
+                    if (button) {
+                        button.disabled = false;
+                        button.textContent = 'Select';
+                    }
                 });
         }
 
@@ -675,12 +811,15 @@
                         const div = document.createElement('div');
                         div.className = 'player-suggestion';
                         const isSelected = selectedPlayers.has(player.stats_id);
-                        div.innerHTML = `
-                            ${player.name}
-                            <button onclick="selectPlayer('${player.stats_id}', '${player.name}')" ${isSelected ? 'disabled' : ''}>
-                                ${isSelected ? 'Selected' : 'Select'}
-                            </button>
-                        `;
+                        const escapedName = player.name.replace(/'/g, "\\'");
+                        const button = document.createElement('button');
+                        button.textContent = isSelected ? 'Selected' : 'Select';
+                        button.disabled = isSelected;
+                        button.onclick = function() {
+                            selectPlayer(player.stats_id, escapedName);
+                        };
+                        div.innerHTML = player.name;
+                        div.appendChild(button);
                         suggestionsDiv.appendChild(div);
                     });
                 });
@@ -704,10 +843,21 @@
                 }
             }
 
+            // Get the score from the DOM
+            const score = document.querySelector('.game-completion .score').textContent;
+            result += '\nScore: ' + score;
             result += '\nPlay at: {{ request.scheme }}://{{ request.get_host }}{% url "game" year=year month=month_num day=day %}';
 
             // Copy to clipboard
-            navigator.clipboard.writeText(result).then(() => { }).catch(err => {
+            navigator.clipboard.writeText(result).then(() => {
+                // Show a brief notification that the results were copied
+                const button = document.querySelector('.share-button');
+                const originalText = button.textContent;
+                button.textContent = 'Copied!';
+                setTimeout(() => {
+                    button.textContent = originalText;
+                }, 2000);
+            }).catch(err => {
                 console.error('Failed to copy results: ', err);
             });
         }

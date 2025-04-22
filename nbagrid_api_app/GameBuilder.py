@@ -25,28 +25,28 @@ class GameBuilder(object):
         last_action = None
         for static_filter in static_filters:
             num_results.append(len(static_filter.apply_filter(dynamic_filter.apply_filter(all_players))))
-            logger.info(f"...filter [{static_filter.get_desc()}] x [{dynamic_filter.get_desc()}] returned {num_results[-1]} results")
+            logger.debug(f"...filter [{static_filter.get_desc()}] x [{dynamic_filter.get_desc()}] returned {num_results[-1]} results")
         
         # if some results are higher than the max, but others are lower we can skip tuning
         if any(n > self.max_num_results for n in num_results) and any(n < self.min_num_results for n in num_results):
-            logger.info(f"...filter [{dynamic_filter.get_desc()}] returned results out of range")
+            logger.debug(f"...filter [{dynamic_filter.get_desc()}] returned results out of range")
             return (False, None)
             
         # if one of the results is higher than the max, we need to narrow the filter
         if any(n > self.max_num_results for n in num_results):
             if last_action == 'widen':
-                logger.info(f"...filter [{dynamic_filter.get_desc()}] is oscillating, giving up")
+                logger.debug(f"...filter [{dynamic_filter.get_desc()}] is oscillating, giving up")
                 return (False, None)
             dynamic_filter.narrow_filter()
-            logger.info(f"...narrowed filter to [{dynamic_filter.get_desc()}]")
+            logger.debug(f"...narrowed filter to [{dynamic_filter.get_desc()}]")
             last_action = 'narrow'
             success = False
         elif any(n < self.min_num_results for n in num_results):
             if last_action == 'narrow':
-                logger.info(f"...filter [{dynamic_filter.get_desc()}] is oscillating, giving up")
+                logger.debug(f"...filter [{dynamic_filter.get_desc()}] is oscillating, giving up")
                 return (False, None)
             dynamic_filter.widen_filter()
-            logger.info(f"...widened filter to [{dynamic_filter.get_desc()}]")
+            logger.debug(f"...widened filter to [{dynamic_filter.get_desc()}]")
             last_action = 'widen'
             success = False
         return (success, dynamic_filter)
