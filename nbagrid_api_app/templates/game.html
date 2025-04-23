@@ -647,7 +647,7 @@
         updateAttemptsCounter({{ attempts_remaining }});
 
         function openModal(cell) {
-            if (cell.classList.contains('correct')) return;
+            if (cell.classList.contains('correct') || cell.classList.contains('exhausted')) return;
             currentCell = cell;
             modal.style.display = 'block';
             searchInput.focus();
@@ -661,7 +661,6 @@
         }
 
         function showCorrectPlayers(cell) {
-            const cellKey = cell.getAttribute('data-cell-key');
             const correctPlayers = cell.getAttribute('data-correct-players');
             const dialog = document.getElementById('correctPlayersModal');
             const content = document.getElementById('correct-players-list');

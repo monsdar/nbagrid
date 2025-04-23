@@ -131,6 +131,19 @@ def handle_player_guess(request, grid, game_state, requested_date):
         game_state['attempts_remaining'] -= 1
         update_game_completion(game_state, grid)
         
+        # If attempts reach 0, get correct players for all remaining cells
+        correct_players = {}
+        if game_state['attempts_remaining'] == 0:
+            for r in range(len(grid)):
+                for c in range(len(grid[0])):
+                    cell_key = f'{r}_{c}'
+                    if not game_state['selected_cells'].get(cell_key, {}).get('is_correct', False):
+                        cell = grid[r][c]
+                        matching_players = Player.objects.all()
+                        for f in cell['filters']:
+                            matching_players = f.apply_filter(matching_players)
+                        correct_players[cell_key] = [p.name for p in matching_players]
+        
         # Save the updated game state to the session
         game_state_key = f'game_state_{requested_date.year}_{requested_date.month}_{requested_date.day}'
         request.session[game_state_key] = game_state
@@ -142,7 +155,8 @@ def handle_player_guess(request, grid, game_state, requested_date):
             'cell_data': cell_data,
             'attempts_remaining': game_state['attempts_remaining'],
             'is_finished': game_state['is_finished'],
-            'total_score': game_state.get('total_score', 0)
+            'total_score': game_state.get('total_score', 0),
+            'correct_players': correct_players
         })
     except Exception as e:
         logger.error(f"Error handling guess: {e}")
