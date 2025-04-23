@@ -235,8 +235,9 @@
             margin-bottom: 20px;
             color: white;
             display: flex;
-            justify-content: space-between;
+            flex-direction: column;
             align-items: center;
+            gap: 1rem;
             padding: 0 20px;
         }
 
@@ -244,7 +245,7 @@
             font-size: 28px;
             font-weight: bold;
             color: white;
-            margin-bottom: 10px;
+            margin-bottom: 0;
         }
 
         .date-navigation {
@@ -252,7 +253,7 @@
             justify-content: center;
             align-items: center;
             gap: 20px;
-            margin-bottom: 20px;
+            margin-bottom: 0;
         }
 
         .nav-arrow {
@@ -514,13 +515,152 @@
                 font-size: 18px;
             }
         }
+
+        .game-completion .completion-count {
+            color: #fff;
+            font-size: 12px;
+            margin: 10px 0;
+        }
+
+        .game-completion .completion-count span {
+            font-weight: bold;
+        }
+
+        /* Header styles */
+        header {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 1rem;
+            background-color: #1a1a1a;
+            color: white;
+            gap: 1rem;
+        }
+
+        .header-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+            width: 100%;
+        }
+
+        .logo {
+            font-size: 2rem;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        .date-selector {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .date-selector a {
+            color: white;
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            background-color: #333;
+            transition: background-color 0.3s;
+        }
+
+        .date-selector a:hover {
+            background-color: #444;
+        }
+
+        .about-link {
+            color: white;
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            background-color: #333;
+            transition: background-color 0.3s;
+        }
+
+        .about-link:hover {
+            background-color: #444;
+        }
+
+        /* Footer styles */
+        footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background-color: #1a1a1a;
+            color: white;
+            padding: 1rem;
+            text-align: center;
+            z-index: 1000;
+        }
+
+        .footer-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .share-button {
+            width: 100%;
+            padding: 0.75rem;
+            background-color: #2a4d6e;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            font-size: 16px;
+        }
+
+        .share-button:hover {
+            background-color: #3a5d7e;
+        }
+
+        .about-button {
+            width: 100%;
+            padding: 0.75rem;
+            background-color: #333;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            display: none;
+            font-size: 16px;
+        }
+
+        .about-button:hover {
+            background-color: #444;
+        }
+
+        .game-completion.finished .about-button {
+            display: block;
+        }
+
+        /* Media query for larger screens */
+        @media (min-width: 768px) {
+            .header-content {
+                flex-direction: row;
+                justify-content: space-between;
+            }
+            
+            .date-selector {
+                flex-wrap: nowrap;
+            }
+        }
     </style>
 </head>
 
 <body>
     <div class="game-container">
         <div class="game-header">
-            <a class="about-link" onclick="openAboutModal()">About</a>
             <div class="game-title-large">NBAGrid</div>
             <div class="date-navigation">
                 {% if show_prev %}
@@ -578,9 +718,11 @@
         </div>
         <div class="game-completion {% if is_finished %}finished{% endif %}">
             <h2>Thanks for playing!</h2>
-            <div class="score">{{ total_score|floatformat:2 }}</div>
+            <div class="score">{{ total_score|multiply:100|floatformat:0 }}</div>
             <div class="score-label">Total Score</div>
+            <div class="completion-count">Completed by <span id="completion-count">{{ completion_count }}</span> players</div>
             <button class="share-button" onclick="shareResults()">Share Results</button>
+            <button class="about-button" onclick="openAboutModal()">About</button>
         </div>
     </div>
 
@@ -745,7 +887,13 @@
 
                     // Update score display if total_score is available
                     if (data.total_score !== undefined) {
-                        document.querySelector('.game-completion .score').textContent = data.total_score.toFixed(2);
+                        document.querySelector('.game-completion .score').textContent = (data.total_score * 100).toFixed(0);
+                    }
+
+                    // Update completion count if available
+                    if (data.completion_count !== undefined) {
+                        const countElement = document.getElementById('completion-count');
+                        countElement.textContent = data.completion_count;
                     }
 
                     updateAttemptsCounter(data.attempts_remaining);

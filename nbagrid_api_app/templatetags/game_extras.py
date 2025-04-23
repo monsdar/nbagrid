@@ -9,4 +9,12 @@ def get_item(dictionary, key):
     try:
         return dictionary.get(key, {})
     except (AttributeError, KeyError):
-        return {} 
+        return {}
+
+@register.filter
+def multiply(value, arg):
+    """Multiply the value by the argument."""
+    try:
+        return float(value) * float(arg)
+    except (ValueError, TypeError):
+        return '' 

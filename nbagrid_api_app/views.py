@@ -8,7 +8,7 @@ logger.setLevel(logging.DEBUG)
 
 from datetime import datetime, timedelta
 from nbagrid_api_app.GameBuilder import GameBuilder
-from nbagrid_api_app.models import Player, GameResult
+from nbagrid_api_app.models import Player, GameResult, GameCompletion
 import json
 
 cached_filters = {}
@@ -143,11 +143,18 @@ def handle_player_guess(request, grid, game_state, requested_date):
                         for f in cell['filters']:
                             matching_players = f.apply_filter(matching_players)
                         correct_players[cell_key] = [p.name for p in matching_players]
+            
+            # Record game completion
+            if not GameCompletion.objects.filter(date=requested_date.date(), session_key=request.session.session_key).exists():
+                GameCompletion.objects.create(date=requested_date.date(), session_key=request.session.session_key)
         
         # Save the updated game state to the session
         game_state_key = f'game_state_{requested_date.year}_{requested_date.month}_{requested_date.day}'
         request.session[game_state_key] = game_state
         request.session.save()
+        
+        # Get completion count
+        completion_count = GameCompletion.get_completion_count(requested_date.date())
         
         return JsonResponse({
             'is_correct': is_correct,
@@ -156,7 +163,8 @@ def handle_player_guess(request, grid, game_state, requested_date):
             'attempts_remaining': game_state['attempts_remaining'],
             'is_finished': game_state['is_finished'],
             'total_score': game_state.get('total_score', 0),
-            'correct_players': correct_players
+            'correct_players': correct_players,
+            'completion_count': completion_count
         })
     except Exception as e:
         logger.error(f"Error handling guess: {e}")
@@ -264,6 +272,9 @@ def game(request, year, month, day):
                     matching_players = f.apply_filter(matching_players)
                 correct_players[cell_key] = [p.name for p in matching_players]
     
+    # Get completion count
+    completion_count = GameCompletion.get_completion_count(requested_date.date())
+    
     return render(request, 'game.html', {
         'year': year,
         'month': requested_date.strftime('%B'),
@@ -278,6 +289,7 @@ def game(request, year, month, day):
         'is_finished': game_state['is_finished'],
         'correct_players': correct_players,
         'total_score': game_state.get('total_score', 0),
+        'completion_count': completion_count,
         'show_prev': show_prev,
         'show_next': show_next,
         'prev_date': prev_date,

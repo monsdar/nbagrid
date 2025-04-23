@@ -195,3 +195,16 @@ class GameResult(models.Model):
     def __str__(self):
         return f"{self.date} - {self.cell_key} - {self.player.name} ({self.guess_count} guesses)"
     
+class GameCompletion(models.Model):
+    date = models.DateField()
+    session_key = models.CharField(max_length=40)  # Django session key
+    completed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ['date', 'session_key']  # Each session can only complete a game once
+
+    @classmethod
+    def get_completion_count(cls, date):
+        """Get the number of unique sessions that have completed this game."""
+        return cls.objects.filter(date=date).count()
+    
