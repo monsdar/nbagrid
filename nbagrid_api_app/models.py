@@ -192,6 +192,50 @@ class GameResult(models.Model):
         except cls.DoesNotExist:
             return 1.0  # Player hasn't been guessed yet for this cell on this date
 
+    @classmethod
+    def initialize_scores_from_recent_games(cls, date, cell_key, num_games=5):
+        """Initialize GameResult entries for players based on their appearances in recent games.
+        For each of the last 5 games, we check the top 10 most picked players (across all cells).
+        If a player is in the top 10 for a game, their count increases by 1.
+        The maximum count a player can have is 5 (if they were in top 10 for all 5 games).
+        
+        Args:
+            date: The date to initialize scores for
+            cell_key: The cell key to initialize scores for
+            num_games: Number of recent games to look back at
+        """
+        # Get the date range for recent games
+        recent_dates = cls.objects.filter(date__lt=date)\
+            .order_by('-date')\
+            .values_list('date', flat=True)\
+            .distinct()[:num_games]
+        
+        if not recent_dates:
+            return
+            
+        # For each game date, get the top 10 most picked players
+        top_players = {}
+        for game_date in recent_dates:
+            # Get top 10 players for this game date (across all cells)
+            top_players_for_date = cls.objects.filter(date=game_date)\
+                .values('player')\
+                .annotate(total_guesses=models.Sum('guess_count'))\
+                .order_by('-total_guesses')[:10]
+            
+            # Increment count for each top player
+            for player_data in top_players_for_date:
+                player_id = player_data['player']
+                top_players[player_id] = top_players.get(player_id, 0) + 1
+        
+        # Create or update GameResult entries for these players
+        for player_id, count in top_players.items():
+            cls.objects.update_or_create(
+                date=date,
+                cell_key=cell_key,
+                player_id=player_id,
+                defaults={'guess_count': count}
+            )
+
     def __str__(self):
         return f"{self.date} - {self.cell_key} - {self.player.name} ({self.guess_count} guesses)"
     

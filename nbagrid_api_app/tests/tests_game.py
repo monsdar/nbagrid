@@ -1,10 +1,11 @@
 from django.test import TestCase
+from django.db.models import F
 
 from nbagrid_api_app.GameFilter import DynamicGameFilter, PositionFilter, CountryFilter, TeamFilter, BooleanFilter, TeamCountFilter
 from nbagrid_api_app.GameBuilder import GameBuilder
 from nbagrid_api_app.models import Player, Team, GameResult
 from nba_api.stats.endpoints import commonplayerinfo, playercareerstats
-from datetime import date
+from datetime import date, timedelta
 
 import random
 
@@ -335,20 +336,110 @@ class GameResultTests(TestCase):
 
     def test_guess_count_increment(self):
         # Test that guess count increments correctly
-        result = GameResult.objects.create(date=self.test_date, cell_key=self.cell_key, player=self.player1)
-        self.assertEqual(result.guess_count, 1)
-
-        # Simulate another correct guess
-        result.guess_count = GameResult.objects.get(
-            date=self.test_date,
-            cell_key=self.cell_key,
-            player=self.player1
-        ).guess_count + 1
-        result.save()
-
-        updated_result = GameResult.objects.get(
-            date=self.test_date,
-            cell_key=self.cell_key,
-            player=self.player1
+        result = GameResult.objects.create(
+            date=date.today(),
+            cell_key="0_0",
+            player=self.player1,
+            guess_count=1
         )
-        self.assertEqual(updated_result.guess_count, 2)        
+        result.guess_count = F('guess_count') + 1
+        result.save()
+        result.refresh_from_db()
+        self.assertEqual(result.guess_count, 2)
+
+    def test_initialize_scores_from_recent_games(self):
+        # Create test dates for the last 5 games
+        dates = [date.today() - timedelta(days=i) for i in range(1, 6)]
+        
+        # Create 15 test players
+        players = [Player.objects.create(stats_id=i, name=f"Player {i}") for i in range(15)]
+        
+        # For each game date, create results for different players
+        # Game 1: Players 0-9 are top 10
+        for i in range(10):
+            GameResult.objects.create(
+                date=dates[0],
+                cell_key="0_0",
+                player=players[i],
+                guess_count=10-i  # Varying guess counts to ensure proper ordering
+            )
+            
+        # Game 2: Players 5-14 are top 10
+        for i in range(5, 15):
+            GameResult.objects.create(
+                date=dates[1],
+                cell_key="0_0",
+                player=players[i],
+                guess_count=15-i  # Varying guess counts to ensure proper ordering
+            )
+            
+        # Game 3: Players 0-4 and 10-14 are top 10
+        for i in list(range(5)) + list(range(10, 15)):
+            GameResult.objects.create(
+                date=dates[2],
+                cell_key="0_0",
+                player=players[i],
+                guess_count=10  # Same guess count for all
+            )
+            
+        # Game 4: Players 0-9 are top 10
+        for i in range(10):
+            GameResult.objects.create(
+                date=dates[3],
+                cell_key="0_0",
+                player=players[i],
+                guess_count=10-i  # Varying guess counts to ensure proper ordering
+            )
+            
+        # Game 5: Players 5-14 are top 10
+        for i in range(5, 15):
+            GameResult.objects.create(
+                date=dates[4],
+                cell_key="0_0",
+                player=players[i],
+                guess_count=15-i  # Varying guess counts to ensure proper ordering
+            )
+        
+        # Initialize scores for today
+        GameResult.initialize_scores_from_recent_games(date.today(), "0_0")
+        
+        # Verify the results
+        # Players 5-9 should have count=4 (in top 10 for 4 games)
+        for i in range(5, 10):
+            result = GameResult.objects.get(
+                date=date.today(),
+                cell_key="0_0",
+                player=players[i]
+            )
+            self.assertEqual(result.guess_count, 4)
+            
+        # Players 0-4 should have count=3 (in top 10 for games 1, 3, 4)
+        for i in range(5):
+            result = GameResult.objects.get(
+                date=date.today(),
+                cell_key="0_0",
+                player=players[i]
+            )
+            self.assertEqual(result.guess_count, 3)
+            
+        # Players 10-14 should have count=3 (in top 10 for games 2, 3, 5)
+        for i in range(10, 15):
+            result = GameResult.objects.get(
+                date=date.today(),
+                cell_key="0_0",
+                player=players[i]
+            )
+            self.assertEqual(result.guess_count, 3)
+            
+        # Test initialization for a different cell
+        GameResult.initialize_scores_from_recent_games(date.today(), "1_1")
+        
+        # Verify the same counts are used for the new cell
+        # Players 5-9 should have count=4 (in top 10 for 4 games)
+        for i in range(5, 10):
+            result = GameResult.objects.get(
+                date=date.today(),
+                cell_key="1_1",
+                player=players[i]
+            )
+            self.assertEqual(result.guess_count, 4)

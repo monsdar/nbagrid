@@ -44,6 +44,15 @@ def get_game_filters(requested_date):
     builder = GameBuilder(requested_date.timestamp())
     filters = builder.get_tuned_filters()
     cached_filters[requested_date] = filters
+    
+    # Initialize scores for all cells if this is a new game and no completions exist
+    if not GameCompletion.objects.filter(date=requested_date.date()).exists():
+        static_filters, dynamic_filters = filters
+        for row in range(len(dynamic_filters)):
+            for col in range(len(static_filters)):
+                cell_key = f'{row}_{col}'
+                GameResult.initialize_scores_from_recent_games(requested_date.date(), cell_key)
+    
     return filters
 
 def initialize_game_state(request, year, month, day):
