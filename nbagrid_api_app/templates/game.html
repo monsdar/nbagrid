@@ -738,24 +738,6 @@
         const suggestionsDiv = document.getElementById('player-suggestions');
         let selectedPlayers = new Set();
 
-        // Initialize selected players from the game state
-        {% for cell_key, cell_data in selected_cells.items %}
-        selectedPlayers.add('{{ cell_data.player_id }}');
-        {% endfor %}
-
-        function updateAttemptsCounter(attempts) {
-            const counter = document.getElementById('attempts-remaining');
-            counter.textContent = attempts;
-            if (attempts <= 3) {
-                counter.classList.add('low-attempts');
-            } else {
-                counter.classList.remove('low-attempts');
-            }
-        }
-
-        // Initialize attempts counter
-        updateAttemptsCounter({{ attempts_remaining }});
-
         function openModal(cell) {
             if (cell.classList.contains('correct') || cell.classList.contains('exhausted')) return;
             currentCell = cell;
@@ -797,9 +779,39 @@
             document.getElementById('correctPlayersModal').style.display = 'none';
         }
 
+        function updateAttemptsCounter(attempts) {
+            const counter = document.getElementById('attempts-remaining');
+            counter.textContent = attempts;
+            if (attempts <= 3) {
+                counter.classList.add('low-attempts');
+            } else {
+                counter.classList.remove('low-attempts');
+            }
+        }
+
+        // Initialize selected players from the game state
+        console.log('Initializing selectedPlayers from game state:');
+        {% for cell_key, cell_data in selected_cells.items %}
+            selectedPlayers.add('{{ cell_data.player_id }}');
+        {% endfor %}
+        console.log('Final selectedPlayers Set:', Array.from(selectedPlayers));
+
+        // Initialize attempts counter
+        updateAttemptsCounter({{ attempts_remaining }});
+
         function selectPlayer(playerId, playerName) {
             if (!currentCell) return;
-            if (selectedPlayers.has(playerId)) return;  // Prevent selecting already selected players
+            console.log('Attempting to select player:', playerId);
+            console.log('Current selectedPlayers:', Array.from(selectedPlayers));
+            if (selectedPlayers.has(playerId.toString())) {
+                console.log('Player already selected, preventing selection');
+                // Update all buttons for this player to be disabled
+                document.querySelectorAll(`button[data-player-id="${playerId}"]`).forEach(button => {
+                    button.disabled = true;
+                    button.textContent = 'Selected';
+                });
+                return;
+            }
 
             const row = currentCell.getAttribute('data-row');
             const col = currentCell.getAttribute('data-col');
@@ -925,15 +937,19 @@
                     players.forEach(player => {
                         const div = document.createElement('div');
                         div.className = 'player-suggestion';
-                        const isSelected = selectedPlayers.has(player.stats_id);
+                        // Check the current state of selectedPlayers
+                        const isSelected = selectedPlayers.has(player.stats_id.toString());
+                        console.log('Rendering player:', player.name, 'isSelected:', isSelected, 'stats_id:', player.stats_id, 'selectedPlayers:', Array.from(selectedPlayers));
                         const escapedName = player.name.replace(/'/g, "\\'");
                         const button = document.createElement('button');
                         button.textContent = isSelected ? 'Selected' : 'Select';
                         button.disabled = isSelected;
+                        button.setAttribute('data-player-id', player.stats_id);
                         button.onclick = function() {
+                            console.log('Button clicked for player:', player.name, 'stats_id:', player.stats_id, 'isSelected:', selectedPlayers.has(player.stats_id.toString()));
                             selectPlayer(player.stats_id, escapedName);
                         };
-                        div.innerHTML = player.name;
+                        div.appendChild(document.createTextNode(player.name));
                         div.appendChild(button);
                         suggestionsDiv.appendChild(div);
                     });

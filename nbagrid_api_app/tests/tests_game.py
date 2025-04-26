@@ -348,6 +348,8 @@ class GameResultTests(TestCase):
         self.assertEqual(result.guess_count, 2)
 
     def test_initialize_scores_from_recent_games(self):
+        game_factor = 3
+        
         # Create test dates for the last 5 games
         dates = [date.today() - timedelta(days=i) for i in range(1, 6)]
         
@@ -401,7 +403,7 @@ class GameResultTests(TestCase):
             )
         
         # Initialize scores for today
-        GameResult.initialize_scores_from_recent_games(date.today(), "0_0")
+        GameResult.initialize_scores_from_recent_games(date.today(), "0_0", game_factor=game_factor)
         
         # Verify the results
         # Players 5-9 should have count=4 (in top 10 for 4 games)
@@ -411,7 +413,7 @@ class GameResultTests(TestCase):
                 cell_key="0_0",
                 player=players[i]
             )
-            self.assertEqual(result.guess_count, 4)
+            self.assertEqual(result.guess_count, 4*game_factor)
             
         # Players 0-4 should have count=3 (in top 10 for games 1, 3, 4)
         for i in range(5):
@@ -420,7 +422,7 @@ class GameResultTests(TestCase):
                 cell_key="0_0",
                 player=players[i]
             )
-            self.assertEqual(result.guess_count, 3)
+            self.assertEqual(result.guess_count, 3*game_factor)
             
         # Players 10-14 should have count=3 (in top 10 for games 2, 3, 5)
         for i in range(10, 15):
@@ -429,7 +431,7 @@ class GameResultTests(TestCase):
                 cell_key="0_0",
                 player=players[i]
             )
-            self.assertEqual(result.guess_count, 3)
+            self.assertEqual(result.guess_count, 3*game_factor)
             
         # Test initialization for a different cell
         GameResult.initialize_scores_from_recent_games(date.today(), "1_1")
@@ -442,4 +444,4 @@ class GameResultTests(TestCase):
                 cell_key="1_1",
                 player=players[i]
             )
-            self.assertEqual(result.guess_count, 4)
+            self.assertEqual(result.guess_count, 4*game_factor)

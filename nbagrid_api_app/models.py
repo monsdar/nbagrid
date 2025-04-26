@@ -193,16 +193,23 @@ class GameResult(models.Model):
             return 1.0  # Player hasn't been guessed yet for this cell on this date
 
     @classmethod
-    def initialize_scores_from_recent_games(cls, date, cell_key, num_games=5):
+    def initialize_scores_from_recent_games(cls, date, cell_key, num_games=5, game_factor=5):
         """Initialize GameResult entries for players based on their appearances in recent games.
         For each of the last 5 games, we check the top 10 most picked players (across all cells).
         If a player is in the top 10 for a game, their count increases by 1.
         The maximum count a player can have is 5 (if they were in top 10 for all 5 games).
         
+        The game_factor is a multiplier for the number of appearances.
+        For example, if a player appears in the top 10 for 3 games, they will have an
+        initial score of 3 * game_factor. This is to account for the fact that players with 5 appearances
+        should have a "Common" appearance in comparison to players with 1 appearance. Due to the
+        number of overall players this won't happen without that factor.
+        
         Args:
             date: The date to initialize scores for
             cell_key: The cell key to initialize scores for
             num_games: Number of recent games to look back at
+            game_factor: Factor to multiply the number of appearances by
         """
         # Get the date range for recent games
         recent_dates = cls.objects.filter(date__lt=date)\
@@ -233,7 +240,7 @@ class GameResult(models.Model):
                 date=date,
                 cell_key=cell_key,
                 player_id=player_id,
-                defaults={'guess_count': count}
+                defaults={'guess_count': count*game_factor}
             )
 
     def __str__(self):
