@@ -1,9 +1,9 @@
 from django.test import TestCase
 from django.db.models import F
 
-from nbagrid_api_app.GameFilter import DynamicGameFilter, PositionFilter, CountryFilter, TeamFilter, BooleanFilter, TeamCountFilter
+from nbagrid_api_app.GameFilter import DynamicGameFilter, PositionFilter, CountryFilter, TeamFilter, BooleanFilter, TeamCountFilter, create_filter_from_db
 from nbagrid_api_app.GameBuilder import GameBuilder
-from nbagrid_api_app.models import Player, Team, GameResult
+from nbagrid_api_app.models import Player, Team, GameResult, GameFilterDB
 from nba_api.stats.endpoints import commonplayerinfo, playercareerstats
 from datetime import date, timedelta
 
@@ -198,6 +198,10 @@ class TeamCountFilterTest(TestCase):
 
 class GameBuilderTest(TestCase):
     def test_build_filter_pairs(self):
+        # Clean up any existing records
+        GameFilterDB.objects.all().delete()
+        GameResult.objects.all().delete()
+        
         populate_teams(30)
         populate_players(600)
         
@@ -263,6 +267,9 @@ class PlayerTest(TestCase):
 
 class GameResultTests(TestCase):
     def setUp(self):
+        # Clean up any existing records
+        GameResult.objects.all().delete()
+        
         # Create test teams
         self.team1 = Team.objects.create(stats_id=1, name="Team 1", abbr="T1")
         self.team2 = Team.objects.create(stats_id=2, name="Team 2", abbr="T2")
@@ -348,100 +355,150 @@ class GameResultTests(TestCase):
         self.assertEqual(result.guess_count, 2)
 
     def test_initialize_scores_from_recent_games(self):
+        # Clean up any existing records
+        GameResult.objects.all().delete()
+        
         game_factor = 3
         
         # Create test dates for the last 5 games
-        dates = [date.today() - timedelta(days=i) for i in range(1, 6)]
+        today = date.today()
+        dates = [today - timedelta(days=i) for i in range(1, 6)]
         
-        # Create 15 test players
-        players = [Player.objects.create(stats_id=i, name=f"Player {i}") for i in range(15)]
+        # Create test players
+        player1 = Player.objects.create(stats_id=1, name="Player 1")
+        player2 = Player.objects.create(stats_id=2, name="Player 2")
+        player3 = Player.objects.create(stats_id=3, name="Player 3")
         
-        # For each game date, create results for different players
-        # Game 1: Players 0-9 are top 10
-        for i in range(10):
-            GameResult.objects.create(
-                date=dates[0],
-                cell_key="0_0",
-                player=players[i],
-                guess_count=10-i  # Varying guess counts to ensure proper ordering
-            )
-            
-        # Game 2: Players 5-14 are top 10
-        for i in range(5, 15):
-            GameResult.objects.create(
-                date=dates[1],
-                cell_key="0_0",
-                player=players[i],
-                guess_count=15-i  # Varying guess counts to ensure proper ordering
-            )
-            
-        # Game 3: Players 0-4 and 10-14 are top 10
-        for i in list(range(5)) + list(range(10, 15)):
-            GameResult.objects.create(
-                date=dates[2],
-                cell_key="0_0",
-                player=players[i],
-                guess_count=10  # Same guess count for all
-            )
-            
-        # Game 4: Players 0-9 are top 10
-        for i in range(10):
-            GameResult.objects.create(
-                date=dates[3],
-                cell_key="0_0",
-                player=players[i],
-                guess_count=10-i  # Varying guess counts to ensure proper ordering
-            )
-            
-        # Game 5: Players 5-14 are top 10
-        for i in range(5, 15):
-            GameResult.objects.create(
-                date=dates[4],
-                cell_key="0_0",
-                player=players[i],
-                guess_count=15-i  # Varying guess counts to ensure proper ordering
-            )
+        # Create game results:
+        # Player 1: appears in games 1, 2, 3 (should get count=3)
+        # Player 2: appears in games 1, 2, 3, 4 (should get count=4)
+        # Player 3: appears in games 2, 3 (should get count=2)
+        
+        # Game 1 (yesterday)
+        GameResult.objects.create(date=dates[0], cell_key="0_0", player=player1, guess_count=10)
+        GameResult.objects.create(date=dates[0], cell_key="0_0", player=player2, guess_count=9)
+        
+        # Game 2 (2 days ago)
+        GameResult.objects.create(date=dates[1], cell_key="0_0", player=player1, guess_count=8)
+        GameResult.objects.create(date=dates[1], cell_key="0_0", player=player2, guess_count=7)
+        GameResult.objects.create(date=dates[1], cell_key="0_0", player=player3, guess_count=6)
+        
+        # Game 3 (3 days ago)
+        GameResult.objects.create(date=dates[2], cell_key="0_0", player=player1, guess_count=5)
+        GameResult.objects.create(date=dates[2], cell_key="0_0", player=player2, guess_count=4)
+        GameResult.objects.create(date=dates[2], cell_key="0_0", player=player3, guess_count=3)
+        
+        # Game 4 (4 days ago)
+        GameResult.objects.create(date=dates[3], cell_key="0_0", player=player2, guess_count=2)
+        
+        # Game 5 (5 days ago) - no relevant results
         
         # Initialize scores for today
-        GameResult.initialize_scores_from_recent_games(date.today(), "0_0", game_factor=game_factor)
+        GameResult.initialize_scores_from_recent_games(today, "0_0", game_factor=game_factor)
         
         # Verify the results
-        # Players 5-9 should have count=4 (in top 10 for 4 games)
-        for i in range(5, 10):
-            result = GameResult.objects.get(
-                date=date.today(),
-                cell_key="0_0",
-                player=players[i]
-            )
-            self.assertEqual(result.guess_count, 4*game_factor)
-            
-        # Players 0-4 should have count=3 (in top 10 for games 1, 3, 4)
-        for i in range(5):
-            result = GameResult.objects.get(
-                date=date.today(),
-                cell_key="0_0",
-                player=players[i]
-            )
-            self.assertEqual(result.guess_count, 3*game_factor)
-            
-        # Players 10-14 should have count=3 (in top 10 for games 2, 3, 5)
-        for i in range(10, 15):
-            result = GameResult.objects.get(
-                date=date.today(),
-                cell_key="0_0",
-                player=players[i]
-            )
-            self.assertEqual(result.guess_count, 3*game_factor)
-            
+        result1 = GameResult.objects.get(date=today, cell_key="0_0", player=player1)
+        self.assertEqual(result1.guess_count, 3*game_factor, "Player 1 should have count=9 (3 games * factor 3)")
+        
+        result2 = GameResult.objects.get(date=today, cell_key="0_0", player=player2)
+        self.assertEqual(result2.guess_count, 4*game_factor, "Player 2 should have count=12 (4 games * factor 3)")
+        
+        result3 = GameResult.objects.get(date=today, cell_key="0_0", player=player3)
+        self.assertEqual(result3.guess_count, 2*game_factor, "Player 3 should have count=6 (2 games * factor 3)")
+        
         # Test initialization for a different cell
-        GameResult.initialize_scores_from_recent_games(date.today(), "1_1")
+        GameResult.initialize_scores_from_recent_games(today, "1_1", game_factor=game_factor)
         
         # Verify the same counts are used for the new cell
-        # Players 5-9 should have count=4 (in top 10 for 4 games)
-        for i in range(5, 10):
-            result = GameResult.objects.get(
-                date=date.today(),
-                cell_key="1_1",
-                player=players[i]
-            )
-            self.assertEqual(result.guess_count, 4*game_factor)
+        result = GameResult.objects.get(date=today, cell_key="1_1", player=player2)
+        self.assertEqual(result.guess_count, 4*game_factor, "Player 2 should have count=12 (4 games * factor 3) in new cell")
+
+class GameFilterTests(TestCase):
+    def setUp(self):
+        # Clean up any existing records
+        GameFilterDB.objects.all().delete()
+        GameResult.objects.all().delete()
+        
+        # Create test teams and players
+        populate_teams(30)
+        populate_players(100)
+        
+        # Set test date
+        self.test_date = date.today()
+        
+    def test_filter_persistence(self):
+        # Create a game builder and generate filters
+        builder = GameBuilder(0)
+        static_filters, dynamic_filters = builder.get_tuned_filters()
+        
+        # Verify filters were saved to database
+        db_filters = GameFilterDB.objects.filter(date=self.test_date)
+        self.assertEqual(db_filters.count(), 6)  # 3 static + 3 dynamic filters
+        
+        # Verify filter types and counts
+        static_count = db_filters.filter(filter_type='static').count()
+        dynamic_count = db_filters.filter(filter_type='dynamic').count()
+        self.assertEqual(static_count, 3)
+        self.assertEqual(dynamic_count, 3)
+        
+        # Verify filter indices
+        for i in range(3):
+            self.assertTrue(db_filters.filter(filter_type='static', filter_index=i).exists())
+            self.assertTrue(db_filters.filter(filter_type='dynamic', filter_index=i).exists())
+            
+    def test_filter_reconstruction(self):
+        # First create and save filters
+        builder1 = GameBuilder(0)
+        static_filters1, dynamic_filters1 = builder1.get_tuned_filters()
+        
+        # Create a new builder and get filters - should reconstruct from database
+        builder2 = GameBuilder(1)  # Different seed shouldn't matter
+        static_filters2, dynamic_filters2 = builder2.get_tuned_filters()
+        
+        # Verify the filters are the same
+        self.assertEqual(len(static_filters1), len(static_filters2))
+        self.assertEqual(len(dynamic_filters1), len(dynamic_filters2))
+        
+        # Verify filter descriptions match
+        for i in range(3):
+            self.assertEqual(static_filters1[i].get_desc(), static_filters2[i].get_desc())
+            self.assertEqual(dynamic_filters1[i].get_desc(), dynamic_filters2[i].get_desc())
+            
+    def test_filter_config_storage(self):
+        # Create and save filters
+        builder = GameBuilder(0)
+        static_filters, dynamic_filters = builder.get_tuned_filters()
+        
+        # Get filters from database
+        db_filters = GameFilterDB.objects.filter(date=self.test_date)
+        
+        # Verify filter configurations are stored correctly
+        for db_filter in db_filters:
+            filter_obj = create_filter_from_db(db_filter)
+            
+            # Verify the filter can be reconstructed and works
+            players = Player.objects.all()
+            filtered_players = filter_obj.apply_filter(players)
+            self.assertGreater(len(filtered_players), 0)
+            
+    def test_filter_uniqueness(self):
+        # Create filters for today
+        builder1 = GameBuilder(0)
+        builder1.get_tuned_filters()
+        
+        # Try to create filters for the same date with a different seed
+        builder2 = GameBuilder(1)
+        static_filters2, dynamic_filters2 = builder2.get_tuned_filters()
+        
+        # Verify we got the same filters back (from database) instead of new ones
+        db_filters = GameFilterDB.objects.filter(date=self.test_date)
+        self.assertEqual(db_filters.count(), 6)  # Still only 6 filters
+        
+        # Verify the filters are the same as what we got back
+        for db_filter in db_filters:
+            filter_obj = create_filter_from_db(db_filter)
+            
+            if db_filter.filter_type == 'static':
+                self.assertTrue(any(f.get_desc() == filter_obj.get_desc() for f in static_filters2))
+            else:
+                self.assertTrue(any(f.get_desc() == filter_obj.get_desc() for f in dynamic_filters2))

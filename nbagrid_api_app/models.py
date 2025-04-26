@@ -220,6 +220,9 @@ class GameResult(models.Model):
         if not recent_dates:
             return
             
+        logger.info(f"Initializing scores for date {date}, cell {cell_key}")
+        logger.info(f"Found {len(recent_dates)} recent dates: {recent_dates}")
+            
         # For each game date, get the top 10 most picked players
         top_players = {}
         for game_date in recent_dates:
@@ -229,18 +232,27 @@ class GameResult(models.Model):
                 .annotate(total_guesses=models.Sum('guess_count'))\
                 .order_by('-total_guesses')[:10]
             
+            logger.info(f"For date {game_date}, found {len(top_players_for_date)} top players")
+            
             # Increment count for each top player
             for player_data in top_players_for_date:
                 player_id = player_data['player']
-                top_players[player_id] = top_players.get(player_id, 0) + 1
+                if player_id not in top_players:
+                    top_players[player_id] = 0
+                top_players[player_id] += 1
+                logger.info(f"Player {player_id} now has {top_players[player_id]} appearances")
+        
+        logger.info(f"Final player appearances: {top_players}")
         
         # Create or update GameResult entries for these players
         for player_id, count in top_players.items():
+            final_count = count * game_factor
+            logger.info(f"Setting player {player_id} count to {final_count} ({count} appearances * {game_factor})")
             cls.objects.update_or_create(
                 date=date,
                 cell_key=cell_key,
                 player_id=player_id,
-                defaults={'guess_count': count*game_factor}
+                defaults={'guess_count': final_count}
             )
 
     def __str__(self):
@@ -258,4 +270,22 @@ class GameCompletion(models.Model):
     def get_completion_count(cls, date):
         """Get the number of unique sessions that have completed this game."""
         return cls.objects.filter(date=date).count()
+
+class GameFilterDB(models.Model):
+    """Stores the configuration of game filters for a specific date."""
+    date = models.DateField()
+    filter_type = models.CharField(max_length=10)  # 'static' or 'dynamic'
+    filter_class = models.CharField(max_length=50)  # Name of the filter class, e.g., 'PositionFilter', 'DynamicGameFilter'
+    filter_config = models.JSONField()  # Store filter configuration
+    filter_index = models.IntegerField()  # Position in the grid (0-2 for 3x3 grid)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('date', 'filter_type', 'filter_index')
+        indexes = [
+            models.Index(fields=['date']),
+        ]
+
+    def __str__(self):
+        return f"{self.date} - {self.filter_type} - {self.filter_class} ({self.filter_index})"
     

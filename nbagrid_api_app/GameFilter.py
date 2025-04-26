@@ -237,3 +237,54 @@ def get_static_filters(seed:int=0) -> list[GameFilter]:
         # BooleanFilter('is_greatest_75', 'Selected for NBA Greatest 75'),
         # BooleanFilter('is_undrafted', 'Undrafted player'),
     ]
+
+def create_filter_from_db(db_filter):
+    """Create a GameFilter object from a database record.
+    
+    Args:
+        db_filter: A GameFilterDB model instance from the database
+        
+    Returns:
+        A GameFilter object of the appropriate type with the stored configuration
+    """
+    filter_class = globals()[db_filter.filter_class]
+    config = db_filter.filter_config.copy()
+    
+    # Handle special cases for different filter types
+    if filter_class == DynamicGameFilter or filter_class == TeamCountFilter:
+        # For dynamic filters, we need to preserve the config and current_value
+        current_value = config.pop('current_value', None)
+        config_data = config.pop('config', config)  # Use remaining config if no 'config' key
+        filter_obj = filter_class(config_data)
+        if current_value is not None:
+            filter_obj.current_value = current_value
+        return filter_obj
+    elif filter_class == TeamFilter:
+        team_name = config.pop('team_name', None)
+        filter_obj = filter_class(0)  # Seed doesn't matter for reconstruction
+        if team_name is not None:
+            filter_obj.team_name = team_name
+        return filter_obj
+    elif filter_class == PositionFilter:
+        position = config.pop('selected_position', None)
+        filter_obj = filter_class(0)  # Seed doesn't matter for reconstruction
+        if position is not None:
+            filter_obj.selected_position = position
+        return filter_obj
+    elif filter_class == CountryFilter:
+        country = config.pop('country_name', None)
+        filter_obj = filter_class(0)  # Seed doesn't matter for reconstruction
+        if country is not None:
+            filter_obj.country_name = country
+        return filter_obj
+    elif filter_class == BooleanFilter:
+        # BooleanFilter takes field and description as constructor args
+        field = config.pop('field', None)
+        description = config.pop('description', None)
+        value = config.pop('value', True)
+        if field is not None and description is not None:
+            return filter_class(field, description, value)
+        return filter_class(**config)
+    
+    # For any other filter type, just pass the config as is
+    return filter_class(**config)

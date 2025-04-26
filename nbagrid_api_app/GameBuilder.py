@@ -1,7 +1,8 @@
-from .models import Player
-from nbagrid_api_app.GameFilter import GameFilter, get_dynamic_filters, get_static_filters
+from .models import Player, GameFilterDB
+from nbagrid_api_app.GameFilter import GameFilter, get_dynamic_filters, get_static_filters, create_filter_from_db
 from django.db.models import Manager
 
+from datetime import datetime
 import logging
 import random
 
@@ -52,12 +53,51 @@ class GameBuilder(object):
         return (success, dynamic_filter)
             
     def get_tuned_filters(self, num_iterations:int=10):
+        # Check if filters already exist in database for today
+        today = datetime.now().date()
+        existing_filters = GameFilterDB.objects.filter(date=today)
+        
+        if existing_filters.exists():
+            # Reconstruct filters from database
+            static_filters = []
+            dynamic_filters = []
+            
+            for db_filter in existing_filters.order_by('filter_index'):
+                filter_obj = create_filter_from_db(db_filter)
+                if db_filter.filter_type == 'static':
+                    static_filters.append(filter_obj)
+                else:
+                    dynamic_filters.append(filter_obj)
+            
+            if len(static_filters) == self.num_statics and len(dynamic_filters) == self.num_dynamics:
+                return (static_filters, dynamic_filters)
+        
+        # If no filters exist or they're incomplete, generate new ones
         for _ in range(num_iterations):
             static_filters, dynamic_filters = self.generate_grid()
             if len(dynamic_filters) < self.num_dynamics:
                 logger.warning(f"Failed to generate a grid with {self.num_dynamics} dynamic filters. Static filters: {static_filters}")
                 continue
             if len(static_filters) == self.num_statics:
+                # Save filters to database
+                for idx, filter_obj in enumerate(static_filters):
+                    GameFilterDB.objects.create(
+                        date=today,
+                        filter_type='static',
+                        filter_class=filter_obj.__class__.__name__,
+                        filter_config=filter_obj.__dict__,
+                        filter_index=idx
+                    )
+                
+                for idx, filter_obj in enumerate(dynamic_filters):
+                    GameFilterDB.objects.create(
+                        date=today,
+                        filter_type='dynamic',
+                        filter_class=filter_obj.__class__.__name__,
+                        filter_config=filter_obj.__dict__,
+                        filter_index=idx
+                    )
+                
                 return (static_filters, dynamic_filters)
         raise Exception(f"Failed to generate a grid with {self.num_dynamics} dynamic filters and {self.num_statics} static filters")
         

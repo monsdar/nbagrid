@@ -11,8 +11,6 @@ from nbagrid_api_app.GameBuilder import GameBuilder
 from nbagrid_api_app.models import Player, GameResult, GameCompletion
 import json
 
-cached_filters = {}
-
 def get_valid_date(year, month, day):
     """Validate and return a valid date for the game."""
     current_date = datetime.now()
@@ -38,15 +36,15 @@ def get_navigation_dates(requested_date):
 
 def get_game_filters(requested_date):
     """Get or create game filters for the requested date."""
-    if requested_date in cached_filters:
-        return cached_filters[requested_date]
-    
+    # Create a GameBuilder with the requested date's timestamp as seed
     builder = GameBuilder(requested_date.timestamp())
+    # Get the filters - this will either retrieve from DB or create new ones
     filters = builder.get_tuned_filters()
-    cached_filters[requested_date] = filters
-    
+        
     # Initialize scores for all cells if this is a new game and no completions exist
-    if not GameCompletion.objects.filter(date=requested_date.date()).exists():
+    # AND no initial game results exist for this date
+    if (not GameCompletion.objects.filter(date=requested_date.date()).exists() and
+        not GameResult.objects.filter(date=requested_date.date()).exists()):
         static_filters, dynamic_filters = filters
         for row in range(len(dynamic_filters)):
             for col in range(len(static_filters)):
@@ -54,7 +52,7 @@ def get_game_filters(requested_date):
                 GameResult.initialize_scores_from_recent_games(requested_date.date(), cell_key)
     
     return filters
-
+        
 def initialize_game_state(request, year, month, day):
     """Initialize or get the current game state from session."""
     game_state_key = f'game_state_{year}_{month}_{day}'
