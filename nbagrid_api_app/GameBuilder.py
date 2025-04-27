@@ -52,10 +52,9 @@ class GameBuilder(object):
             success = False
         return (success, dynamic_filter)
             
-    def get_tuned_filters(self, num_iterations:int=10):
+    def get_tuned_filters(self, requested_date, num_iterations:int=10):
         # Check if filters already exist in database for today
-        today = datetime.now().date()
-        existing_filters = GameFilterDB.objects.filter(date=today)
+        existing_filters = GameFilterDB.objects.filter(date=requested_date)
         
         if existing_filters.exists():
             # Reconstruct filters from database
@@ -82,7 +81,7 @@ class GameBuilder(object):
                 # Save filters to database
                 for idx, filter_obj in enumerate(static_filters):
                     GameFilterDB.objects.create(
-                        date=today,
+                        date=requested_date,
                         filter_type='static',
                         filter_class=filter_obj.__class__.__name__,
                         filter_config=filter_obj.__dict__,
@@ -91,7 +90,7 @@ class GameBuilder(object):
                 
                 for idx, filter_obj in enumerate(dynamic_filters):
                     GameFilterDB.objects.create(
-                        date=today,
+                        date=requested_date,
                         filter_type='dynamic',
                         filter_class=filter_obj.__class__.__name__,
                         filter_config=filter_obj.__dict__,
