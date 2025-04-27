@@ -158,6 +158,39 @@ class GameViewTests(TestCase):
             self.assertTrue(data['is_finished'])
             self.assertEqual(data['attempts_remaining'], 0)
 
+    def test_game_completion_all_cells_correct(self):
+        # Initialize game state with all cells correct but attempts remaining
+        session = self.client.session
+        session[self.game_state_key] = {
+            'attempts_remaining': 5,  # Still have attempts left
+            'selected_cells': {
+                '0_0': {'is_correct': False}, # we post a positive guess for this cell later in the test
+                '0_1': {'is_correct': True, 'player_id': 1},
+                '0_2': {'is_correct': True, 'player_id': 1},
+                '1_0': {'is_correct': True, 'player_id': 1},
+                '1_1': {'is_correct': True, 'player_id': 1},
+                '1_2': {'is_correct': True, 'player_id': 1},
+                '2_0': {'is_correct': True, 'player_id': 1},
+                '2_1': {'is_correct': True, 'player_id': 1},
+                '2_2': {'is_correct': True, 'player_id': 1}
+            },
+            'is_finished': False
+        }
+        session.save()
+
+        # Make a guess - should mark game as finished since all cells are correct
+        with patch('nbagrid_api_app.views.Player.objects.filter') as mock_filter:
+            mock_filter.return_value.exists.return_value = True
+            response = self.client.post(self.url, {
+                'player_id': self.player.stats_id,
+                'row': 0,
+                'col': 0
+            })
+            self.assertEqual(response.status_code, 200)
+            data = response.json()
+            self.assertTrue(data['is_finished'])
+            self.assertEqual(data['attempts_remaining'], 4)  # Should still have attempts left
+
     @patch('nbagrid_api_app.models.GameResult.get_player_rarity_score')
     def test_score_calculation(self, mock_get_score):
         mock_get_score.return_value = 0.5

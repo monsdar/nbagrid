@@ -96,7 +96,6 @@ def handle_player_guess(request, grid, game_state, requested_date):
         
         # Debug log the request data and grid access
         logger.debug(f"Handling guess - row: {row}, col: {col}, player_id: {player_id}")
-        logger.debug(f"Grid dimensions: {len(grid)} rows x {len(grid[0]) if grid else 0} columns")
         
         if game_state['is_finished'] or game_state['attempts_remaining'] <= 0:
             return JsonResponse({'error': 'Game is finished'}, status=400)
@@ -111,11 +110,7 @@ def handle_player_guess(request, grid, game_state, requested_date):
             player = Player.objects.get(stats_id=player_id)
         except Player.DoesNotExist:
             return JsonResponse({'error': 'Player not found'}, status=404)
-        
-        # Debug log the cell being accessed
-        logger.debug(f"Accessing cell at row {row}, col {col}")
-        logger.debug(f"Cell structure: {grid[row][col]}")
-        
+                
         cell = grid[row][col]
         # Use apply_filter instead of check
         is_correct = all(f.apply_filter(Player.objects.filter(stats_id=player_id)).exists() for f in cell['filters'])
@@ -138,9 +133,9 @@ def handle_player_guess(request, grid, game_state, requested_date):
         game_state['attempts_remaining'] -= 1
         update_game_completion(game_state, grid)
         
-        # If attempts reach 0, get correct players for all remaining cells
+        # If game is finished, get correct players for all remaining cells
         correct_players = {}
-        if game_state['attempts_remaining'] == 0:
+        if game_state['is_finished']:
             for r in range(len(grid)):
                 for c in range(len(grid[0])):
                     cell_key = f'{r}_{c}'
