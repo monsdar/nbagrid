@@ -178,23 +178,25 @@ def get_dynamic_filters(seed:int=0) -> list[DynamicGameFilter]:
         }),
         DynamicGameFilter({
             'field': 'num_seasons',
-            'description': 'Career seasons more than ',
+            'description': 'More than ',
             'initial_min_value': 9,
             'initial_max_value': 11,
             'initial_value_step': 1,
             'widen_step': 1,
             'narrow_step': 1,
-            'comparison_type': 'higher'
+            'comparison_type': 'higher',
+            'unit': 'seasons'
         }),
         DynamicGameFilter({
             'field': 'num_seasons',
-            'description': 'Career seasons less than ',
+            'description': 'No more than ',
             'initial_min_value': 1,
             'initial_max_value': 3,
             'initial_value_step': 1,
             'widen_step': 1,
             'narrow_step': 1,
-            'comparison_type': 'lower'
+            'comparison_type': 'lower',
+            'unit': 'seasons'
         }),
         DynamicGameFilter({
             'field': 'height_cm',
