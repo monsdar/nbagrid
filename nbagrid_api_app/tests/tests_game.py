@@ -1,7 +1,7 @@
 from django.test import TestCase
 from django.db.models import F
 
-from nbagrid_api_app.GameFilter import DynamicGameFilter, PositionFilter, CountryFilter, TeamFilter, BooleanFilter, TeamCountFilter, create_filter_from_db
+from nbagrid_api_app.GameFilter import DynamicGameFilter, PositionFilter, CountryFilter, USAFilter, InternationalFilter, TeamFilter, BooleanFilter, TeamCountFilter, create_filter_from_db
 from nbagrid_api_app.GameBuilder import GameBuilder
 from nbagrid_api_app.models import Player, Team, GameResult, GameFilterDB
 from nba_api.stats.endpoints import commonplayerinfo, playercareerstats
@@ -207,7 +207,7 @@ class GameBuilderTest(TestCase):
         
         for index in range(10):
             builder = GameBuilder(index)
-            (static_filters, dynamic_filters) = builder.get_tuned_filters()
+            (static_filters, dynamic_filters) = builder.get_tuned_filters(date.today())
             self.assertEqual(len(static_filters), 3)
             self.assertEqual(len(dynamic_filters), 3)
         
@@ -429,7 +429,7 @@ class GameFilterTests(TestCase):
     def test_filter_persistence(self):
         # Create a game builder and generate filters
         builder = GameBuilder(0)
-        static_filters, dynamic_filters = builder.get_tuned_filters()
+        static_filters, dynamic_filters = builder.get_tuned_filters(date.today())
         
         # Verify filters were saved to database
         db_filters = GameFilterDB.objects.filter(date=self.test_date)
@@ -449,11 +449,11 @@ class GameFilterTests(TestCase):
     def test_filter_reconstruction(self):
         # First create and save filters
         builder1 = GameBuilder(0)
-        static_filters1, dynamic_filters1 = builder1.get_tuned_filters()
+        static_filters1, dynamic_filters1 = builder1.get_tuned_filters(date.today())
         
         # Create a new builder and get filters - should reconstruct from database
         builder2 = GameBuilder(1)  # Different seed shouldn't matter
-        static_filters2, dynamic_filters2 = builder2.get_tuned_filters()
+        static_filters2, dynamic_filters2 = builder2.get_tuned_filters(date.today())
         
         # Verify the filters are the same
         self.assertEqual(len(static_filters1), len(static_filters2))
@@ -467,7 +467,7 @@ class GameFilterTests(TestCase):
     def test_filter_config_storage(self):
         # Create and save filters
         builder = GameBuilder(0)
-        static_filters, dynamic_filters = builder.get_tuned_filters()
+        static_filters, dynamic_filters = builder.get_tuned_filters(date.today())
         
         # Get filters from database
         db_filters = GameFilterDB.objects.filter(date=self.test_date)
@@ -484,11 +484,11 @@ class GameFilterTests(TestCase):
     def test_filter_uniqueness(self):
         # Create filters for today
         builder1 = GameBuilder(0)
-        builder1.get_tuned_filters()
+        builder1.get_tuned_filters(date.today())
         
         # Try to create filters for the same date with a different seed
         builder2 = GameBuilder(1)
-        static_filters2, dynamic_filters2 = builder2.get_tuned_filters()
+        static_filters2, dynamic_filters2 = builder2.get_tuned_filters(date.today())
         
         # Verify we got the same filters back (from database) instead of new ones
         db_filters = GameFilterDB.objects.filter(date=self.test_date)
@@ -502,3 +502,81 @@ class GameFilterTests(TestCase):
                 self.assertTrue(any(f.get_desc() == filter_obj.get_desc() for f in static_filters2))
             else:
                 self.assertTrue(any(f.get_desc() == filter_obj.get_desc() for f in dynamic_filters2))
+
+class USAFilterTest(TestCase):
+    def setUp(self):
+        # Create test players
+        self.usa_player1 = Player.objects.create(
+            stats_id=1,
+            name='USA Player 1',
+            country='USA'
+        )
+        self.usa_player2 = Player.objects.create(
+            stats_id=2,
+            name='USA Player 2',
+            country='USA'
+        )
+        self.int_player1 = Player.objects.create(
+            stats_id=3,
+            name='International Player 1',
+            country='Canada'
+        )
+        self.int_player2 = Player.objects.create(
+            stats_id=4,
+            name='International Player 2',
+            country='France'
+        )
+
+    def test_usafilter(self):
+        """Test that USAFilter correctly filters USA players."""
+        usa_filter = USAFilter()
+        
+        # Test with USA players
+        self.assertTrue(usa_filter.apply_filter(Player.objects.filter(stats_id=1)).exists())
+        self.assertTrue(usa_filter.apply_filter(Player.objects.filter(stats_id=2)).exists())
+        
+        # Test with international players
+        self.assertFalse(usa_filter.apply_filter(Player.objects.filter(stats_id=3)).exists())
+        self.assertFalse(usa_filter.apply_filter(Player.objects.filter(stats_id=4)).exists())
+        
+        # Test description
+        self.assertEqual(usa_filter.get_desc(), "US Player")
+
+class InternationalFilterTest(TestCase):
+    def setUp(self):
+        # Create test players
+        self.usa_player1 = Player.objects.create(
+            stats_id=1,
+            name='USA Player 1',
+            country='USA'
+        )
+        self.usa_player2 = Player.objects.create(
+            stats_id=2,
+            name='USA Player 2',
+            country='USA'
+        )
+        self.int_player1 = Player.objects.create(
+            stats_id=3,
+            name='International Player 1',
+            country='Canada'
+        )
+        self.int_player2 = Player.objects.create(
+            stats_id=4,
+            name='International Player 2',
+            country='France'
+        )
+
+    def test_internationalfilter(self):
+        """Test that InternationalFilter correctly filters non-USA players."""
+        int_filter = InternationalFilter()
+        
+        # Test with international players
+        self.assertTrue(int_filter.apply_filter(Player.objects.filter(stats_id=3)).exists())
+        self.assertTrue(int_filter.apply_filter(Player.objects.filter(stats_id=4)).exists())
+        
+        # Test with USA players
+        self.assertFalse(int_filter.apply_filter(Player.objects.filter(stats_id=1)).exists())
+        self.assertFalse(int_filter.apply_filter(Player.objects.filter(stats_id=2)).exists())
+        
+        # Test description
+        self.assertEqual(int_filter.get_desc(), "International Player")

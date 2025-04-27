@@ -1,4 +1,4 @@
-from .models import Player, GameFilterDB
+from nbagrid_api_app.models import Player, GameFilterDB
 from nbagrid_api_app.GameFilter import GameFilter, get_dynamic_filters, get_static_filters, create_filter_from_db
 from django.db.models import Manager
 

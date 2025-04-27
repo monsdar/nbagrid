@@ -35,7 +35,8 @@ class DynamicGameFilter(GameFilter):
     
     def get_desc(self) -> str:
         description = self.config['description']
-        return f"{description} {self.current_value}+"
+        unit = f" {self.config['unit']}" if 'unit' in self.config else ''
+        return f"{description} {self.current_value}+{unit}"
     
     def widen_filter(self):
         if 'widen_step' in self.config:
@@ -58,6 +59,18 @@ class PositionFilter(GameFilter):
         return players.filter(position__contains=self.selected_position) # position field can contain multiple positions like 'Guard, Forward'
     def get_desc(self) -> str:
         return f"Plays {self.selected_position} position"
+
+class USAFilter(GameFilter):
+    def apply_filter(self, players:Manager[Player]) -> Manager[Player]:
+        return players.filter(country="USA")
+    def get_desc(self) -> str:
+        return f"US Player"
+
+class InternationalFilter(GameFilter):
+    def apply_filter(self, players:Manager[Player]) -> Manager[Player]:
+        return players.exclude(country="USA")
+    def get_desc(self) -> str:
+        return f"International Player"
 
 class CountryFilter(GameFilter):
     def __init__(self, seed: int = 0):
@@ -111,7 +124,7 @@ def get_dynamic_filters(seed:int=0) -> list[DynamicGameFilter]:
         DynamicGameFilter({
             'field': 'career_ppg',
             'description': 'Career points per game:',
-            'initial_min_value': 10,
+            'initial_min_value': 20,
             'initial_max_value': 30,
             'initial_value_step': 2,
             'widen_step': 2,
@@ -120,7 +133,7 @@ def get_dynamic_filters(seed:int=0) -> list[DynamicGameFilter]:
         DynamicGameFilter({
             'field': 'career_rpg',
             'description': 'Career rebounds per game:',
-            'initial_min_value': 5,
+            'initial_min_value': 10,
             'initial_max_value': 15,
             'initial_value_step': 1,
             'widen_step': 1,
@@ -129,7 +142,7 @@ def get_dynamic_filters(seed:int=0) -> list[DynamicGameFilter]:
         DynamicGameFilter({
             'field': 'career_apg',
             'description': 'Career assists per game:',
-            'initial_min_value': 2,
+            'initial_min_value': 6,
             'initial_max_value': 10,
             'initial_value_step': 1,
             'widen_step': 1,
@@ -138,7 +151,7 @@ def get_dynamic_filters(seed:int=0) -> list[DynamicGameFilter]:
         DynamicGameFilter({
             'field': 'career_gp',
             'description': 'Career games played:',
-            'initial_min_value': 300,
+            'initial_min_value': 600,
             'initial_max_value': 800,
             'initial_value_step': 50,
             'widen_step': 50,
@@ -147,7 +160,7 @@ def get_dynamic_filters(seed:int=0) -> list[DynamicGameFilter]:
         DynamicGameFilter({
             'field': 'num_seasons',
             'description': 'Career seasons:',
-            'initial_min_value': 5,
+            'initial_min_value': 10,
             'initial_max_value': 20,
             'initial_value_step': 1,
             'widen_step': 1,
@@ -156,20 +169,22 @@ def get_dynamic_filters(seed:int=0) -> list[DynamicGameFilter]:
         DynamicGameFilter({
             'field': 'height_cm',
             'description': 'Taller than',
-            'initial_min_value': 180,
+            'initial_min_value': 200,
             'initial_max_value': 220,
             'initial_value_step': 5,
             'widen_step': 5,
-            'narrow_step': 5
+            'narrow_step': 5,
+            'unit': 'cm'
         }),
         DynamicGameFilter({
             'field': 'weight_kg',
             'description': 'Heavier than',
-            'initial_min_value': 80,
+            'initial_min_value': 100,
             'initial_max_value': 120,
             'initial_value_step': 5,
             'widen_step': 5,
-            'narrow_step': 5
+            'narrow_step': 5,
+            'unit': 'kg'
         }),
         DynamicGameFilter({
             'field': 'career_high_pts',
@@ -183,7 +198,7 @@ def get_dynamic_filters(seed:int=0) -> list[DynamicGameFilter]:
         DynamicGameFilter({
             'field': 'career_high_reb',
             'description': 'Career high rebounds:',
-            'initial_min_value': 10,
+            'initial_min_value': 15,
             'initial_max_value': 25,
             'initial_value_step': 5,
             'widen_step': 5,
@@ -192,7 +207,7 @@ def get_dynamic_filters(seed:int=0) -> list[DynamicGameFilter]:
         DynamicGameFilter({
             'field': 'career_high_ast',
             'description': 'Career high assists:',
-            'initial_min_value': 10,
+            'initial_min_value': 15,
             'initial_max_value': 25,
             'initial_value_step': 5,
             'widen_step': 5,
@@ -201,7 +216,7 @@ def get_dynamic_filters(seed:int=0) -> list[DynamicGameFilter]:
         DynamicGameFilter({
             'field': 'career_high_stl',
             'description': 'Career high steals:',
-            'initial_min_value': 1,
+            'initial_min_value': 5,
             'initial_max_value': 10,
             'initial_value_step': 1,
             'widen_step': 1,
@@ -210,7 +225,7 @@ def get_dynamic_filters(seed:int=0) -> list[DynamicGameFilter]:
         DynamicGameFilter({
             'field': 'career_high_blk',
             'description': 'Career high blocks:',
-            'initial_min_value': 1,
+            'initial_min_value': 5,
             'initial_max_value': 10,
             'initial_value_step': 1,
             'widen_step': 1,
@@ -228,7 +243,9 @@ def get_dynamic_filters(seed:int=0) -> list[DynamicGameFilter]:
 
 def get_static_filters(seed:int=0) -> list[GameFilter]:
     return [
-        CountryFilter(seed),
+        USAFilter(),
+        InternationalFilter(),
+        # CountryFilter(seed), # deprecated, use USAFilter and InternationalFilter instead
         TeamFilter(seed),
         #BooleanFilter('draft_round', 'First round draft pick', 1),
         BooleanFilter('draft_number__lte', 'Top 10 draft pick', 10),
@@ -271,6 +288,10 @@ def create_filter_from_db(db_filter):
         if position is not None:
             filter_obj.selected_position = position
         return filter_obj
+    elif filter_class == USAFilter:
+        return filter_class()
+    elif filter_class == InternationalFilter:
+        return filter_class()
     elif filter_class == CountryFilter:
         country = config.pop('country_name', None)
         filter_obj = filter_class(0)  # Seed doesn't matter for reconstruction
