@@ -31,24 +31,43 @@ class DynamicGameFilter(GameFilter):
     
     def apply_filter(self, players:Manager[Player]) -> Manager[Player]:
         field = self.config['field']
-        return players.filter(**{f"{field}__gte": self.current_value})
+        if 'comparison_type' in self.config and self.config['comparison_type'] == 'lower':
+            comparison_operator = '__lte'
+        else:   
+            comparison_operator = '__gte'
+        return players.filter(**{f"{field}{comparison_operator}": self.current_value})
     
     def get_desc(self) -> str:
         description = self.config['description']
         unit = f" {self.config['unit']}" if 'unit' in self.config else ''
-        return f"{description} {self.current_value}+{unit}"
+        desc_operator = '+'
+        if 'comparison_type' in self.config and self.config['comparison_type'] == 'lower':
+            desc_operator = '-'
+        return f"{description} {self.current_value}{desc_operator}{unit}"
     
     def widen_filter(self):
-        if 'widen_step' in self.config:
-            self.current_value -= self.config['widen_step']
-        elif 'initial_min_value' in self.config:
-            self.current_value = max(self.config['initial_min_value'], self.current_value - 1)
-            
+        widen_step = -(self.config['widen_step'] if 'widen_step' in self.config else 1)
+        if 'comparison_type' in self.config and self.config['comparison_type'] == 'lower':
+            widen_step = -widen_step
+        self.current_value += widen_step
+        
+        # Make sure the game stays interesting by not going out of a certain range
+        if 'initial_min_value' in self.config and self.current_value < self.config['initial_min_value']:
+            self.current_value = self.config['initial_min_value']
+        if 'initial_max_value' in self.config and self.current_value > self.config['initial_max_value']:
+            self.current_value = self.config['initial_max_value']
+                    
     def narrow_filter(self):
-        if 'narrow_step' in self.config:
-            self.current_value += self.config['narrow_step']
-        else:
-            self.current_value += 1
+        narrow_step = self.config['narrow_step'] if 'narrow_step' in self.config else 1
+        if 'comparison_type' in self.config and self.config['comparison_type'] == 'lower':
+            narrow_step = -narrow_step    
+        self.current_value += narrow_step
+        
+        # Make sure the game stays interesting by not going out of a certain range
+        if 'initial_min_value' in self.config and self.current_value < self.config['initial_min_value']:
+            self.current_value = self.config['initial_min_value']
+        if 'initial_max_value' in self.config and self.current_value > self.config['initial_max_value']:
+            self.current_value = self.config['initial_max_value']
 
 class PositionFilter(GameFilter):
     def __init__(self, seed: int = 0):
@@ -124,8 +143,8 @@ def get_dynamic_filters(seed:int=0) -> list[DynamicGameFilter]:
         DynamicGameFilter({
             'field': 'career_ppg',
             'description': 'Career points per game:',
-            'initial_min_value': 20,
-            'initial_max_value': 30,
+            'initial_min_value': 18,
+            'initial_max_value': 22,
             'initial_value_step': 2,
             'widen_step': 2,
             'narrow_step': 2
@@ -133,8 +152,8 @@ def get_dynamic_filters(seed:int=0) -> list[DynamicGameFilter]:
         DynamicGameFilter({
             'field': 'career_rpg',
             'description': 'Career rebounds per game:',
-            'initial_min_value': 10,
-            'initial_max_value': 15,
+            'initial_min_value': 6,
+            'initial_max_value': 8,
             'initial_value_step': 1,
             'widen_step': 1,
             'narrow_step': 1
@@ -142,8 +161,8 @@ def get_dynamic_filters(seed:int=0) -> list[DynamicGameFilter]:
         DynamicGameFilter({
             'field': 'career_apg',
             'description': 'Career assists per game:',
-            'initial_min_value': 6,
-            'initial_max_value': 10,
+            'initial_min_value': 4,
+            'initial_max_value': 5,
             'initial_value_step': 1,
             'widen_step': 1,
             'narrow_step': 1
@@ -151,46 +170,72 @@ def get_dynamic_filters(seed:int=0) -> list[DynamicGameFilter]:
         DynamicGameFilter({
             'field': 'career_gp',
             'description': 'Career games played:',
-            'initial_min_value': 600,
-            'initial_max_value': 800,
+            'initial_min_value': 500,
+            'initial_max_value': 600,
             'initial_value_step': 50,
             'widen_step': 50,
             'narrow_step': 50
         }),
         DynamicGameFilter({
             'field': 'num_seasons',
-            'description': 'Career seasons:',
-            'initial_min_value': 10,
-            'initial_max_value': 20,
+            'description': 'Career seasons more than ',
+            'initial_min_value': 9,
+            'initial_max_value': 11,
             'initial_value_step': 1,
             'widen_step': 1,
-            'narrow_step': 1
+            'narrow_step': 1,
+            'comparison_type': 'higher'
+        }),
+        DynamicGameFilter({
+            'field': 'num_seasons',
+            'description': 'Career seasons less than ',
+            'initial_min_value': 1,
+            'initial_max_value': 3,
+            'initial_value_step': 1,
+            'widen_step': 1,
+            'narrow_step': 1,
+            'comparison_type': 'lower'
         }),
         DynamicGameFilter({
             'field': 'height_cm',
             'description': 'Taller than',
             'initial_min_value': 200,
-            'initial_max_value': 220,
+            'initial_max_value': 210,
             'initial_value_step': 5,
             'widen_step': 5,
             'narrow_step': 5,
-            'unit': 'cm'
+            'unit': 'cm',
+            'comparison_type': 'higher'
         }),
         DynamicGameFilter({
-            'field': 'weight_kg',
-            'description': 'Heavier than',
-            'initial_min_value': 100,
-            'initial_max_value': 120,
+            'field': 'height_cm',
+            'description': 'Smaller than',
+            'initial_min_value': 190,
+            'initial_max_value': 195,
             'initial_value_step': 5,
             'widen_step': 5,
             'narrow_step': 5,
-            'unit': 'kg'
+            'unit': 'cm',
+            'comparison_type': 'lower'
         }),
+        # NOTE: Weight filter was not very fun to play,
+        #       as it's hard to estimate and not something
+        #       a user cares about when looking at nba stats
+        #DynamicGameFilter({
+        #    'field': 'weight_kg',
+        #    'description': 'Heavier than',
+        #    'initial_min_value': 100,
+        #    'initial_max_value': 120,
+        #    'initial_value_step': 5,
+        #    'widen_step': 5,
+        #    'narrow_step': 5,
+        #    'unit': 'kg'
+        #}),
         DynamicGameFilter({
             'field': 'career_high_pts',
             'description': 'Career high points:',
-            'initial_min_value': 30,
-            'initial_max_value': 60,
+            'initial_min_value': 40,
+            'initial_max_value': 55,
             'initial_value_step': 5,
             'widen_step': 5,
             'narrow_step': 5
@@ -199,7 +244,7 @@ def get_dynamic_filters(seed:int=0) -> list[DynamicGameFilter]:
             'field': 'career_high_reb',
             'description': 'Career high rebounds:',
             'initial_min_value': 15,
-            'initial_max_value': 25,
+            'initial_max_value': 20,
             'initial_value_step': 5,
             'widen_step': 5,
             'narrow_step': 5
@@ -208,7 +253,7 @@ def get_dynamic_filters(seed:int=0) -> list[DynamicGameFilter]:
             'field': 'career_high_ast',
             'description': 'Career high assists:',
             'initial_min_value': 15,
-            'initial_max_value': 25,
+            'initial_max_value': 17,
             'initial_value_step': 5,
             'widen_step': 5,
             'narrow_step': 5
@@ -217,7 +262,7 @@ def get_dynamic_filters(seed:int=0) -> list[DynamicGameFilter]:
             'field': 'career_high_stl',
             'description': 'Career high steals:',
             'initial_min_value': 5,
-            'initial_max_value': 10,
+            'initial_max_value': 7,
             'initial_value_step': 1,
             'widen_step': 1,
             'narrow_step': 1
@@ -226,15 +271,15 @@ def get_dynamic_filters(seed:int=0) -> list[DynamicGameFilter]:
             'field': 'career_high_blk',
             'description': 'Career high blocks:',
             'initial_min_value': 5,
-            'initial_max_value': 10,
+            'initial_max_value': 7,
             'initial_value_step': 1,
             'widen_step': 1,
             'narrow_step': 1
         }),
         TeamCountFilter({
             'description': 'Teams played for:',
-            'initial_min_value': 2,
-            'initial_max_value': 8,
+            'initial_min_value': 5,
+            'initial_max_value': 7,
             'initial_value_step': 1,
             'widen_step': 1,
             'narrow_step': 1
