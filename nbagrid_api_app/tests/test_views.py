@@ -7,14 +7,21 @@ from nbagrid_api_app.GameFilter import GameFilter
 from unittest.mock import patch, MagicMock
 
 class MockFilter(GameFilter):
-    def __init__(self):
-        self.desc = "Mock Filter"
+    def __init__(self, filter_field=None, filter_value=None, description=None):
+        self.filter_field = filter_field
+        self.filter_value = filter_value
+        self.description = description or "Mock Filter"
     
     def get_desc(self):
-        return self.desc
+        return self.description
     
     def apply_filter(self, queryset):
-        return queryset
+        if self.filter_field and self.filter_value is not None:
+            return queryset.filter(**{self.filter_field: self.filter_value})
+        return queryset.none()  # Return empty queryset by default
+    
+    def __iter__(self):
+        yield self
 
 class GameViewTests(TestCase):
     def setUp(self):
@@ -27,15 +34,30 @@ class GameViewTests(TestCase):
             'day': self.test_date.day
         })
         
-        # Create test player
+        # Create test player with specific attributes for filter testing
         self.player = Player.objects.create(
             stats_id=1,
-            name="Test Player"
+            name="Test Player",
+            position="Guard",
+            country="USA",
+            career_ppg=20,
+            career_rpg=6,
+            career_apg=4,
+            career_gp=200
         )
         
-        # Create mock filters
-        self.mock_static_filters = [MockFilter() for _ in range(3)]
-        self.mock_dynamic_filters = [MockFilter() for _ in range(3)]
+        # Create mock filters with actual filtering criteria
+        self.mock_static_filters = [
+            MockFilter(filter_field='position', filter_value='Guard', description='Plays Guard position'),
+            MockFilter(filter_field='country', filter_value='USA', description='US Player'),
+            MockFilter(filter_field='career_ppg__gte', filter_value=15, description='Career PPG: 15+')
+        ]
+        
+        self.mock_dynamic_filters = [
+            MockFilter(filter_field='career_rpg__gte', filter_value=5, description='Career RPG: 5+'),
+            MockFilter(filter_field='career_apg__gte', filter_value=3, description='Career APG: 3+'),
+            MockFilter(filter_field='career_gp__gte', filter_value=100, description='Career GP: 100+')
+        ]
         
         # Setup GameBuilder mock
         self.game_builder_patcher = patch('nbagrid_api_app.views.GameBuilder')
@@ -48,11 +70,24 @@ class GameViewTests(TestCase):
         # Setup datetime mock
         self.datetime_patcher = patch('nbagrid_api_app.views.datetime')
         self.mock_datetime = self.datetime_patcher.start()
-        mock_now = MagicMock()
-        mock_now.return_value = self.test_date
-        self.mock_datetime.now = mock_now
+        self.mock_datetime.now.return_value = self.test_date
         self.mock_datetime.datetime = datetime
-        self.mock_datetime.side_effect = lambda *args, **kw: datetime(*args, **kw)
+        self.mock_datetime.side_effect = lambda *args, **kwargs: datetime(*args, **kwargs)
+        
+        # Setup build_grid mock
+        self.build_grid_patcher = patch('nbagrid_api_app.views.build_grid')
+        self.mock_build_grid = self.build_grid_patcher.start()
+        self.mock_build_grid.return_value = [
+            [{'filters': [self.mock_static_filters[0], self.mock_dynamic_filters[0]], 'row': 0, 'col': 0},
+             {'filters': [self.mock_static_filters[1], self.mock_dynamic_filters[0]], 'row': 0, 'col': 1},
+             {'filters': [self.mock_static_filters[2], self.mock_dynamic_filters[0]], 'row': 0, 'col': 2}],
+            [{'filters': [self.mock_static_filters[0], self.mock_dynamic_filters[1]], 'row': 1, 'col': 0},
+             {'filters': [self.mock_static_filters[1], self.mock_dynamic_filters[1]], 'row': 1, 'col': 1},
+             {'filters': [self.mock_static_filters[2], self.mock_dynamic_filters[1]], 'row': 1, 'col': 2}],
+            [{'filters': [self.mock_static_filters[0], self.mock_dynamic_filters[2]], 'row': 2, 'col': 0},
+             {'filters': [self.mock_static_filters[1], self.mock_dynamic_filters[2]], 'row': 2, 'col': 1},
+             {'filters': [self.mock_static_filters[2], self.mock_dynamic_filters[2]], 'row': 2, 'col': 2}]
+        ]
         
         # Initialize session
         session = self.client.session
@@ -63,10 +98,11 @@ class GameViewTests(TestCase):
             'is_finished': False
         }
         session.save()
-    
+        
     def tearDown(self):
         self.game_builder_patcher.stop()
         self.datetime_patcher.stop()
+        self.build_grid_patcher.stop()
 
     def test_get_game_page(self):
         response = self.client.get(self.url)
@@ -108,22 +144,14 @@ class GameViewTests(TestCase):
         session = self.client.session
         game_state_key = f'game_state_{self.test_date.year}_{self.test_date.month}_{self.test_date.day}'
         
-        # Debug output
-        print(f"\nSession keys: {session.keys()}")
-        print(f"Looking for key: {game_state_key}")
-        print(f"Session contents: {dict(session)}")
-        
         self.assertIn(game_state_key, session)
         game_state = session[game_state_key]
         self.assertEqual(game_state['attempts_remaining'], 10)
         self.assertEqual(game_state['selected_cells'], {})
         self.assertFalse(game_state['is_finished'])
 
-    @patch('nbagrid_api_app.views.Player.objects.filter')
-    def test_player_guess_handling(self, mock_filter):
-        mock_filter.return_value.exists.return_value = True
-        
-        # Make a guess
+    def test_player_guess_handling(self):
+        # Make a guess - this should work because our test player matches the filter criteria
         response = self.client.post(self.url, {
             'player_id': self.player.stats_id,
             'row': 0,
@@ -136,6 +164,7 @@ class GameViewTests(TestCase):
         self.assertFalse(data['is_finished'])
 
     def test_game_completion(self):
+        """Test that game completion is handled correctly"""
         # Initialize game state with one attempt left
         session = self.client.session
         session[self.game_state_key] = {
@@ -144,19 +173,25 @@ class GameViewTests(TestCase):
             'is_finished': False
         }
         session.save()
-
+        
         # Make a guess that should finish the game
-        with patch('nbagrid_api_app.views.Player.objects.filter') as mock_filter:
-            mock_filter.return_value.exists.return_value = True
-            response = self.client.post(self.url, {
-                'player_id': self.player.stats_id,
-                'row': 0,
-                'col': 0
-            })
-            self.assertEqual(response.status_code, 200)
-            data = response.json()
-            self.assertTrue(data['is_finished'])
-            self.assertEqual(data['attempts_remaining'], 0)
+        response = self.client.post(self.url, {
+            'player_id': self.player.stats_id,
+            'row': 0,
+            'col': 0
+        })
+        
+        # Check that the game is marked as finished
+        self.assertEqual(response.status_code, 200)
+        game_state = self.client.session.get(self.game_state_key)
+        self.assertTrue(game_state['is_finished'])
+        self.assertEqual(game_state['attempts_remaining'], 0)
+        
+        # Check that the response contains the correct game state
+        data = response.json()
+        self.assertTrue(data['is_finished'])
+        self.assertEqual(data['attempts_remaining'], 0)
+        self.assertEqual(data['selected_cells'][f'0_0']['player_id'], str(self.player.stats_id))
 
     def test_game_completion_all_cells_correct(self):
         # Initialize game state with all cells correct but attempts remaining
@@ -165,31 +200,29 @@ class GameViewTests(TestCase):
             'attempts_remaining': 5,  # Still have attempts left
             'selected_cells': {
                 '0_0': {'is_correct': False}, # we post a positive guess for this cell later in the test
-                '0_1': {'is_correct': True, 'player_id': 1},
-                '0_2': {'is_correct': True, 'player_id': 1},
-                '1_0': {'is_correct': True, 'player_id': 1},
-                '1_1': {'is_correct': True, 'player_id': 1},
-                '1_2': {'is_correct': True, 'player_id': 1},
-                '2_0': {'is_correct': True, 'player_id': 1},
-                '2_1': {'is_correct': True, 'player_id': 1},
-                '2_2': {'is_correct': True, 'player_id': 1}
+                '0_1': {'is_correct': True, 'player_id': self.player.stats_id},
+                '0_2': {'is_correct': True, 'player_id': self.player.stats_id},
+                '1_0': {'is_correct': True, 'player_id': self.player.stats_id},
+                '1_1': {'is_correct': True, 'player_id': self.player.stats_id},
+                '1_2': {'is_correct': True, 'player_id': self.player.stats_id},
+                '2_0': {'is_correct': True, 'player_id': self.player.stats_id},
+                '2_1': {'is_correct': True, 'player_id': self.player.stats_id},
+                '2_2': {'is_correct': True, 'player_id': self.player.stats_id}
             },
             'is_finished': False
         }
         session.save()
 
-        # Make a guess - should mark game as finished since all cells are correct
-        with patch('nbagrid_api_app.views.Player.objects.filter') as mock_filter:
-            mock_filter.return_value.exists.return_value = True
-            response = self.client.post(self.url, {
-                'player_id': self.player.stats_id,
-                'row': 0,
-                'col': 0
-            })
-            self.assertEqual(response.status_code, 200)
-            data = response.json()
-            self.assertTrue(data['is_finished'])
-            self.assertEqual(data['attempts_remaining'], 4)  # Should still have attempts left
+        # Make a guess - should mark game as finished since all cells will be correct
+        response = self.client.post(self.url, {
+            'player_id': self.player.stats_id,
+            'row': 0,
+            'col': 0
+        })
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data['is_finished'])
+        self.assertEqual(data['attempts_remaining'], 4)  # Should still have attempts left
 
     @patch('nbagrid_api_app.models.GameResult.get_player_rarity_score')
     def test_score_calculation(self, mock_get_score):
@@ -223,4 +256,4 @@ class GameViewTests(TestCase):
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, 200)
         self.assertIn('total_score', response.context)
-        self.assertEqual(response.context['total_score'], 0.5) 
+        self.assertEqual(response.context['total_score'], 0.5)

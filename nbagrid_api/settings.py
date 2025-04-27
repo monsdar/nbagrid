@@ -116,6 +116,10 @@ LOGGING = {
             "level": "WARNING" if 'DJANGO_PRODUCTION' in os.environ else "DEBUG",
             "handlers": ["console"],
         },
+        "nbagrid_api_app.models": {
+            "level": "WARNING" if 'DJANGO_PRODUCTION' in os.environ else "DEBUG",
+            "handlers": ["console"],
+        },
     },
     "handlers": {
         "console": {

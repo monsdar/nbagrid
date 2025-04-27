@@ -49,8 +49,8 @@ def get_game_filters(requested_date):
         for row in range(len(dynamic_filters)):
             for col in range(len(static_filters)):
                 cell_key = f'{row}_{col}'
-                GameResult.initialize_scores_from_recent_games(requested_date.date(), cell_key)
-    
+                init_filters = [dynamic_filters[row], static_filters[col]]
+                GameResult.initialize_scores_from_recent_games(requested_date.date(), cell_key, filters=init_filters)
     return filters
         
 def initialize_game_state(request, year, month, day):
@@ -80,10 +80,6 @@ def build_grid(static_filters, dynamic_filters, selected_cells):
             }
             row.append(cell)
         grid.append(row)
-    
-    # Debug log the grid structure
-    logger.debug(f"Built grid structure: {grid}")
-    logger.debug(f"Grid dimensions: {len(grid)} rows x {len(grid[0]) if grid else 0} columns")
     return grid
 
 def handle_player_guess(request, grid, game_state, requested_date):
@@ -166,7 +162,8 @@ def handle_player_guess(request, grid, game_state, requested_date):
             'is_finished': game_state['is_finished'],
             'total_score': game_state.get('total_score', 0),
             'correct_players': correct_players,
-            'completion_count': completion_count
+            'completion_count': completion_count,
+            'selected_cells': game_state['selected_cells']
         })
     except Exception as e:
         logger.error(f"Error handling guess: {e}")

@@ -193,7 +193,7 @@ class GameResult(models.Model):
             return 1.0  # Player hasn't been guessed yet for this cell on this date
 
     @classmethod
-    def initialize_scores_from_recent_games(cls, date, cell_key, num_games=5, game_factor=5):
+    def initialize_scores_from_recent_games(cls, date, cell_key, num_games=5, game_factor=5, filters=[]):
         """Initialize GameResult entries for players based on their appearances in recent games.
         For each of the last 5 games, we check the top 10 most picked players (across all cells).
         If a player is in the top 10 for a game, their count increases by 1.
@@ -220,38 +220,55 @@ class GameResult(models.Model):
         if not recent_dates:
             return
             
-        logger.info(f"Initializing scores for date {date}, cell {cell_key}")
-        logger.info(f"Found {len(recent_dates)} recent dates: {recent_dates}")
+        logger.debug(f"Initializing scores for date {date}, cell {cell_key}")
+        logger.debug(f"Found {len(recent_dates)} recent dates: {recent_dates}")
             
         # For each game date, get the top 10 most picked players
         top_players = {}
         for game_date in recent_dates:
             # Get top 10 players for this game date (across all cells)
             top_players_for_date = cls.objects.filter(date=game_date)\
-                .values('player')\
+                .select_related('player')\
+                .values('player', 'player__stats_id')\
                 .annotate(total_guesses=models.Sum('guess_count'))\
                 .order_by('-total_guesses')[:10]
             
-            logger.info(f"For date {game_date}, found {len(top_players_for_date)} top players")
+            logger.debug(f"For date {game_date}, found {len(top_players_for_date)} top players")
             
             # Increment count for each top player
             for player_data in top_players_for_date:
-                player_id = player_data['player']
-                if player_id not in top_players:
-                    top_players[player_id] = 0
-                top_players[player_id] += 1
-                logger.info(f"Player {player_id} now has {top_players[player_id]} appearances")
+                player_id = player_data['player__stats_id']
+                player_key = player_data['player']
+                
+                # check if player matches any of the filters if any are given
+                if filters:
+                    player = Player.objects.filter(stats_id=player_id)
+                    logger.debug(f"Checking player {player_id} against filters...")
+                    for f in filters:
+                        logger.debug(f"...applying filter '{f.get_desc()}' to player {player_id}")
+                        player = f.apply_filter(player)
+                    if not player:
+                        logger.debug(f"Player {player_id} does not match the filters, skipping")
+                        continue
+                    else:
+                        logger.debug(f"Player {player_id} matches the filters, adding to initial players for that cell")
+                    
+                # add the player to the top players
+                if player_key not in top_players:
+                    top_players[player_key] = 0
+                top_players[player_key] += 1
+                logger.debug(f"Player {player_id} now has {top_players[player_key]} appearances")
         
-        logger.info(f"Final player appearances: {top_players}")
+        logger.debug(f"Final player appearances: {top_players}")
         
         # Create or update GameResult entries for these players
-        for player_id, count in top_players.items():
+        for player_key, count in top_players.items():
             final_count = count * game_factor
-            logger.info(f"Setting player {player_id} count to {final_count} ({count} appearances * {game_factor})")
+            logger.debug(f"Setting player {player_key} count to {final_count} ({count} appearances * {game_factor})")
             cls.objects.update_or_create(
                 date=date,
                 cell_key=cell_key,
-                player_id=player_id,
+                player_id=player_key,
                 defaults={'guess_count': final_count}
             )
 
