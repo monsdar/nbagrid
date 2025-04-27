@@ -39,7 +39,7 @@ def get_game_filters(requested_date):
     # Create a GameBuilder with the requested date's timestamp as seed
     builder = GameBuilder(requested_date.timestamp())
     # Get the filters - this will either retrieve from DB or create new ones
-    filters = builder.get_tuned_filters()
+    filters = builder.get_tuned_filters(requested_date)
         
     # Initialize scores for all cells if this is a new game and no completions exist
     # AND no initial game results exist for this date
