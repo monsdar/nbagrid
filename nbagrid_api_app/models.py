@@ -1,6 +1,6 @@
 from django.db import models
 
-from nba_api.stats.endpoints import commonplayerinfo, playercareerstats
+from nba_api.stats.endpoints import commonplayerinfo, playercareerstats, playerawards
 
 import logging
 
@@ -56,10 +56,67 @@ class Player(models.Model):
     career_3pa = models.FloatField(default=0.0)
     career_fta = models.FloatField(default=0.0)
     
+    # Awards
+    is_award_mip                  = models.BooleanField(default=False)    # NBA Most Improved Player
+    is_award_champ                = models.BooleanField(default=False)    # NBA Champion
+    is_award_dpoy                 = models.BooleanField(default=False)    # NBA Defensive Player of the Year
+    is_award_all_nba_first        = models.BooleanField(default=False)    # All-NBA
+    is_award_all_nba_second       = models.BooleanField(default=False)    # All-NBA
+    is_award_all_nba_third        = models.BooleanField(default=False)    # All-NBA
+    is_award_all_rookie           = models.BooleanField(default=False)    # All-Rookie Team
+    is_award_all_defensive        = models.BooleanField(default=False)    # All-Defensive Team
+    is_award_all_star             = models.BooleanField(default=False)    # NBA All-Star
+    is_award_all_star_mvp         = models.BooleanField(default=False)    # NBA All-Star Most Valuable Player
+    is_award_rookie_of_the_year   = models.BooleanField(default=False)    # NBA Rookie of the Year
+    is_award_mvp                  = models.BooleanField(default=False)    # NBA Most Valuable Player
+    is_award_finals_mvp           = models.BooleanField(default=False)    # NBA Finals Most Valuable Player
+    is_award_olympic_gold_medal   = models.BooleanField(default=False)    # Olympic Gold Medal
+    is_award_olympic_silver_medal = models.BooleanField(default=False)    # Olympic Silver Medal
+    is_award_olympic_bronze_medal = models.BooleanField(default=False)    # Olympic Bronze Medal
+    
     def __str__(self):
         return self.name
     def has_played_for_team(self, abbr):
         return self.teams.filter(abbr=abbr).exists()
+    
+    def update_player_awards_from_nba_stats(self):
+        awards = playerawards.PlayerAwards(player_id=self.stats_id).get_normalized_dict()
+        for award in awards['PlayerAwards']:
+            award_name = award['DESCRIPTION']
+            if award_name == 'NBA Most Improved Player':
+                self.is_award_mip = True
+            elif award_name == 'NBA Champion':
+                self.is_award_champ = True
+            elif award_name == 'NBA Defensive Player of the Year':
+                self.is_award_dpoy = True
+            elif award_name == 'All-NBA':
+                if award['ALL_NBA_TEAM_NUMBER'] == '1':
+                    self.is_award_all_nba_first = True
+                elif award['ALL_NBA_TEAM_NUMBER'] == '2':
+                    self.is_award_all_nba_second = True
+                elif award['ALL_NBA_TEAM_NUMBER'] == '3':
+                    self.is_award_all_nba_third = True
+            elif award_name == 'All-Rookie Team':
+                self.is_award_all_rookie = True
+            elif award_name == 'All-Defensive Team':
+                self.is_award_all_defensive = True
+            elif award_name == 'NBA All-Star':
+                self.is_award_all_star = True
+            elif award_name == 'NBA All-Star Most Valuable Player':
+                self.is_award_all_star_mvp = True
+            elif award_name == 'NBA Rookie of the Year':
+                self.is_award_rookie_of_the_year = True
+            elif award_name == 'NBA Most Valuable Player':
+                self.is_award_mvp = True
+            elif award_name == 'NBA Finals Most Valuable Player':
+                self.is_award_finals_mvp = True
+            elif award_name == 'Olympic Gold Medal':
+                self.is_award_olympic_gold_medal = True
+            elif award_name == 'Olympic Silver Medal':
+                self.is_award_olympic_silver_medal = True
+            elif award_name == 'Olympic Bronze Medal':
+                self.is_award_olympic_bronze_medal = True
+        self.save()
     
     def update_player_data_from_nba_stats(self):
         player_info = commonplayerinfo.CommonPlayerInfo(player_id=self.stats_id).get_normalized_dict()

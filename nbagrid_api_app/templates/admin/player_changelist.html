@@ -14,6 +14,10 @@
             {% csrf_token %}
                 <button type="submit">Sync player stats from stats.nba.com</button>
         </form>
+        <form action="sync_player_awards_from_nba_stats/" method="POST">
+            {% csrf_token %}
+                <button type="submit">Sync player awards from stats.nba.com</button>
+        </form>
     </div>
     <br />
     {{ block.super }}

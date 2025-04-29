@@ -72,8 +72,14 @@ class GameBuilder(object):
                 return (static_filters, dynamic_filters)
         
         # If no filters exist or they're incomplete, generate new ones
-        for _ in range(num_iterations):
-            static_filters, dynamic_filters = self.generate_grid()
+        for loop_index in range(num_iterations):
+            
+            # Let's try to not use dynamic_filters in the row, as these tend to be more generic and not as interesting
+            # We'll use them in later iterations if we cannot find a good grid with the static filters
+            use_dynamic_filters_in_row = False
+            if loop_index > num_iterations / 2:
+                use_dynamic_filters_in_row = True
+            static_filters, dynamic_filters = self.generate_grid(use_dynamic_filters_in_row=use_dynamic_filters_in_row)
             if len(dynamic_filters) < self.num_dynamics:
                 logger.warning(f"Failed to generate a grid with {self.num_dynamics} dynamic filters. Static filters: {static_filters}")
                 continue
@@ -100,9 +106,12 @@ class GameBuilder(object):
                 return (static_filters, dynamic_filters)
         raise Exception(f"Failed to generate a grid with {self.num_dynamics} dynamic filters and {self.num_statics} static filters")
         
-    def generate_grid(self):
+    def generate_grid(self, use_dynamic_filters_in_row:bool=False):
         # Get 3 random static filters for X-axis
-        row_filters = random.sample(self.static_filters + self.dynamic_filters, self.num_statics)
+        row_filter_pool = self.static_filters
+        if use_dynamic_filters_in_row:
+            row_filter_pool += self.dynamic_filters
+        row_filters = random.sample(row_filter_pool, self.num_statics)
         column_filters = []
         
         # Go through the list of dynamic filters and tune them to the static filters

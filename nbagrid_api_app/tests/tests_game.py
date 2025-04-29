@@ -1,10 +1,25 @@
 from django.test import TestCase
 from django.db.models import F
 
-from nbagrid_api_app.GameFilter import DynamicGameFilter, PositionFilter, CountryFilter, USAFilter, InternationalFilter, TeamFilter, BooleanFilter, TeamCountFilter, create_filter_from_db
+from nbagrid_api_app.GameFilter import DynamicGameFilter
+from nbagrid_api_app.GameFilter import PositionFilter
+from nbagrid_api_app.GameFilter import CountryFilter
+from nbagrid_api_app.GameFilter import USAFilter
+from nbagrid_api_app.GameFilter import InternationalFilter
+from nbagrid_api_app.GameFilter import TeamFilter
+from nbagrid_api_app.GameFilter import BooleanFilter
+from nbagrid_api_app.GameFilter import TeamCountFilter
+from nbagrid_api_app.GameFilter import create_filter_from_db
+from nbagrid_api_app.GameFilter import AllNbaFilter
+from nbagrid_api_app.GameFilter import AllDefensiveFilter
+from nbagrid_api_app.GameFilter import AllRookieFilter
+from nbagrid_api_app.GameFilter import NbaChampFilter
+from nbagrid_api_app.GameFilter import AllStarFilter
+from nbagrid_api_app.GameFilter import OlympicMedalFilter
+
 from nbagrid_api_app.GameBuilder import GameBuilder
 from nbagrid_api_app.models import Player, Team, GameResult, GameFilterDB
-from nba_api.stats.endpoints import commonplayerinfo, playercareerstats
+from nba_api.stats.endpoints import commonplayerinfo, playercareerstats, playerawards
 from datetime import date, timedelta
 
 import random
@@ -55,6 +70,45 @@ def populate_players(num_players:int=100):
                                         weights=   [ 0.7,      0.05,     0.05,     0.05,             0.05,          0.05,    0.05],
                                         k=1)[0]
         player.is_greatest_75 = random.choices(population=[True, False],
+                                               weights=   [ 0.01, 0.99],
+                                               k=1)[0]
+        player.is_award_all_nba_first = random.choices(population=[True, False],
+                                               weights=   [ 0.01, 0.99],
+                                               k=1)[0]
+        player.is_award_all_nba_second = random.choices(population=[True, False],
+                                               weights=   [ 0.01, 0.99],
+                                               k=1)[0]  
+        player.is_award_all_nba_third = random.choices(population=[True, False],
+                                               weights=   [ 0.01, 0.99],
+                                               k=1)[0]
+        player.is_award_all_rookie = random.choices(population=[True, False],
+                                               weights=   [ 0.01, 0.99],
+                                               k=1)[0]  
+        player.is_award_all_defensive = random.choices(population=[True, False],
+                                               weights=   [ 0.01, 0.99],
+                                               k=1)[0]  
+        player.is_award_all_star = random.choices(population=[True, False],
+                                               weights=   [ 0.01, 0.99],
+                                               k=1)[0]  
+        player.is_award_all_star_mvp = random.choices(population=[True, False],
+                                               weights=   [ 0.01, 0.99],
+                                               k=1)[0]  
+        player.is_award_rookie_of_the_year = random.choices(population=[True, False],
+                                               weights=   [ 0.01, 0.99],
+                                               k=1)[0]    
+        player.is_award_mvp = random.choices(population=[True, False],
+                                               weights=   [ 0.01, 0.99],
+                                               k=1)[0]  
+        player.is_award_finals_mvp = random.choices(population=[True, False],
+                                               weights=   [ 0.01, 0.99],
+                                               k=1)[0]  
+        player.is_award_olympic_gold_medal = random.choices(population=[True, False],
+                                               weights=   [ 0.01, 0.99],
+                                               k=1)[0]  
+        player.is_award_olympic_silver_medal = random.choices(population=[True, False],
+                                               weights=   [ 0.01, 0.99],
+                                               k=1)[0]  
+        player.is_award_olympic_bronze_medal = random.choices(population=[True, False],
                                                weights=   [ 0.01, 0.99],
                                                k=1)[0]
         player.save()
@@ -223,7 +277,14 @@ class PlayerTest(TestCase):
         self.assertFalse(player.has_played_for_team('CLE'))
         
     def test_load_player_data(self):
-        player = Player.objects.create(stats_id=202681, name='Max Mustermann')
+        #player = Player.objects.create(stats_id=202681, name='Kyrie Irving')
+        player = Player.objects.create(stats_id=2544, name='LeBron James')
+        #player = Player.objects.create(stats_id=201142, name='Kevin Durant')
+        #player = Player.objects.create(stats_id=201566, name='Russell Westbrook')
+        #player = Player.objects.create(stats_id=203999, name='Nikola Jokic')
+        #player = Player.objects.create(stats_id=203507, name='Giannis Antetokounmpo')
+        #player = Player.objects.create(stats_id=1629029, name='Luka Doncic')
+        
         player_info = commonplayerinfo.CommonPlayerInfo(player_id=player.stats_id).get_normalized_dict()
         player.draft_year = player_info['CommonPlayerInfo'][0]['DRAFT_YEAR']
         player.draft_round = player_info['CommonPlayerInfo'][0]['DRAFT_ROUND']
@@ -263,6 +324,40 @@ class PlayerTest(TestCase):
             elif high['STAT'] == 'FGM': player.career_high_fg = high['STAT_VALUE']
             elif high['STAT'] == 'FG3M': player.career_high_3p = high['STAT_VALUE']
             elif high['STAT'] == 'FTA': player.career_high_ft = high['STAT_VALUE']
+            
+            
+        player_ids = [202681, 2544, 201142, 201566, 203999, 203507, 1629029]
+        all_awards = set()
+        for player_id in player_ids:
+            awards = playerawards.PlayerAwards(player_id=player_id).get_normalized_dict()
+            for award in awards['PlayerAwards']:
+                all_awards.add(award['DESCRIPTION'])
+        #for award in all_awards:
+        #    print(award)
+          
+        # Some of the Values:  
+        # NBA Most Improved Player
+        # NBA In-Season Tournament Most Valuable Player
+        # NBA In-Season Tournament All-Tournament
+        # NBA Champion
+        # NBA Defensive Player of the Year
+        # All-NBA
+        # All-Rookie Team
+        # All-Defensive Team
+        # NBA All-Star
+        # NBA All-Star Most Valuable Player
+        # NBA Rookie of the Year
+        # NBA Player of the Week
+        # NBA Rookie of the Month
+        # NBA Most Valuable Player
+        # NBA Sporting News Most Valuable Player of the Year
+        # NBA Sporting News Rookie of the Year
+        # NBA Player of the Month
+        # NBA Finals Most Valuable Player
+        # Olympic Gold Medal
+        # Olympic Silver Medal
+        # Olympic Bronze Medal
+                        
         player.save()
 
 class GameResultTests(TestCase):
@@ -545,38 +640,109 @@ class USAFilterTest(TestCase):
 class InternationalFilterTest(TestCase):
     def setUp(self):
         # Create test players
-        self.usa_player1 = Player.objects.create(
-            stats_id=1,
-            name='USA Player 1',
-            country='USA'
-        )
-        self.usa_player2 = Player.objects.create(
-            stats_id=2,
-            name='USA Player 2',
-            country='USA'
-        )
-        self.int_player1 = Player.objects.create(
-            stats_id=3,
-            name='International Player 1',
-            country='Canada'
-        )
-        self.int_player2 = Player.objects.create(
-            stats_id=4,
-            name='International Player 2',
-            country='France'
-        )
-
+        for index in range(100):
+            Player.objects.create(stats_id=index, name=f'Player {index}', country='USA')
+        for index in range(200, 210):
+            Player.objects.create(stats_id=index, name=f'Player {index}', country='Germany')
+        for index in range(300, 310):
+            Player.objects.create(stats_id=index, name=f'Player {index}', country='Ghana')
+        for index in range(400, 410):
+            Player.objects.create(stats_id=index, name=f'Player {index}', country='Mexico')
+    
     def test_internationalfilter(self):
-        """Test that InternationalFilter correctly filters non-USA players."""
-        int_filter = InternationalFilter()
-        
-        # Test with international players
-        self.assertTrue(int_filter.apply_filter(Player.objects.filter(stats_id=3)).exists())
-        self.assertTrue(int_filter.apply_filter(Player.objects.filter(stats_id=4)).exists())
-        
-        # Test with USA players
-        self.assertFalse(int_filter.apply_filter(Player.objects.filter(stats_id=1)).exists())
-        self.assertFalse(int_filter.apply_filter(Player.objects.filter(stats_id=2)).exists())
-        
-        # Test description
-        self.assertEqual(int_filter.get_desc(), "International Player")
+        filter = InternationalFilter()
+        filtered_players = filter.apply_filter(Player.objects.all())
+        self.assertEqual(filtered_players.count(), 30)  # Should match non-USA players
+        self.assertTrue(all(p.country != 'USA' for p in filtered_players))
+
+class AllNbaFilterTest(TestCase):
+    def setUp(self):
+        # Create test players
+        for index in range(10):
+            Player.objects.create(stats_id=index, name=f'Player {index}', is_award_all_nba_first=True)
+        for index in range(10, 20):
+            Player.objects.create(stats_id=index, name=f'Player {index}', is_award_all_nba_second=True)
+        for index in range(20, 30):
+            Player.objects.create(stats_id=index, name=f'Player {index}', is_award_all_nba_third=True)
+        for index in range(30, 40):
+            Player.objects.create(stats_id=index, name=f'Player {index}')  # No All-NBA awards
+    
+    def test_allnba_filter(self):
+        filter = AllNbaFilter()
+        filtered_players = filter.apply_filter(Player.objects.all())
+        self.assertEqual(filtered_players.count(), 30)  # Should match all All-NBA players
+        self.assertTrue(all(p.is_award_all_nba_first or p.is_award_all_nba_second or p.is_award_all_nba_third for p in filtered_players))
+
+class AllDefensiveFilterTest(TestCase):
+    def setUp(self):
+        # Create test players
+        for index in range(20):
+            Player.objects.create(stats_id=index, name=f'Player {index}', is_award_all_defensive=True)
+        for index in range(20, 40):
+            Player.objects.create(stats_id=index, name=f'Player {index}')  # No All-Defensive awards
+    
+    def test_alldefensive_filter(self):
+        filter = AllDefensiveFilter()
+        filtered_players = filter.apply_filter(Player.objects.all())
+        self.assertEqual(filtered_players.count(), 20)  # Should match All-Defensive players
+        self.assertTrue(all(p.is_award_all_defensive for p in filtered_players))
+
+class AllRookieFilterTest(TestCase):
+    def setUp(self):
+        # Create test players
+        for index in range(15):
+            Player.objects.create(stats_id=index, name=f'Player {index}', is_award_all_rookie=True)
+        for index in range(15, 30):
+            Player.objects.create(stats_id=index, name=f'Player {index}')  # No All-Rookie awards
+    
+    def test_allrookie_filter(self):
+        filter = AllRookieFilter()
+        filtered_players = filter.apply_filter(Player.objects.all())
+        self.assertEqual(filtered_players.count(), 15)  # Should match All-Rookie players
+        self.assertTrue(all(p.is_award_all_rookie for p in filtered_players))
+
+class NbaChampFilterTest(TestCase):
+    def setUp(self):
+        # Create test players
+        for index in range(25):
+            Player.objects.create(stats_id=index, name=f'Player {index}', is_award_champ=True)
+        for index in range(25, 50):
+            Player.objects.create(stats_id=index, name=f'Player {index}')  # No championships
+    
+    def test_nbachamp_filter(self):
+        filter = NbaChampFilter()
+        filtered_players = filter.apply_filter(Player.objects.all())
+        self.assertEqual(filtered_players.count(), 25)  # Should match NBA champions
+        self.assertTrue(all(p.is_award_champ for p in filtered_players))
+
+class AllStarFilterTest(TestCase):
+    def setUp(self):
+        # Create test players
+        for index in range(30):
+            Player.objects.create(stats_id=index, name=f'Player {index}', is_award_all_star=True)
+        for index in range(30, 60):
+            Player.objects.create(stats_id=index, name=f'Player {index}')  # No All-Star appearances
+    
+    def test_allstar_filter(self):
+        filter = AllStarFilter()
+        filtered_players = filter.apply_filter(Player.objects.all())
+        self.assertEqual(filtered_players.count(), 30)  # Should match All-Star players
+        self.assertTrue(all(p.is_award_all_star for p in filtered_players))
+
+class OlympicMedalFilterTest(TestCase):
+    def setUp(self):
+        # Create test players
+        for index in range(10):
+            Player.objects.create(stats_id=index, name=f'Player {index}', is_award_olympic_gold_medal=True)
+        for index in range(10, 20):
+            Player.objects.create(stats_id=index, name=f'Player {index}', is_award_olympic_silver_medal=True)
+        for index in range(20, 30):
+            Player.objects.create(stats_id=index, name=f'Player {index}', is_award_olympic_bronze_medal=True)
+        for index in range(30, 40):
+            Player.objects.create(stats_id=index, name=f'Player {index}')  # No Olympic medals
+    
+    def test_olympicmedal_filter(self):
+        filter = OlympicMedalFilter()
+        filtered_players = filter.apply_filter(Player.objects.all())
+        self.assertEqual(filtered_players.count(), 30)  # Should match all Olympic medalists
+        self.assertTrue(all(p.is_award_olympic_gold_medal or p.is_award_olympic_silver_medal or p.is_award_olympic_bronze_medal for p in filtered_players))

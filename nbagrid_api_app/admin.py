@@ -46,6 +46,7 @@ class PlayerAdmin(admin.ModelAdmin):
             path('init_players_from_static_players/', self.init_players_from_static_players),
             path('sync_players_from_nba_stats/', self.sync_player_data_from_nba_stats),
             path('sync_player_stats_from_nba_stats/', self.sync_player_stats_from_nba_stats),
+            path('sync_player_awards_from_nba_stats/', self.sync_player_awards_from_nba_stats),
         ]
         return my_urls + urls
     
@@ -62,6 +63,11 @@ class PlayerAdmin(admin.ModelAdmin):
     def sync_player_stats_from_nba_stats(self, request):
         self.sync_player_stats()
         self.message_user(request, "Successfully synced player stats", level="success")
+        return HttpResponseRedirect("../")
+    
+    def sync_player_awards_from_nba_stats(self, request):
+        self.sync_player_awards()
+        self.message_user(request, "Successfully synced player awards", level="success")
         return HttpResponseRedirect("../")
     
     def init_players(self):
@@ -98,6 +104,19 @@ class PlayerAdmin(admin.ModelAdmin):
                 time.sleep(10.0) # wait some time before trying again to access the API
                 continue
             logger.info(f"...updated player stats: {player.name}")
+            time.sleep(0.25) # wait a bit before doing the next API request to not run into stats.nba rate limits
+    
+    def sync_player_awards(self):
+        all_players = Player.objects.all()
+        logger.info(f"Updating {len(all_players)} players...")
+        for player in all_players:
+            try:
+                player.update_player_awards_from_nba_stats()
+            except requests.exceptions.ReadTimeout as e:
+                logger.error(f"Error updating player {player.name}, looks like we've ran into API limits: {e}")
+                time.sleep(10.0) # wait some time before trying again to access the API
+                continue
+            logger.info(f"...updated player awards: {player.name}")
             time.sleep(0.25) # wait a bit before doing the next API request to not run into stats.nba rate limits
     
     def sync_player_data(self):

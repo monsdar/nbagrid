@@ -130,6 +130,42 @@ class BooleanFilter(GameFilter):
         return players.filter(**{self.field: self.value})
     def get_desc(self) -> str:
         return self.description
+    
+class AllNbaFilter(GameFilter):
+    def apply_filter(self, players:Manager[Player]) -> Manager[Player]:
+        return players.filter(is_award_all_nba_first=True) | players.filter(is_award_all_nba_second=True) | players.filter(is_award_all_nba_third=True)
+    def get_desc(self) -> str:
+        return "All-NBA player (1st, 2nd or 3rd team)"
+    
+class AllDefensiveFilter(GameFilter):
+    def apply_filter(self, players:Manager[Player]) -> Manager[Player]:
+        return players.filter(is_award_all_defensive=True)
+    def get_desc(self) -> str:
+        return "All-Defensive player"
+
+class AllRookieFilter(GameFilter):
+    def apply_filter(self, players:Manager[Player]) -> Manager[Player]:
+        return players.filter(is_award_all_rookie=True)
+    def get_desc(self) -> str:
+        return "All-Rookie player"
+
+class NbaChampFilter(GameFilter):
+    def apply_filter(self, players:Manager[Player]) -> Manager[Player]:
+        return players.filter(is_award_champ=True)
+    def get_desc(self) -> str:
+        return "NBA Champion"
+
+class AllStarFilter(GameFilter):
+    def apply_filter(self, players:Manager[Player]) -> Manager[Player]:
+        return players.filter(is_award_all_star=True)
+    def get_desc(self) -> str:
+        return "All-Star player"
+
+class OlympicMedalFilter(GameFilter):
+    def apply_filter(self, players:Manager[Player]) -> Manager[Player]:
+        return players.filter(is_award_olympic_gold_medal=True) | players.filter(is_award_olympic_silver_medal=True) | players.filter(is_award_olympic_bronze_medal=True)
+    def get_desc(self) -> str:
+        return "Olympic medalist"
 
 class TeamCountFilter(DynamicGameFilter):
     def apply_filter(self, players:Manager[Player]) -> Manager[Player]:
@@ -292,6 +328,12 @@ def get_static_filters(seed:int=0) -> list[GameFilter]:
     return [
         USAFilter(),
         InternationalFilter(),
+        AllNbaFilter(),
+        AllDefensiveFilter(),
+        AllRookieFilter(),
+        NbaChampFilter(),
+        AllStarFilter(),
+        OlympicMedalFilter(),
         # CountryFilter(seed), # deprecated, use USAFilter and InternationalFilter instead
         TeamFilter(seed),
         #BooleanFilter('draft_round', 'First round draft pick', 1),
