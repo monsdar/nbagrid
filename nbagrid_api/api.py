@@ -1,6 +1,8 @@
 from ninja import NinjaAPI, Schema
+from ninja.security import APIKeyHeader
 from nbagrid_api_app.models import Player
 from nbagrid_api_app.GameBuilder import GameBuilder
+from django.conf import settings
 
 from datetime import datetime
 
@@ -9,6 +11,15 @@ game_cache = {}
 solutions_cache = {}
 
 class GameDateTooEarlyException(Exception): pass
+
+class ApiKey(APIKeyHeader):
+    param_name = "X-API-Key"
+    def authenticate(self, request, key):
+        if key == settings.NBAGRID_API_KEY:
+            return key
+        return None
+
+header_key = ApiKey()
 
 def is_valid_date(given_date:datetime) -> bool:
     earliest_date = datetime(year=2025, month=4, day=1)
@@ -118,7 +129,7 @@ class PlayerSchema(Schema):
     is_award_olympic_silver_medal: bool = False
     is_award_olympic_bronze_medal: bool = False
     
-@api.post("/player/{stats_id}")
+@api.post("/player/{stats_id}", auth=header_key)
 def update_player(request, stats_id: int, data: PlayerSchema):
     try:
         # Try to get existing player or create a new one

@@ -37,13 +37,16 @@ def get_local_players(db_path: str) -> Dict[int, Dict[str, Any]]:
     conn.close()
     return players
 
-def sync_player_to_remote(stats_id: int, player_data: Dict[str, Any], remote_url: str) -> bool:
+def sync_player_to_remote(stats_id: int, player_data: Dict[str, Any], remote_url: str, api_key: str) -> bool:
     """Sync a single player to the remote API."""
     try:
         response = requests.post(
             f"{remote_url}/player/{stats_id}",
             json=player_data,
-            headers={'Content-Type': 'application/json'}
+            headers={
+                'Content-Type': 'application/json',
+                'X-API-Key': api_key
+            }
         )
         response.raise_for_status()
         print(f"Successfully synced player {stats_id}: {player_data.get('name', 'Unknown')}")
@@ -57,6 +60,7 @@ def main():
     parser.add_argument('--db', default='db.sqlite3', help='Path to local SQLite database')
     parser.add_argument('--remote', required=True, help='Base URL of remote nbagrid API (e.g., http://remote-api.com)')
     parser.add_argument('--player', type=int, help='Specific player stats_id to sync (optional)')
+    parser.add_argument('--api-key', required=True, help='API key for authentication')
     args = parser.parse_args()
     
     # Get all players from local database
@@ -65,7 +69,7 @@ def main():
     if args.player:
         # Sync specific player if provided
         if args.player in players:
-            sync_player_to_remote(args.player, players[args.player], args.remote)
+            sync_player_to_remote(args.player, players[args.player], args.remote, args.api_key)
         else:
             print(f"Player with stats_id {args.player} not found in local database")
     else:
@@ -74,11 +78,10 @@ def main():
         total_count = len(players)
         
         for stats_id, player_data in players.items():
-            if sync_player_to_remote(stats_id, player_data, args.remote):
-                print(f"\n...synced player {stats_id}: {player_data.get('name', 'Unknown')}")
+            if sync_player_to_remote(stats_id, player_data, args.remote, args.api_key):
                 success_count += 1
         
-        print(f"Sync completed: {success_count}/{total_count} players synced successfully")
+        print(f"\nSync completed: {success_count}/{total_count} players synced successfully")
 
 if __name__ == "__main__":
     main() 
