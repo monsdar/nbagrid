@@ -70,46 +70,46 @@ def populate_players(num_players:int=100):
                                         weights=   [ 0.7,      0.05,     0.05,     0.05,             0.05,          0.05,    0.05],
                                         k=1)[0]
         player.is_greatest_75 = random.choices(population=[True, False],
-                                               weights=   [ 0.01, 0.99],
+                                               weights=   [ 0.1, 0.9],
                                                k=1)[0]
         player.is_award_all_nba_first = random.choices(population=[True, False],
-                                               weights=   [ 0.01, 0.99],
+                                               weights=   [ 0.1, 0.9],
                                                k=1)[0]
         player.is_award_all_nba_second = random.choices(population=[True, False],
-                                               weights=   [ 0.01, 0.99],
+                                               weights=   [ 0.1, 0.9],
                                                k=1)[0]  
         player.is_award_all_nba_third = random.choices(population=[True, False],
-                                               weights=   [ 0.01, 0.99],
+                                               weights=   [ 0.1, 0.9],
                                                k=1)[0]
         player.is_award_all_rookie = random.choices(population=[True, False],
-                                               weights=   [ 0.01, 0.99],
+                                               weights=   [ 0.1, 0.9],
                                                k=1)[0]  
         player.is_award_all_defensive = random.choices(population=[True, False],
-                                               weights=   [ 0.01, 0.99],
+                                               weights=   [ 0.1, 0.9],
                                                k=1)[0]  
         player.is_award_all_star = random.choices(population=[True, False],
-                                               weights=   [ 0.01, 0.99],
+                                               weights=   [ 0.1, 0.9],
                                                k=1)[0]  
         player.is_award_all_star_mvp = random.choices(population=[True, False],
-                                               weights=   [ 0.01, 0.99],
+                                               weights=   [ 0.1, 0.9],
                                                k=1)[0]  
         player.is_award_rookie_of_the_year = random.choices(population=[True, False],
-                                               weights=   [ 0.01, 0.99],
+                                               weights=   [ 0.1, 0.9],
                                                k=1)[0]    
         player.is_award_mvp = random.choices(population=[True, False],
-                                               weights=   [ 0.01, 0.99],
+                                               weights=   [ 0.1, 0.9],
                                                k=1)[0]  
         player.is_award_finals_mvp = random.choices(population=[True, False],
-                                               weights=   [ 0.01, 0.99],
+                                               weights=   [ 0.1, 0.9],
                                                k=1)[0]  
         player.is_award_olympic_gold_medal = random.choices(population=[True, False],
-                                               weights=   [ 0.01, 0.99],
+                                               weights=   [ 0.1, 0.9],
                                                k=1)[0]  
         player.is_award_olympic_silver_medal = random.choices(population=[True, False],
-                                               weights=   [ 0.01, 0.99],
+                                               weights=   [ 0.1, 0.9],
                                                k=1)[0]  
         player.is_award_olympic_bronze_medal = random.choices(population=[True, False],
-                                               weights=   [ 0.01, 0.99],
+                                               weights=   [ 0.1, 0.9],
                                                k=1)[0]
         player.save()
         

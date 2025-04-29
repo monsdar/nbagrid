@@ -257,3 +257,102 @@ class GameViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn('total_score', response.context)
         self.assertEqual(response.context['total_score'], 0.5)
+
+class PlayerUpdateTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        # Create a test player
+        self.player = Player.objects.create(
+            stats_id=1,
+            name="Test Player",
+            position="Guard",
+            country="USA",
+            career_ppg=20.0,
+            career_rpg=6.0,
+            career_apg=4.0,
+            career_gp=200
+        )
+    
+    def test_update_player_success(self):
+        # Test updating multiple fields
+        response = self.client.post(
+            f"/api/player/{self.player.stats_id}",
+            {
+                "name": "Updated Player",
+                "display_name": "Updated Player Display",
+                "position": "Forward",
+                "career_ppg": 25.0,
+                "is_award_mvp": True,
+            },
+            content_type="application/json"
+        )
+        
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["status"], "success")
+        self.assertIn("updated", data["message"].lower())
+        
+        # Verify the updates
+        updated_player = Player.objects.get(stats_id=self.player.stats_id)
+        self.assertEqual(updated_player.name, "Updated Player")
+        self.assertEqual(updated_player.display_name, "Updated Player Display")
+        self.assertEqual(updated_player.position, "Forward")
+        self.assertEqual(updated_player.career_ppg, 25.0)
+        self.assertTrue(updated_player.is_award_mvp)
+    
+    def test_create_new_player(self):
+        # Test creating a new player
+        response = self.client.post(
+            "/api/player/999",
+            {
+                "name": "New Player",
+                "display_name": "New Player Display",
+                "position": "Center",
+                "career_ppg": 15.0,
+            },
+            content_type="application/json"
+        )
+        
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["status"], "success")
+        self.assertIn("created", data["message"].lower())
+        
+        # Verify the new player was created
+        new_player = Player.objects.get(stats_id=999)
+        self.assertEqual(new_player.name, "New Player")
+        self.assertEqual(new_player.display_name, "New Player Display")
+        self.assertEqual(new_player.position, "Center")
+        self.assertEqual(new_player.career_ppg, 15.0)
+    
+    def test_create_player_with_minimal_data(self):
+        # Test creating a player with just stats_id and required fields
+        response = self.client.post(
+            "/api/player/1000",
+            {
+                "name": "Minimal Player",
+            },
+            content_type="application/json"
+        )
+        
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["status"], "success")
+        self.assertIn("created", data["message"].lower())
+        
+        # Verify the player was created with minimal data
+        new_player = Player.objects.get(stats_id=1000)
+        self.assertEqual(new_player.name, "Minimal Player")
+    
+    def test_update_player_invalid_data(self):
+        response = self.client.post(
+            f"/api/player/{self.player.stats_id}",
+            {
+                "name": "Invalid Player",
+                "career_ppg": "invalid",  # Invalid type for career_ppg
+            },
+            content_type="application/json"
+        )
+        
+        self.assertEqual(response.status_code, 422)
+        

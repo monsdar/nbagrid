@@ -1,5 +1,4 @@
-
-from ninja import NinjaAPI
+from ninja import NinjaAPI, Schema
 from nbagrid_api_app.models import Player
 from nbagrid_api_app.GameBuilder import GameBuilder
 
@@ -64,4 +63,79 @@ def post_player_for_date(request, year: int, month: int, day: int, player_id: in
         return 400
     except Player.DoesNotExist:
         return 404
+
+class PlayerSchema(Schema):
+    name: str = "Player"
+    display_name: str = "Player"
+    draft_year: int = 0
+    draft_round: int = 0
+    draft_number: int = 0
+    is_undrafted: bool = False
+    is_greatest_75: bool = False
+    num_seasons: int = 0
+    weight_kg: int = 0
+    height_cm: int = 0
+    country: str = ""
+    position: str = ""
+    career_gp: int = 0
+    career_gs: int = 0
+    career_min: int = 0
+    career_high_ast: int = 0
+    career_high_reb: int = 0
+    career_high_stl: int = 0
+    career_high_blk: int = 0
+    career_high_to: int = 0
+    career_high_pts: int = 0
+    career_high_fg: int = 0
+    career_high_3p: int = 0
+    career_high_ft: int = 0
+    career_apg: float = 0.0
+    career_ppg: float = 0.0
+    career_rpg: float = 0.0
+    career_bpg: float = 0.0
+    career_spg: float = 0.0
+    career_tpg: float = 0.0
+    career_fgp: float = 0.0
+    career_3gp: float = 0.0
+    career_ftp: float = 0.0
+    career_fga: float = 0.0
+    career_3pa: float = 0.0
+    career_fta: float = 0.0
+    is_award_mip: bool = False
+    is_award_champ: bool = False
+    is_award_dpoy: bool = False
+    is_award_all_nba_first: bool = False
+    is_award_all_nba_second: bool = False
+    is_award_all_nba_third: bool = False
+    is_award_all_rookie: bool = False
+    is_award_all_defensive: bool = False
+    is_award_all_star: bool = False
+    is_award_all_star_mvp: bool = False
+    is_award_rookie_of_the_year: bool = False
+    is_award_mvp: bool = False
+    is_award_finals_mvp: bool = False
+    is_award_olympic_gold_medal: bool = False
+    is_award_olympic_silver_medal: bool = False
+    is_award_olympic_bronze_medal: bool = False
+    
+@api.post("/player/{stats_id}")
+def update_player(request, stats_id: int, data: PlayerSchema):
+    try:
+        # Try to get existing player or create a new one
+        player, created = Player.objects.get_or_create(
+            stats_id=stats_id,
+            defaults={'name': data.name or f"Player {stats_id}"}  # Use provided name or generate one
+        )
+        
+        # Update all fields from the schema
+        for field in data.dict():
+            if field != 'name' or not created:  # Don't update name if we just created the player
+                setattr(player, field, getattr(data, field))
+        
+        player.save()
+        action = "created" if created else "updated"
+        return {"status": "success", "message": f"Player {player.name} {action} successfully"}
+            
+    except Exception as e:
+        return {"status": "error", "message": str(e)}, 500
     
