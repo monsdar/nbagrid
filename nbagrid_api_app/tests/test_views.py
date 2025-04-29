@@ -4,7 +4,8 @@ from django.utils import timezone
 from datetime import datetime, timedelta
 from nbagrid_api_app.models import Player, GameResult
 from nbagrid_api_app.GameFilter import GameFilter
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
+from django.conf import settings
 
 class MockFilter(GameFilter):
     def __init__(self, filter_field=None, filter_value=None, description=None):
@@ -272,6 +273,8 @@ class PlayerUpdateTests(TestCase):
             career_apg=4.0,
             career_gp=200
         )
+        # Get the API key from settings
+        self.api_key = settings.NBAGRID_API_KEY
     
     def test_update_player_success(self):
         # Test updating multiple fields
@@ -284,7 +287,8 @@ class PlayerUpdateTests(TestCase):
                 "career_ppg": 25.0,
                 "is_award_mvp": True,
             },
-            content_type="application/json"
+            content_type="application/json",
+            HTTP_X_API_KEY=self.api_key
         )
         
         self.assertEqual(response.status_code, 200)
@@ -310,7 +314,8 @@ class PlayerUpdateTests(TestCase):
                 "position": "Center",
                 "career_ppg": 15.0,
             },
-            content_type="application/json"
+            content_type="application/json",
+            HTTP_X_API_KEY=self.api_key
         )
         
         self.assertEqual(response.status_code, 200)
@@ -332,7 +337,8 @@ class PlayerUpdateTests(TestCase):
             {
                 "name": "Minimal Player",
             },
-            content_type="application/json"
+            content_type="application/json",
+            HTTP_X_API_KEY=self.api_key
         )
         
         self.assertEqual(response.status_code, 200)
@@ -351,7 +357,8 @@ class PlayerUpdateTests(TestCase):
                 "name": "Invalid Player",
                 "career_ppg": "invalid",  # Invalid type for career_ppg
             },
-            content_type="application/json"
+            content_type="application/json",
+            HTTP_X_API_KEY=self.api_key
         )
         
         self.assertEqual(response.status_code, 422)
