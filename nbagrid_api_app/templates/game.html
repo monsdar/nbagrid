@@ -232,6 +232,26 @@
             border-radius: 5px;
             margin: 5px 0;
             padding: 10px;
+            position: relative;
+        }
+
+        .player-name {
+            font-size: 16px;
+            font-weight: bold;
+            color: white;
+            margin-bottom: 5px;
+        }
+
+        .player-stats {
+            font-size: 12px;
+            color: #888;
+            line-height: 1.4;
+        }
+
+        .player-stats br {
+            display: block;
+            content: "";
+            margin: 2px 0;
         }
 
         .correct-players-content button {
@@ -688,7 +708,7 @@
             <div class="cell {% if cell_data.is_correct %}correct tier-{{ cell_data.tier }}{% endif %} {% if is_finished and not cell_data.is_correct %}exhausted{% endif %}"
                 onclick="{% if not is_finished and not cell_data.is_correct %}openModal(this){% elif is_finished and not cell_data.is_correct %}showCorrectPlayers(this){% endif %}"
                 data-row="{{ row }}" data-col="{{ col }}" {% if is_finished and not cell_data.is_correct %}
-                data-correct-players="{{ correct_players|get_item:cell_key|join:',' }}" {% endif %}>
+                data-cell-key="{{ cell_key }}" {% endif %}>
                 {% if cell_data and cell_data.wrong_guesses %}
                 <span class="wrong-guesses">{{ cell_data.wrong_guesses }} X</span>
                 {% endif %}
@@ -749,6 +769,10 @@
         </div>
     </div>
 
+    {% if is_finished %}
+    {{ correct_players|json_script:"correct-players-data" }}
+    {% endif %}
+
     <script>
         let currentCell = null;
         const modal = document.getElementById('playerModal');
@@ -771,23 +795,23 @@
         }
 
         function showCorrectPlayers(cell) {
-            const correctPlayers = cell.getAttribute('data-correct-players');
+            const cellKey = cell.getAttribute('data-cell-key');
+            const correctPlayersData = JSON.parse(document.getElementById('correct-players-data').textContent);
+            const players = correctPlayersData[cellKey];
             const dialog = document.getElementById('correctPlayersModal');
             const content = document.getElementById('correct-players-list');
             
-            if (!correctPlayers) {
+            if (!players || players.length === 0) {
                 content.innerHTML = '<p>No correct players found for this cell.</p>';
             } else {
-                const players = correctPlayers.split(',').filter(p => p.trim());
-                if (players.length === 0) {
-                    content.innerHTML = '<p>No correct players found for this cell.</p>';
-                } else {
-                    let html = '';
-                    players.forEach(function(player) {
-                        html += `<div class="correct-player">${player.trim()}</div>`;
-                    });
-                    content.innerHTML = html;
-                }
+                let html = '';
+                players.forEach(function(player) {
+                    html += `<div class="correct-player">
+                        <div class="player-name">${player.name}</div>
+                        <div class="player-stats">${player.stats.join('<br>')}</div>
+                    </div>`;
+                });
+                content.innerHTML = html;
             }
             
             dialog.style.display = 'block';
@@ -933,7 +957,7 @@
                                         cell.insertBefore(wrongGuesses, cell.firstChild);
                                     }
                                     cell.classList.add('exhausted');
-                                    cell.setAttribute('data-correct-players', data.correct_players[cellKey].join(','));
+                                    cell.setAttribute('data-correct-players', JSON.stringify(data.correct_players[cellKey]));
                                     cell.onclick = function () { showCorrectPlayers(this); };
                                 }
                             }

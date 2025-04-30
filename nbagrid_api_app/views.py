@@ -144,7 +144,13 @@ def handle_player_guess(request, grid, game_state, requested_date):
                         matching_players = Player.objects.all()
                         for f in cell['filters']:
                             matching_players = f.apply_filter(matching_players)
-                        correct_players[cell_key] = [p.name for p in matching_players]
+                        # Include player stats for each matching player
+                        correct_players[cell_key] = [
+                            {
+                                'name': p.name,
+                                'stats': [f.get_player_stats_str(p) for f in cell['filters']]
+                            } for p in matching_players
+                        ]
             
             # Record game completion
             if not GameCompletion.objects.filter(date=requested_date.date(), session_key=request.session.session_key).exists():
@@ -273,7 +279,13 @@ def game(request, year, month, day):
                 matching_players = Player.objects.all()
                 for f in cell['filters']:
                     matching_players = f.apply_filter(matching_players)
-                correct_players[cell_key] = [p.name for p in matching_players]
+                # Include player stats for each matching player
+                correct_players[cell_key] = [
+                    {
+                        'name': p.name,
+                        'stats': [f.get_player_stats_str(p) for f in cell['filters']]
+                    } for p in matching_players
+                ]
     
     # Get completion count
     completion_count = GameCompletion.get_completion_count(requested_date.date())

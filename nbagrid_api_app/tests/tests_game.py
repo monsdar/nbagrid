@@ -7,7 +7,7 @@ from nbagrid_api_app.GameFilter import CountryFilter
 from nbagrid_api_app.GameFilter import USAFilter
 from nbagrid_api_app.GameFilter import InternationalFilter
 from nbagrid_api_app.GameFilter import TeamFilter
-from nbagrid_api_app.GameFilter import BooleanFilter
+from nbagrid_api_app.GameFilter import Top10DraftpickFilter
 from nbagrid_api_app.GameFilter import TeamCountFilter
 from nbagrid_api_app.GameFilter import create_filter_from_db
 from nbagrid_api_app.GameFilter import AllNbaFilter
@@ -207,19 +207,73 @@ class TeamFilterTest(TestCase):
         filtered_players = filter.apply_filter(Player.objects.all())
         self.assertEqual(filtered_players.count(), 2)  # Should match players who played for Team 1
 
-class BooleanFilterTest(TestCase):
-    def test_boolean_filter(self):
-        # Create test players with different draft rounds
-        Player.objects.create(stats_id=1, name='Player 1', draft_round=1)
-        Player.objects.create(stats_id=2, name='Player 2', draft_round=1)
-        Player.objects.create(stats_id=3, name='Player 3', draft_round=2)
+class Top10DraftpickFilterTest(TestCase):
+    def setUp(self):
+        # Create test players with different draft numbers
+        self.player1 = Player.objects.create(
+            stats_id=1,
+            name="Player 1",
+            draft_number=1,  # Top 10 pick
+            draft_year=2020
+        )
+        self.player2 = Player.objects.create(
+            stats_id=2,
+            name="Player 2",
+            draft_number=15,  # Not a top 10 pick
+            draft_year=2020
+        )
+        self.player3 = Player.objects.create(
+            stats_id=3,
+            name="Player 3",
+            draft_number=10,  # Edge case - exactly 10
+            draft_year=2020
+        )
+        self.player4 = Player.objects.create(
+            stats_id=4,
+            name="Player 4",
+            draft_number=5,  # Top 10 pick
+            draft_year=2019
+        )
+        self.player5 = Player.objects.create(
+            stats_id=5,
+            name="Player 5",
+            is_undrafted=True
+        )
+
+    def test_filter_top_10_picks(self):
+        filter = Top10DraftpickFilter()
+        queryset = filter.apply_filter(Player.objects.all())
         
-        # Create a boolean filter for first round picks
-        filter = BooleanFilter('draft_round', 'First round draft pick', 1)
+        # Should include players with draft number <= 10
+        self.assertIn(self.player1, queryset)
+        self.assertIn(self.player3, queryset)
+        self.assertIn(self.player4, queryset)
         
-        # Test filter application
-        filtered_players = filter.apply_filter(Player.objects.all())
-        self.assertEqual(filtered_players.count(), 2)  # Should match first round picks
+        # Should exclude players with draft number > 10
+        self.assertNotIn(self.player2, queryset)
+        
+        # Should exclude undrafted players
+        self.assertNotIn(self.player5, queryset)
+
+    def test_filter_description(self):
+        filter = Top10DraftpickFilter()
+        desc = filter.get_desc()
+        self.assertEqual(desc, "Top 10 Draft Pick")
+
+    def test_player_stats_string(self):
+        filter = Top10DraftpickFilter()
+        
+        # Test with a top 10 pick
+        stats_str = filter.get_player_stats_str(self.player1)
+        self.assertEqual(stats_str, "Draft Pick: #1 in 2020")
+        
+        # Test with a non-top 10 pick
+        stats_str = filter.get_player_stats_str(self.player2)
+        self.assertEqual(stats_str, "Draft Pick: #15 in 2020")
+        
+        # Test with an undrafted player
+        stats_str = filter.get_player_stats_str(self.player5)
+        self.assertEqual(stats_str, "Draft Pick: Undrafted") 
 
 class TeamCountFilterTest(TestCase):
     def test_team_count_filter(self):
@@ -635,7 +689,7 @@ class USAFilterTest(TestCase):
         self.assertFalse(usa_filter.apply_filter(Player.objects.filter(stats_id=4)).exists())
         
         # Test description
-        self.assertEqual(usa_filter.get_desc(), "US Player")
+        self.assertEqual(usa_filter.get_desc(), "Born in USA")
 
 class InternationalFilterTest(TestCase):
     def setUp(self):

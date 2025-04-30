@@ -13,6 +13,9 @@ class GameFilter(object):
     @abstractmethod
     def get_desc(self) -> str:
         pass
+    @abstractmethod
+    def get_player_stats_str(self, player: Player) -> str:
+        pass
 
     def __str__(self) -> str:
         return self.get_desc()
@@ -36,6 +39,13 @@ class DynamicGameFilter(GameFilter):
         else:   
             comparison_operator = '__gte'
         return players.filter(**{f"{field}{comparison_operator}": self.current_value})
+    
+    def get_player_stats_str(self, player: Player) -> str:
+        description = self.config['stats_desc'] if 'stats_desc' in self.config else self.config['description']
+        field = self.config['field']
+        stat_value = getattr(player, field)
+        unit = f" {self.config['unit']}" if 'unit' in self.config else ''
+        return f"{description} {stat_value}{unit}"
     
     def get_desc(self) -> str:
         description = self.config['description']
@@ -78,18 +88,24 @@ class PositionFilter(GameFilter):
         return players.filter(position__contains=self.selected_position) # position field can contain multiple positions like 'Guard, Forward'
     def get_desc(self) -> str:
         return f"Plays {self.selected_position} position"
+    def get_player_stats_str(self, player: Player) -> str:
+        return f"Position: {player.position}"
 
 class USAFilter(GameFilter):
     def apply_filter(self, players:Manager[Player]) -> Manager[Player]:
         return players.filter(country="USA")
     def get_desc(self) -> str:
         return f"Born in USA"
+    def get_player_stats_str(self, player: Player) -> str:
+        return f"Birthplace: {player.country}"
 
 class InternationalFilter(GameFilter):
     def apply_filter(self, players:Manager[Player]) -> Manager[Player]:
         return players.exclude(country="USA")
     def get_desc(self) -> str:
         return f"Born outside of USA"
+    def get_player_stats_str(self, player: Player) -> str:
+        return f"Birthplace: {player.country}"
 
 class CountryFilter(GameFilter):
     def __init__(self, seed: int = 0):
@@ -110,6 +126,8 @@ class CountryFilter(GameFilter):
         return players.filter(country=self.country_name)
     def get_desc(self) -> str:
         return f"From country: {self.country_name}"
+    def get_player_stats_str(self, player: Player) -> str:
+        return f"Birthplace: {player.country}"
 
 class TeamFilter(GameFilter):
     def __init__(self, seed: int = 0):
@@ -120,58 +138,90 @@ class TeamFilter(GameFilter):
         return players.filter(teams__name=self.team_name)
     def get_desc(self) -> str:
         return f"Played for {self.team_name}"
+    def get_player_stats_str(self, player: Player) -> str:
+        team_abbrs = [team.abbreviation for team in player.teams.all()]
+        return f"Teams: {', '.join(team_abbrs)}"
 
 class BooleanFilter(GameFilter):
-    def __init__(self, field: str, description: str, value: bool = True):
-        self.field = field
-        self.description = description
-        self.value = value
+    '''
+    This is just a stub for legacy BooleanFilter. Nowadays we just use Top10DraftpickFilter.
+    '''
     def apply_filter(self, players:Manager[Player]) -> Manager[Player]:
-        return players.filter(**{self.field: self.value})
+        return players
     def get_desc(self) -> str:
-        return self.description
-    
+        return ""
+    def get_player_stats_str(self, player: Player) -> str:
+        return ""
+        
+class Top10DraftpickFilter(GameFilter):
+    def apply_filter(self, players:Manager[Player]) -> Manager[Player]:
+        return players.exclude(is_undrafted=True).filter(draft_number__lte=10)
+        
+    def get_desc(self) -> str:
+        return "Top 10 Draft Pick"
+        
+    def get_player_stats_str(self, player: Player) -> str:
+        draft_pick = f"#{player.draft_number} in {player.draft_year}"
+        if player.is_undrafted:
+            draft_pick = "Undrafted"
+        return f"Draft Pick: {draft_pick}"
+
 class AllNbaFilter(GameFilter):
     def apply_filter(self, players:Manager[Player]) -> Manager[Player]:
         return players.filter(is_award_all_nba_first=True) | players.filter(is_award_all_nba_second=True) | players.filter(is_award_all_nba_third=True)
     def get_desc(self) -> str:
         return "All-NBA player (1st, 2nd or 3rd team)"
+    def get_player_stats_str(self, player: Player) -> str:
+        return f"All-NBA: {player.is_award_all_nba_first or player.is_award_all_nba_second or player.is_award_all_nba_third}"
     
 class AllDefensiveFilter(GameFilter):
     def apply_filter(self, players:Manager[Player]) -> Manager[Player]:
         return players.filter(is_award_all_defensive=True)
     def get_desc(self) -> str:
         return "All-Defensive player"
+    def get_player_stats_str(self, player: Player) -> str:
+        return f"All-Defensive: {player.is_award_all_defensive}"
 
 class AllRookieFilter(GameFilter):
     def apply_filter(self, players:Manager[Player]) -> Manager[Player]:
         return players.filter(is_award_all_rookie=True)
     def get_desc(self) -> str:
         return "All-Rookie player"
+    def get_player_stats_str(self, player: Player) -> str:
+        return f"All-Rookie: {player.is_award_all_rookie}"
+
 
 class NbaChampFilter(GameFilter):
     def apply_filter(self, players:Manager[Player]) -> Manager[Player]:
         return players.filter(is_award_champ=True)
     def get_desc(self) -> str:
         return "NBA Champion"
+    def get_player_stats_str(self, player: Player) -> str:
+        return f"NBA Champion: {player.is_award_champ}"
 
 class AllStarFilter(GameFilter):
     def apply_filter(self, players:Manager[Player]) -> Manager[Player]:
         return players.filter(is_award_all_star=True)
     def get_desc(self) -> str:
         return "All-Star player"
+    def get_player_stats_str(self, player: Player) -> str:
+        return f"All-Star: {player.is_award_all_star}"
 
 class OlympicMedalFilter(GameFilter):
     def apply_filter(self, players:Manager[Player]) -> Manager[Player]:
         return players.filter(is_award_olympic_gold_medal=True) | players.filter(is_award_olympic_silver_medal=True) | players.filter(is_award_olympic_bronze_medal=True)
     def get_desc(self) -> str:
         return "Olympic medalist"
+    def get_player_stats_str(self, player: Player) -> str:
+        return f"Olympic Medal: {player.is_award_olympic_gold_medal or player.is_award_olympic_silver_medal or player.is_award_olympic_bronze_medal}"
 
 class TeamCountFilter(DynamicGameFilter):
     def apply_filter(self, players:Manager[Player]) -> Manager[Player]:
         return players.annotate(num_teams=Count('teams')).filter(num_teams__gte=self.current_value)
     def get_desc(self) -> str:
         return f"Played for {self.current_value}+ teams"
+    def get_player_stats_str(self, player: Player) -> str:
+        return f"Teams: {', '.join([team.name for team in player.teams.all()])}"
 
 def get_dynamic_filters(seed:int=0) -> list[DynamicGameFilter]:
     random.seed(seed)
@@ -215,6 +265,7 @@ def get_dynamic_filters(seed:int=0) -> list[DynamicGameFilter]:
         DynamicGameFilter({
             'field': 'num_seasons',
             'description': 'More than ',
+            'stats_desc': 'Total seasons:',
             'initial_min_value': 9,
             'initial_max_value': 11,
             'initial_value_step': 1,
@@ -226,6 +277,7 @@ def get_dynamic_filters(seed:int=0) -> list[DynamicGameFilter]:
         DynamicGameFilter({
             'field': 'num_seasons',
             'description': 'No more than ',
+            'stats_desc': 'Total seasons:',
             'initial_min_value': 1,
             'initial_max_value': 3,
             'initial_value_step': 1,
@@ -237,6 +289,7 @@ def get_dynamic_filters(seed:int=0) -> list[DynamicGameFilter]:
         DynamicGameFilter({
             'field': 'height_cm',
             'description': 'Taller than',
+            'stats_desc': 'Height:',
             'initial_min_value': 200,
             'initial_max_value': 210,
             'initial_value_step': 5,
@@ -248,6 +301,7 @@ def get_dynamic_filters(seed:int=0) -> list[DynamicGameFilter]:
         DynamicGameFilter({
             'field': 'height_cm',
             'description': 'Smaller than',
+            'stats_desc': 'Height:',
             'initial_min_value': 190,
             'initial_max_value': 195,
             'initial_value_step': 5,
@@ -336,12 +390,8 @@ def get_static_filters(seed:int=0) -> list[GameFilter]:
         OlympicMedalFilter(),
         # CountryFilter(seed), # deprecated, use USAFilter and InternationalFilter instead
         TeamFilter(seed),
-        #BooleanFilter('draft_round', 'First round draft pick', 1),
-        BooleanFilter('draft_number__lte', 'Top 10 draft pick', 10),
-        PositionFilter(seed),
-        # These filters return not enough results to be useful
-        # BooleanFilter('is_greatest_75', 'Selected for NBA Greatest 75'),
-        # BooleanFilter('is_undrafted', 'Undrafted player'),
+        Top10DraftpickFilter(),
+        PositionFilter(seed)
     ]
 
 def create_filter_from_db(db_filter):
@@ -388,13 +438,9 @@ def create_filter_from_db(db_filter):
             filter_obj.country_name = country
         return filter_obj
     elif filter_class == BooleanFilter:
-        # BooleanFilter takes field and description as constructor args
-        field = config.pop('field', None)
-        description = config.pop('description', None)
-        value = config.pop('value', True)
-        if field is not None and description is not None:
-            return filter_class(field, description, value)
-        return filter_class(**config)
+        return Top10DraftpickFilter()
+    elif filter_class == Top10DraftpickFilter:
+        return filter_class()
     
     # For any other filter type, just pass the config as is
     return filter_class(**config)
