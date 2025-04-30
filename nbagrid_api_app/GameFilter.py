@@ -83,13 +83,13 @@ class USAFilter(GameFilter):
     def apply_filter(self, players:Manager[Player]) -> Manager[Player]:
         return players.filter(country="USA")
     def get_desc(self) -> str:
-        return f"US Player"
+        return f"Born in USA"
 
 class InternationalFilter(GameFilter):
     def apply_filter(self, players:Manager[Player]) -> Manager[Player]:
         return players.exclude(country="USA")
     def get_desc(self) -> str:
-        return f"International Player"
+        return f"Born outside of USA"
 
 class CountryFilter(GameFilter):
     def __init__(self, seed: int = 0):
