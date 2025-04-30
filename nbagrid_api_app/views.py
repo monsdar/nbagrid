@@ -119,6 +119,10 @@ def handle_player_guess(request, grid, game_state, requested_date):
         cell_data['player_name'] = player.name
         cell_data['is_correct'] = is_correct
         
+        # Track wrong guesses count
+        if not is_correct:
+            cell_data['wrong_guesses'] = cell_data.get('wrong_guesses', 0) + 1
+        
         if is_correct:
             handle_correct_guess(requested_date, cell_key, player, cell_data)
         

@@ -77,6 +77,20 @@
             cursor: default;
         }
 
+        .wrong-guesses {
+            color: #800000;  /* Dark red text */
+            font-size: 10px;
+            font-weight: bold;
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            z-index: 1;
+            background-color: #ff8e8e;  /* Bright red background */
+            padding: 2px 4px;
+            border-radius: 3px;
+            text-transform: uppercase;
+        }
+
         .game-title-cell {
             min-height: 70px;
             color: white;
@@ -675,6 +689,9 @@
                 onclick="{% if not is_finished and not cell_data.is_correct %}openModal(this){% elif is_finished and not cell_data.is_correct %}showCorrectPlayers(this){% endif %}"
                 data-row="{{ row }}" data-col="{{ col }}" {% if is_finished and not cell_data.is_correct %}
                 data-correct-players="{{ correct_players|get_item:cell_key|join:',' }}" {% endif %}>
+                {% if cell_data and cell_data.wrong_guesses %}
+                <span class="wrong-guesses">{{ cell_data.wrong_guesses }} X</span>
+                {% endif %}
                 {% if cell_data and cell_data.player_name and cell_data.is_correct %}
                 {{ cell_data.player_name }}
                 <span class="tier-label">{{ cell_data.tier }}</span>
@@ -845,6 +862,12 @@
                     }
 
                     if (data.is_correct) {
+                        // Remove any existing wrong guesses span
+                        const existingWrongGuesses = currentCell.querySelector('.wrong-guesses');
+                        if (existingWrongGuesses) {
+                            existingWrongGuesses.remove();
+                        }
+                        
                         currentCell.textContent = playerName;
                         selectedPlayers.add(playerId);  // Add to selected players set
                         currentCell.classList.add('correct');
@@ -858,9 +881,24 @@
                         tierLabel.className = 'tier-label';
                         tierLabel.textContent = tier;
                         currentCell.appendChild(tierLabel);
+                        
+                        // Add back wrong guesses count if it exists
+                        if (data.cell_data.wrong_guesses) {
+                            const wrongGuessesSpan = document.createElement('span');
+                            wrongGuessesSpan.className = 'wrong-guesses';
+                            wrongGuessesSpan.textContent = data.cell_data.wrong_guesses;
+                            currentCell.insertBefore(wrongGuessesSpan, currentCell.firstChild);
+                        }
                     } else {
                         currentCell.textContent = "";
                         currentCell.classList.add('flash-red');
+                        
+                        // Update wrong guesses count
+                        const wrongGuesses = data.cell_data.wrong_guesses || 1;
+                        const wrongGuessesSpan = document.createElement('span');
+                        wrongGuessesSpan.className = 'wrong-guesses';
+                        wrongGuessesSpan.textContent = wrongGuesses;
+                        currentCell.appendChild(wrongGuessesSpan);
                     }
 
                     // Update score display if total_score is available
@@ -888,7 +926,12 @@
                                 const col = cell.getAttribute('data-col');
                                 const cellKey = `${row}_${col}`;
                                 if (data.correct_players && data.correct_players[cellKey]) {
+                                    // Keep the wrong guesses count if it exists
+                                    const wrongGuesses = cell.querySelector('.wrong-guesses');
                                     cell.textContent = '?';
+                                    if (wrongGuesses) {
+                                        cell.insertBefore(wrongGuesses, cell.firstChild);
+                                    }
                                     cell.classList.add('exhausted');
                                     cell.setAttribute('data-correct-players', data.correct_players[cellKey].join(','));
                                     cell.onclick = function () { showCorrectPlayers(this); };
