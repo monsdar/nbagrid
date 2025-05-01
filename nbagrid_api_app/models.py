@@ -172,15 +172,16 @@ class Player(models.Model):
         if 'CareerHighs' in player_stats:
             career_highs = player_stats['CareerHighs']
             for high in career_highs:
-                if high['STAT'] == 'PTS': self.career_high_pts = high['STAT_VALUE']
-                elif high['STAT'] == 'AST': self.career_high_ast = high['STAT_VALUE']
-                elif high['STAT'] == 'REB': self.career_high_reb = high['STAT_VALUE']
-                elif high['STAT'] == 'STL': self.career_high_stl = high['STAT_VALUE']
-                elif high['STAT'] == 'BLK': self.career_high_blk = high['STAT_VALUE']
-                elif high['STAT'] == 'TOV': self.career_high_to = high['STAT_VALUE']
-                elif high['STAT'] == 'FGM': self.career_high_fg = high['STAT_VALUE']
-                elif high['STAT'] == 'FG3M': self.career_high_3p = high['STAT_VALUE']
-                elif high['STAT'] == 'FTA': self.career_high_ft = high['STAT_VALUE']
+                stat_value = high['STAT_VALUE']
+                if high['STAT'] == 'PTS' and stat_value > self.career_high_pts: self.career_high_pts = stat_value
+                elif high['STAT'] == 'AST' and stat_value > self.career_high_ast: self.career_high_ast = stat_value
+                elif high['STAT'] == 'REB' and stat_value > self.career_high_reb: self.career_high_reb = stat_value
+                elif high['STAT'] == 'STL' and stat_value > self.career_high_stl: self.career_high_stl = stat_value
+                elif high['STAT'] == 'BLK' and stat_value > self.career_high_blk: self.career_high_blk = stat_value
+                elif high['STAT'] == 'TOV' and stat_value > self.career_high_to: self.career_high_to = stat_value
+                elif high['STAT'] == 'FGM' and stat_value > self.career_high_fg: self.career_high_fg = stat_value
+                elif high['STAT'] == 'FG3M' and stat_value > self.career_high_3p: self.career_high_3p = stat_value
+                elif high['STAT'] == 'FTA' and stat_value > self.career_high_ft: self.career_high_ft = stat_value
         else:
             logger.info(f"Player {self.name} has no recorded career highs...")
             

@@ -282,12 +282,19 @@ def game(request, year, month, day):
     # Get completion count
     completion_count = GameCompletion.get_completion_count(requested_date.date())
     
-    # Get the last update timestamp
+    # Get the last update timestamp for player data specifically
     try:
-        last_updated = LastUpdated.objects.filter(data_type="player_data").first()
+        last_updated = LastUpdated.objects.filter(data_type="player_data").order_by('-last_updated').first()
         last_updated_date = last_updated.last_updated if last_updated else None
-    except:
+    except Exception as e:
+        logger.error(f"Error fetching last update timestamp: {e}")
         last_updated_date = None
+    
+    # Format the last updated date
+    if last_updated_date:
+        last_updated_str = last_updated_date.strftime('%B %d, %Y')
+    else:
+        last_updated_str = 'Unknown'
     
     return render(request, 'game.html', {
         'year': year,
@@ -310,7 +317,7 @@ def game(request, year, month, day):
         'show_next': show_next,
         'prev_date': prev_date,
         'next_date': next_date,
-        'last_updated_date': last_updated_date.strftime('%B %d, %Y') if last_updated_date else 'Unknown'
+        'last_updated_date': last_updated_str
     })
 
 def search_players(request):

@@ -699,6 +699,7 @@
         #filterDetailsModal .modal-content {
             max-width: 600px;
             line-height: 1.6;
+            padding: 20px;
         }
         
         #filterTitle {
@@ -867,6 +868,39 @@
         const searchInput = document.getElementById('player-search');
         const suggestionsDiv = document.getElementById('player-suggestions');
         let cell_players = new Set();
+
+        // Filter details modal functions
+        function showFilterDetails(filterType, index) {
+            const modal = document.getElementById('filterDetailsModal');
+            const title = document.getElementById('filterTitle');
+            const description = document.getElementById('filterDescription');
+            
+            let filterText = '';
+            let detailedDescription = '';
+            
+            // Get the filter values from pre-generated JSON
+            const staticFilters = {{ static_filters|to_json|safe }};
+            const staticFiltersDetailed = {{ static_filters_detailed|to_json|safe }};
+            const dynamicFilters = {{ dynamic_filters|to_json|safe }};
+            const dynamicFiltersDetailed = {{ dynamic_filters_detailed|to_json|safe }};
+            
+            if (filterType === 'static' && index < staticFilters.length) {
+                filterText = staticFilters[index];
+                detailedDescription = staticFiltersDetailed[index];
+            } else if (filterType === 'dynamic' && index < dynamicFilters.length) {
+                filterText = dynamicFilters[index];
+                detailedDescription = dynamicFiltersDetailed[index];
+            }
+            
+            title.textContent = filterText;
+            description.textContent = detailedDescription;
+            
+            modal.style.display = 'block';
+        }
+        
+        function closeFilterDetailsModal() {
+            document.getElementById('filterDetailsModal').style.display = 'none';
+        }
 
         function openModal(cell) {
             if (cell.classList.contains('correct') || cell.classList.contains('exhausted')) return;
@@ -1239,38 +1273,6 @@
 
         function closeAboutModal() {
             document.getElementById('aboutModal').style.display = 'none';
-        }
-
-        function showFilterDetails(filterType, index) {
-            const modal = document.getElementById('filterDetailsModal');
-            const title = document.getElementById('filterTitle');
-            const description = document.getElementById('filterDescription');
-            
-            let filterText = '';
-            let detailedDescription = '';
-            
-            // Get the filter values from pre-generated JSON
-            const staticFilters = {{ static_filters|to_json|safe }};
-            const staticFiltersDetailed = {{ static_filters_detailed|to_json|safe }};
-            const dynamicFilters = {{ dynamic_filters|to_json|safe }};
-            const dynamicFiltersDetailed = {{ dynamic_filters_detailed|to_json|safe }};
-            
-            if (filterType === 'static' && index < staticFilters.length) {
-                filterText = staticFilters[index];
-                detailedDescription = staticFiltersDetailed[index];
-            } else if (filterType === 'dynamic' && index < dynamicFilters.length) {
-                filterText = dynamicFilters[index];
-                detailedDescription = dynamicFiltersDetailed[index];
-            }
-            
-            title.textContent = filterText;
-            description.textContent = detailedDescription;
-            
-            modal.style.display = 'block';
-        }
-        
-        function closeFilterDetailsModal() {
-            document.getElementById('filterDetailsModal').style.display = 'none';
         }
     </script>
 </body>
