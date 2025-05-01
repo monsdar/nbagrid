@@ -1,10 +1,12 @@
 from ninja import NinjaAPI, Schema
 from ninja.security import APIKeyHeader
-from nbagrid_api_app.models import Player
+from nbagrid_api_app.models import Player, LastUpdated
 from nbagrid_api_app.GameBuilder import GameBuilder
 from django.conf import settings
 
 from datetime import datetime
+import json
+from typing import Optional
 
 api = NinjaAPI()
 game_cache = {}
@@ -144,9 +146,69 @@ def update_player(request, stats_id: int, data: PlayerSchema):
                 setattr(player, field, getattr(data, field))
         
         player.save()
+        
+        # Record the update timestamp
+        LastUpdated.update_timestamp(
+            data_type="player_data",
+            updated_by=f"API update for player {stats_id}",
+            notes=f"{'Created' if created else 'Updated'} player {player.name}"
+        )
+        
         action = "created" if created else "updated"
         return {"status": "success", "message": f"Player {player.name} {action} successfully"}
             
+    except Exception as e:
+        return {"status": "error", "message": str(e)}, 500
+
+class LastUpdatedSchema(Schema):
+    data_type: str
+    updated_by: Optional[str] = None
+    notes: Optional[str] = None
+
+@api.get("/updates")
+def get_all_updates(request):
+    """Get all update timestamps"""
+    updates = LastUpdated.objects.all()
+    return [
+        {
+            "data_type": update.data_type,
+            "last_updated": update.last_updated.isoformat() if update.last_updated else None,
+            "updated_by": update.updated_by,
+            "notes": update.notes
+        }
+        for update in updates
+    ]
+
+@api.get("/updates/{data_type}")
+def get_update_timestamp(request, data_type: str):
+    """Get the last update timestamp for a specific data type"""
+    try:
+        update = LastUpdated.objects.get(data_type=data_type)
+        return {
+            "data_type": update.data_type,
+            "last_updated": update.last_updated.isoformat() if update.last_updated else None,
+            "updated_by": update.updated_by,
+            "notes": update.notes
+        }
+    except LastUpdated.DoesNotExist:
+        return {"error": f"No update record found for '{data_type}'"}, 404
+
+@api.post("/updates", auth=header_key)
+def record_update(request, data: LastUpdatedSchema):
+    """Record a new update timestamp"""
+    try:
+        update = LastUpdated.update_timestamp(
+            data_type=data.data_type,
+            updated_by=data.updated_by,
+            notes=data.notes
+        )
+        return {
+            "status": "success",
+            "data_type": update.data_type,
+            "last_updated": update.last_updated.isoformat(),
+            "updated_by": update.updated_by,
+            "notes": update.notes
+        }
     except Exception as e:
         return {"status": "error", "message": str(e)}, 500
     

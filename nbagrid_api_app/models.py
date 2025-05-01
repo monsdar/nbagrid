@@ -363,3 +363,53 @@ class GameFilterDB(models.Model):
     def __str__(self):
         return f"{self.date} - {self.filter_type} - {self.filter_class} ({self.filter_index})"
     
+class LastUpdated(models.Model):
+    """
+    Model to track when data was last updated
+    """
+    data_type = models.CharField(max_length=50, unique=True, help_text="Type of data that was updated (e.g., 'player_data')")
+    last_updated = models.DateTimeField(auto_now=True, help_text="When this data was last updated")
+    updated_by = models.CharField(max_length=100, blank=True, null=True, help_text="Who or what performed the update")
+    notes = models.TextField(blank=True, null=True, help_text="Additional information about the update")
+
+    def __str__(self):
+        return f"{self.data_type} (updated: {self.last_updated})"
+
+    @classmethod
+    def update_timestamp(cls, data_type, updated_by=None, notes=None):
+        """
+        Update or create a timestamp entry for the given data type
+        
+        Args:
+            data_type: The type of data being updated
+            updated_by: Who or what performed the update
+            notes: Additional notes about the update
+            
+        Returns:
+            The LastUpdated instance
+        """
+        obj, created = cls.objects.update_or_create(
+            data_type=data_type,
+            defaults={
+                'updated_by': updated_by,
+                'notes': notes
+            }
+        )
+        return obj
+
+    @classmethod
+    def get_last_updated(cls, data_type):
+        """
+        Get the last update timestamp for the given data type
+        
+        Args:
+            data_type: The type of data to check
+            
+        Returns:
+            The timestamp or None if not found
+        """
+        try:
+            return cls.objects.get(data_type=data_type).last_updated
+        except cls.DoesNotExist:
+            return None
+    
