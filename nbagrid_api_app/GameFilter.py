@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from django.db.models import Manager, Count
+from django.db.models import Manager, Count, Subquery, OuterRef
 from nbagrid_api_app.models import Player, Team
 import random
 import logging
@@ -217,7 +217,16 @@ class OlympicMedalFilter(GameFilter):
 
 class TeamCountFilter(DynamicGameFilter):
     def apply_filter(self, players:Manager[Player]) -> Manager[Player]:
-        return players.annotate(num_teams=Count('teams')).filter(num_teams__gte=self.current_value)
+        # Use a subquery to count all teams, not just the ones in the current filtered queryset
+        player_ids = players.values_list('stats_id', flat=True)
+        
+        # Get the full list of players from the DB again and count their teams
+        all_matching_players = Player.objects.filter(stats_id__in=player_ids)
+        all_matching_players = all_matching_players.annotate(num_teams=Count('teams', distinct=True))
+        all_matching_players = all_matching_players.filter(num_teams__gte=self.current_value)
+        
+        # Return only the player IDs that match our criteria
+        return players.filter(stats_id__in=all_matching_players.values_list('stats_id', flat=True))
     def get_desc(self) -> str:
         return f"Played for {self.current_value}+ teams"
     def get_player_stats_str(self, player: Player) -> str:

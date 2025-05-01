@@ -800,3 +800,71 @@ class OlympicMedalFilterTest(TestCase):
         filtered_players = filter.apply_filter(Player.objects.all())
         self.assertEqual(filtered_players.count(), 30)  # Should match all Olympic medalists
         self.assertTrue(all(p.is_award_olympic_gold_medal or p.is_award_olympic_silver_medal or p.is_award_olympic_bronze_medal for p in filtered_players))
+
+class CombinedFilterTest(TestCase):
+    def test_team_and_team_count_filter_combination(self):
+        """Test that TeamFilter and TeamCountFilter work correctly when combined."""
+        # Create test teams
+        team1 = Team.objects.create(stats_id=1, name='Team 1', abbr='T1')
+        team2 = Team.objects.create(stats_id=2, name='Team 2', abbr='T2')
+        team3 = Team.objects.create(stats_id=3, name='Team 3', abbr='T3')
+        
+        # Create test players with different team combinations
+        # Player 1: Only on Team 1
+        player1 = Player.objects.create(stats_id=1, name='Player 1')
+        player1.teams.set([team1])
+        
+        # Player 2: On Team 1 and 2 (2 teams)
+        player2 = Player.objects.create(stats_id=2, name='Player 2')
+        player2.teams.set([team1, team2])
+        
+        # Player 3: On Team 2 and 3 (2 teams)
+        player3 = Player.objects.create(stats_id=3, name='Player 3')
+        player3.teams.set([team2, team3])
+        
+        # Player 4: On all three teams (3 teams)
+        player4 = Player.objects.create(stats_id=4, name='Player 4')
+        player4.teams.set([team1, team2, team3])
+        
+        # Create TeamFilter for Team 1
+        team_filter = TeamFilter(seed=0)
+        team_filter.team_name = 'Team 1'
+        
+        # Create TeamCountFilter for 2+ teams
+        team_count_filter = TeamCountFilter({
+            'description': 'teams played for',
+            'initial_min_value': 2,
+            'initial_max_value': 8,
+            'initial_value_step': 1,
+            'widen_step': 1,
+            'narrow_step': 1
+        })
+        team_count_filter.current_value = 2  # 2 or more teams
+        
+        # Apply filters individually
+        team_filter_players = team_filter.apply_filter(Player.objects.all())
+        self.assertEqual(team_filter_players.count(), 3)  # Players 1, 2, and 4 played for Team 1
+        
+        team_count_filter_players = team_count_filter.apply_filter(Player.objects.all())
+        self.assertEqual(team_count_filter_players.count(), 3)  # Players 2, 3, and 4 played for 2+ teams
+        
+        # Apply filters in sequence (simulating how they'd be applied in a grid cell)
+        matching_players = Player.objects.all()
+        matching_players = team_filter.apply_filter(matching_players)
+        matching_players = team_count_filter.apply_filter(matching_players)
+        
+        # Should match players who both played for Team 1 AND played for 2+ teams
+        self.assertEqual(matching_players.count(), 2)  # Players 2 and 4
+        player_ids = set(matching_players.values_list('stats_id', flat=True))
+        self.assertIn(2, player_ids)  # Player 2 should match
+        self.assertIn(4, player_ids)  # Player 4 should match
+        
+        # Test the reverse order to ensure it doesn't matter
+        matching_players = Player.objects.all()
+        matching_players = team_count_filter.apply_filter(matching_players)
+        matching_players = team_filter.apply_filter(matching_players)
+        
+        self.assertEqual(matching_players.count(), 2)  # Should still be Players 2 and 4
+        player_ids = set(matching_players.values_list('stats_id', flat=True))
+        self.assertIn(2, player_ids)
+        self.assertIn(4, player_ids)
