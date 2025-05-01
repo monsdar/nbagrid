@@ -833,8 +833,20 @@
 
         function showCorrectPlayers(cell) {
             const cellKey = cell.getAttribute('data-cell-key');
+            const correctPlayersDataElement = document.getElementById('correct-players-data');
+            
+            // If the correct-players-data element doesn't exist, create it
+            if (!correctPlayersDataElement) {
+                console.log('correct-players-data element not found, creating empty data');
+                const correctPlayersScript = document.createElement('script');
+                correctPlayersScript.id = 'correct-players-data';
+                correctPlayersScript.type = 'application/json';
+                correctPlayersScript.textContent = JSON.stringify({});
+                document.body.appendChild(correctPlayersScript);
+            }
+            
             const correctPlayersData = JSON.parse(document.getElementById('correct-players-data').textContent);
-            const players = correctPlayersData[cellKey];
+            const players = correctPlayersData[cellKey] || [];
             const dialog = document.getElementById('correctPlayersModal');
             const content = document.getElementById('correct-players-list');
             
