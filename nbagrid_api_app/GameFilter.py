@@ -139,7 +139,7 @@ class TeamFilter(GameFilter):
     def get_desc(self) -> str:
         return f"Played for {self.team_name}"
     def get_player_stats_str(self, player: Player) -> str:
-        team_abbrs = [team.abbreviation for team in player.teams.all()]
+        team_abbrs = [team.abbr for team in player.teams.all()]
         return f"Teams: {', '.join(team_abbrs)}"
 
 class BooleanFilter(GameFilter):
@@ -221,7 +221,8 @@ class TeamCountFilter(DynamicGameFilter):
     def get_desc(self) -> str:
         return f"Played for {self.current_value}+ teams"
     def get_player_stats_str(self, player: Player) -> str:
-        return f"Teams: {', '.join([team.name for team in player.teams.all()])}"
+        team_abbrs = [team.abbr for team in player.teams.all()]
+        return f"Teams: {len(team_abbrs)} ({', '.join(team_abbrs)})"
 
 def get_dynamic_filters(seed:int=0) -> list[DynamicGameFilter]:
     random.seed(seed)
