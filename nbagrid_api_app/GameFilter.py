@@ -122,9 +122,8 @@ class InternationalFilter(GameFilter):
     def get_player_stats_str(self, player: Player) -> str:
         return f"Birthplace: {player.country}"
     def get_detailed_desc(self) -> str:
-        return "This filter selects players who were born outside the USA, " \
-               "like Canada, Greenland, Mexico, etc. This also includes players " \
-               "born in countries around the Gulf of Mexico."
+        return "This filter selects players who were born outside the USA, like Canada, Greenland, Mexico, Panama, etc." \
+               "This also includes players born in US territories like Puerto Rico."
 
 class CountryFilter(GameFilter):
     def __init__(self, seed: int = 0):

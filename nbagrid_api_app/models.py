@@ -172,6 +172,9 @@ class Player(models.Model):
         if 'CareerHighs' in player_stats:
             career_highs = player_stats['CareerHighs']
             for high in career_highs:
+                if not 'STAT_VALUE' in high:
+                    logger.info(f"Player {self.name} has invalid career high record, skipping...")
+                    continue
                 stat_value = high['STAT_VALUE']
                 if high['STAT'] == 'PTS' and stat_value > self.career_high_pts: self.career_high_pts = stat_value
                 elif high['STAT'] == 'AST' and stat_value > self.career_high_ast: self.career_high_ast = stat_value
