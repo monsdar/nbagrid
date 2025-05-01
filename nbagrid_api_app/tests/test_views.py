@@ -192,7 +192,8 @@ class GameViewTests(TestCase):
         data = response.json()
         self.assertTrue(data['is_finished'])
         self.assertEqual(data['attempts_remaining'], 0)
-        self.assertEqual(data['selected_cells'][f'0_0']['player_id'], str(self.player.stats_id))
+        cell_data = data['selected_cells'][f'0_0'][0]  # Get the first (and only) cell data
+        self.assertEqual(cell_data['player_id'], str(self.player.stats_id))
 
     def test_game_completion_all_cells_correct(self):
         # Initialize game state with all cells correct but attempts remaining
@@ -200,15 +201,15 @@ class GameViewTests(TestCase):
         session[self.game_state_key] = {
             'attempts_remaining': 5,  # Still have attempts left
             'selected_cells': {
-                '0_0': {'is_correct': False}, # we post a positive guess for this cell later in the test
-                '0_1': {'is_correct': True, 'player_id': self.player.stats_id},
-                '0_2': {'is_correct': True, 'player_id': self.player.stats_id},
-                '1_0': {'is_correct': True, 'player_id': self.player.stats_id},
-                '1_1': {'is_correct': True, 'player_id': self.player.stats_id},
-                '1_2': {'is_correct': True, 'player_id': self.player.stats_id},
-                '2_0': {'is_correct': True, 'player_id': self.player.stats_id},
-                '2_1': {'is_correct': True, 'player_id': self.player.stats_id},
-                '2_2': {'is_correct': True, 'player_id': self.player.stats_id}
+                '0_0': [{'is_correct': False}],  # we post a positive guess for this cell later in the test
+                '0_1': [{'is_correct': True, 'player_id': self.player.stats_id}],
+                '0_2': [{'is_correct': True, 'player_id': self.player.stats_id}],
+                '1_0': [{'is_correct': True, 'player_id': self.player.stats_id}],
+                '1_1': [{'is_correct': True, 'player_id': self.player.stats_id}],
+                '1_2': [{'is_correct': True, 'player_id': self.player.stats_id}],
+                '2_0': [{'is_correct': True, 'player_id': self.player.stats_id}],
+                '2_1': [{'is_correct': True, 'player_id': self.player.stats_id}],
+                '2_2': [{'is_correct': True, 'player_id': self.player.stats_id}]
             },
             'is_finished': False
         }
@@ -242,12 +243,12 @@ class GameViewTests(TestCase):
         session[self.game_state_key] = {
             'attempts_remaining': 10,
             'selected_cells': {
-                '0_0': {
+                '0_0': [{
                     'player_id': str(self.player.stats_id),
                     'player_name': self.player.name,
                     'is_correct': True,
                     'score': 0.5
-                }
+                }]
             },
             'is_finished': False,
             'total_score': 0.5

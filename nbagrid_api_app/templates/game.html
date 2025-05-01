@@ -54,6 +54,11 @@
             cursor: pointer;
         }
 
+        .game-finished .cell.correct:hover {
+            background-color: #567e56 !important;
+            cursor: pointer !important;
+        }
+
         .header-cell {
             font-weight: bold;
             font-size: 14px;
@@ -233,6 +238,32 @@
             margin: 5px 0;
             padding: 10px;
             position: relative;
+        }
+
+        .correct-player.wrong-guess {
+            background-color: #4a1e1e;
+            border-left: 3px solid #800000;
+        }
+
+        .correct-player.wrong-guess .player-name {
+            color: #ff8e8e;
+        }
+
+        .correct-player.wrong-guess .player-stats {
+            color: #cc6666;
+        }
+
+        .wrong-guess-count {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            font-size: 10px;
+            font-weight: bold;
+            color: #800000;
+            background-color: #ff8e8e;
+            padding: 2px 4px;
+            border-radius: 3px;
+            text-transform: uppercase;
         }
 
         .player-name {
@@ -667,7 +698,7 @@
 </head>
 
 <body>
-    <div class="game-container">
+    <div class="game-container {% if is_finished %}game-finished{% endif %}">
         <div class="game-header">
             <div class="game-title-large">NBAGrid</div>
             <div class="date-navigation">
@@ -704,21 +735,27 @@
             {% with row_str=row|stringformat:"s" %}
             {% with col_str=col|stringformat:"s" %}
             {% with cell_key=row_str|add:"_"|add:col_str %}
-            {% with cell_data=selected_cells|get_item:cell_key %}
-            <div class="cell {% if cell_data.is_correct %}correct tier-{{ cell_data.tier }}{% endif %} {% if is_finished and not cell_data.is_correct %}exhausted{% endif %}"
-                onclick="{% if not is_finished and not cell_data.is_correct %}openModal(this){% elif is_finished and not cell_data.is_correct %}showCorrectPlayers(this){% endif %}"
-                data-row="{{ row }}" data-col="{{ col }}" {% if is_finished and not cell_data.is_correct %}
+            {% with cell_data_list=selected_cells|get_item:cell_key %}
+            {% with cell_data=cell_data_list|get_correct_cell %}
+            <div class="cell {% if cell_data and cell_data.is_correct %}correct tier-{{ cell_data.tier }}{% endif %} {% if is_finished and not cell_data.is_correct %}exhausted{% endif %}"
+                onclick="{% if is_finished %}showCorrectPlayers(this){% elif not cell_data.is_correct %}openModal(this){% endif %}"
+                data-row="{{ row }}" data-col="{{ col }}" {% if is_finished %}
                 data-cell-key="{{ cell_key }}" {% endif %}>
-                {% if cell_data and cell_data.wrong_guesses %}
-                <span class="wrong-guesses">{{ cell_data.wrong_guesses }} X</span>
+                {% if cell_data_list %}
+                {% with incorrect_guesses=cell_data_list|filter_incorrect|length %}
+                {% if incorrect_guesses > 0 %}
+                <span class="wrong-guesses">{{ incorrect_guesses }} X</span>
                 {% endif %}
-                {% if cell_data and cell_data.player_name and cell_data.is_correct %}
+                {% endwith %}
+                {% endif %}
+                {% if cell_data and cell_data.is_correct and cell_data.player_name %}
                 {{ cell_data.player_name }}
                 <span class="tier-label">{{ cell_data.tier }}</span>
                 {% elif is_finished and not cell_data.is_correct %}
                 ?
                 {% endif %}
             </div>
+            {% endwith %}
             {% endwith %}
             {% endwith %}
             {% endwith %}
@@ -778,7 +815,7 @@
         const modal = document.getElementById('playerModal');
         const searchInput = document.getElementById('player-search');
         const suggestionsDiv = document.getElementById('player-suggestions');
-        let selectedPlayers = new Set();
+        let cell_players = new Set();
 
         function openModal(cell) {
             if (cell.classList.contains('correct') || cell.classList.contains('exhausted')) return;
@@ -802,17 +839,34 @@
             const content = document.getElementById('correct-players-list');
             
             if (!players || players.length === 0) {
-                content.innerHTML = '<p>No correct players found for this cell.</p>';
+                content.innerHTML = '<p>No players found for this cell.</p>';
             } else {
                 let html = '';
-                players.forEach(function(player) {
-                    html += `<div class="correct-player">
+                
+                // Sort players to show wrong guesses first
+                const sortedPlayers = [...players].sort((a, b) => {
+                    if (a.is_wrong_guess && !b.is_wrong_guess) return -1;
+                    if (!a.is_wrong_guess && b.is_wrong_guess) return 1;
+                    return 0;
+                });
+                
+                sortedPlayers.forEach(function(player) {
+                    const wrongGuessClass = player.is_wrong_guess ? 'wrong-guess' : '';
+                    const wrongGuessCount = player.is_wrong_guess ? '<span class="wrong-guess-count">1 X</span>' : '';
+                    html += `<div class="correct-player ${wrongGuessClass}">
+                        ${wrongGuessCount}
                         <div class="player-name">${player.name}</div>
                         <div class="player-stats">${player.stats.join('<br>')}</div>
                     </div>`;
                 });
+                
                 content.innerHTML = html;
             }
+            
+            // Update the dialog title with the count of non-wrong-guess players
+            const title = dialog.querySelector('h2');
+            const validPlayers = players ? players.filter(p => !p.is_wrong_guess) : [];
+            title.textContent = `Possible Players: ${validPlayers.length}`;
             
             dialog.style.display = 'block';
         }
@@ -832,11 +886,16 @@
         }
 
         // Initialize selected players from the game state
-        console.log('Initializing selectedPlayers from game state:');
-        {% for cell_key, cell_data in selected_cells.items %}
-            selectedPlayers.add('{{ cell_data.player_id }}');
+        console.log('Initializing cell_players from game state:');
+        {% for cell_key, cell_data_list in selected_cells.items %}
+            {% for cell_data in cell_data_list %}
+                {% if cell_data.is_correct %}
+                    console.log('Cell key: {{ cell_key }}, Cell data: {{ cell_data }}');
+                    cell_players.add('{{ cell_data.player_id }}');
+                {% endif %}
+            {% endfor %}
         {% endfor %}
-        console.log('Final selectedPlayers Set:', Array.from(selectedPlayers));
+        console.log('Final cell_players Set:', Array.from(cell_players));
 
         // Initialize attempts counter
         updateAttemptsCounter({{ attempts_remaining }});
@@ -844,8 +903,8 @@
         function selectPlayer(playerId, playerName) {
             if (!currentCell) return;
             console.log('Attempting to select player:', playerId);
-            console.log('Current selectedPlayers:', Array.from(selectedPlayers));
-            if (selectedPlayers.has(playerId.toString())) {
+            console.log('Current cell_players:', Array.from(cell_players));
+            if (cell_players.has(playerId.toString())) {
                 console.log('Player already selected, preventing selection');
                 // Update all buttons for this player to be disabled
                 document.querySelectorAll(`button[data-player-id="${playerId}"]`).forEach(button => {
@@ -886,43 +945,52 @@
                     }
 
                     if (data.is_correct) {
-                        // Remove any existing wrong guesses span
-                        const existingWrongGuesses = currentCell.querySelector('.wrong-guesses');
-                        if (existingWrongGuesses) {
-                            existingWrongGuesses.remove();
+                        // Clear the cell content
+                        currentCell.textContent = '';
+                        
+                        // Find the correct CellData
+                        const correctCellData = data.cell_data.find(cell => cell.is_correct);
+                        if (!correctCellData) {
+                            console.error('No correct cell data found');
+                            return;
                         }
-                        
-                        currentCell.textContent = playerName;
-                        selectedPlayers.add(playerId);  // Add to selected players set
-                        currentCell.classList.add('correct');
-                        
-                        // Add tier class based on the score
-                        const tier = data.cell_data.tier;
-                        currentCell.classList.add(`tier-${tier}`);
+                                                
+                        // Add the player name
+                        const playerNameSpan = document.createElement('span');
+                        playerNameSpan.textContent = playerName;
+                        currentCell.appendChild(playerNameSpan);
                         
                         // Add tier label
                         const tierLabel = document.createElement('span');
                         tierLabel.className = 'tier-label';
-                        tierLabel.textContent = tier;
+                        tierLabel.textContent = correctCellData.tier;
                         currentCell.appendChild(tierLabel);
                         
-                        // Add back wrong guesses count if it exists
-                        if (data.cell_data.wrong_guesses) {
+                        // Add wrong guesses count if there are any
+                        const incorrectGuesses = data.cell_data.filter(cell => !cell.is_correct).length;
+                        if (incorrectGuesses > 0) {
                             const wrongGuessesSpan = document.createElement('span');
                             wrongGuessesSpan.className = 'wrong-guesses';
-                            wrongGuessesSpan.textContent = data.cell_data.wrong_guesses;
-                            currentCell.insertBefore(wrongGuessesSpan, currentCell.firstChild);
+                            wrongGuessesSpan.textContent = incorrectGuesses + ' X';
+                            currentCell.appendChild(wrongGuessesSpan);
                         }
+                        
+                        cell_players.add(playerId);  // Add to selected players set
+                        currentCell.classList.add('correct');
+                        currentCell.classList.add(`tier-${correctCellData.tier}`);
                     } else {
                         currentCell.textContent = "";
                         currentCell.classList.add('flash-red');
                         
                         // Update wrong guesses count
-                        const wrongGuesses = data.cell_data.wrong_guesses || 1;
-                        const wrongGuessesSpan = document.createElement('span');
-                        wrongGuessesSpan.className = 'wrong-guesses';
-                        wrongGuessesSpan.textContent = wrongGuesses;
-                        currentCell.appendChild(wrongGuessesSpan);
+                        // Count incorrect guesses from cell data list
+                        const incorrectGuesses = data.cell_data.filter(cell => !cell.is_correct).length;
+                        if (incorrectGuesses > 0) {
+                            const wrongGuessesSpan = document.createElement('span');
+                            wrongGuessesSpan.className = 'wrong-guesses';
+                            wrongGuessesSpan.textContent = incorrectGuesses + ' X';
+                            currentCell.appendChild(wrongGuessesSpan);
+                        }
                     }
 
                     // Update score display if total_score is available
@@ -943,24 +1011,38 @@
                         // Add finished class to show completion message and share button
                         document.querySelector('.game-completion').classList.add('finished');
 
-                        // Mark all incorrect cells as exhausted
-                        document.querySelectorAll('.cell:not(.correct)').forEach(cell => {
-                            if (!cell.classList.contains('header-cell') && !cell.classList.contains('game-title-cell')) {
-                                const row = cell.getAttribute('data-row');
-                                const col = cell.getAttribute('data-col');
-                                const cellKey = `${row}_${col}`;
-                                if (data.correct_players && data.correct_players[cellKey]) {
-                                    // Keep the wrong guesses count if it exists
-                                    const wrongGuesses = cell.querySelector('.wrong-guesses');
-                                    cell.textContent = '?';
-                                    if (wrongGuesses) {
-                                        cell.insertBefore(wrongGuesses, cell.firstChild);
-                                    }
-                                    cell.classList.add('exhausted');
-                                    cell.setAttribute('data-correct-players', JSON.stringify(data.correct_players[cellKey]));
-                                    cell.onclick = function () { showCorrectPlayers(this); };
+                        // Create and add the correct players data script element
+                        const correctPlayersScript = document.createElement('script');
+                        correctPlayersScript.id = 'correct-players-data';
+                        correctPlayersScript.type = 'application/json';
+                        correctPlayersScript.textContent = JSON.stringify(data.cell_players);
+                        document.body.appendChild(correctPlayersScript);
+
+                        // Mark all cells as either correct or exhausted
+                        document.querySelectorAll('.cell:not(.header-cell):not(.game-title-cell)').forEach(cell => {
+                            const row = cell.getAttribute('data-row');
+                            const col = cell.getAttribute('data-col');
+                            const cellKey = `${row}_${col}`;
+                            
+                            // Check if this cell has a correct guess in the current data
+                            const cellData = data.selected_cells[cellKey];
+                            const hasCorrectGuess = cellData && cellData.some(cell => cell.is_correct);
+                            
+                            // Set the data-cell-key attribute for all cells
+                            cell.setAttribute('data-cell-key', cellKey);
+                            
+                            if (!hasCorrectGuess) {
+                                // Keep the wrong guesses count if it exists
+                                const wrongGuesses = cell.querySelector('.wrong-guesses');
+                                cell.textContent = '?';
+                                if (wrongGuesses) {
+                                    cell.insertBefore(wrongGuesses, cell.firstChild);
                                 }
+                                cell.classList.add('exhausted');
                             }
+                            
+                            // Set onclick handler for all cells
+                            cell.onclick = function () { showCorrectPlayers(this); };
                         });
                     }
                     closeModal();
@@ -1002,16 +1084,16 @@
                     players.forEach(player => {
                         const div = document.createElement('div');
                         div.className = 'player-suggestion';
-                        // Check the current state of selectedPlayers
-                        const isSelected = selectedPlayers.has(player.stats_id.toString());
-                        console.log('Rendering player:', player.name, 'isSelected:', isSelected, 'stats_id:', player.stats_id, 'selectedPlayers:', Array.from(selectedPlayers));
+                        // Check the current state of cell_players
+                        const isSelected = cell_players.has(player.stats_id.toString());
+                        console.log('Rendering player:', player.name, 'isSelected:', isSelected, 'stats_id:', player.stats_id, 'cell_players:', Array.from(cell_players));
                         const escapedName = player.name.replace(/'/g, "\\'");
                         const button = document.createElement('button');
                         button.textContent = isSelected ? 'Selected' : 'Select';
                         button.disabled = isSelected;
                         button.setAttribute('data-player-id', player.stats_id);
                         button.onclick = function() {
-                            console.log('Button clicked for player:', player.name, 'stats_id:', player.stats_id, 'isSelected:', selectedPlayers.has(player.stats_id.toString()));
+                            console.log('Button clicked for player:', player.name, 'stats_id:', player.stats_id, 'isSelected:', cell_players.has(player.stats_id.toString()));
                             selectPlayer(player.stats_id, escapedName);
                         };
                         div.appendChild(document.createTextNode(player.name));
