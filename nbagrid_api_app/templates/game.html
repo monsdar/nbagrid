@@ -934,12 +934,20 @@
             formData.append('col', col);
             formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
 
-            // Disable the button immediately
-            const button = document.querySelector(`button[onclick*="${playerId}"]`);
+            // Disable the button immediately to prevent double-clicks
+            const button = document.querySelector(`button[data-player-id="${playerId}"]`);
             if (button) {
                 button.disabled = true;
                 button.textContent = 'Selected';
             }
+            
+            // Disable all other buttons with the same player ID
+            document.querySelectorAll(`button[data-player-id="${playerId}"]`).forEach(btn => {
+                if (btn !== button) {
+                    btn.disabled = true;
+                    btn.textContent = 'Selected';
+                }
+            });
 
             fetch('/{{ year }}/{{ month_num }}/{{ day }}/', {
                 method: 'POST',
@@ -949,12 +957,15 @@
                 .then(data => {
                     if (data.error) {
                         // Re-enable the button if there was an error
-                        if (button) {
-                            button.disabled = false;
-                            button.textContent = 'Select';
-                        }
+                        document.querySelectorAll(`button[data-player-id="${playerId}"]`).forEach(btn => {
+                            btn.disabled = false;
+                            btn.textContent = 'Select';
+                        });
                         return;
                     }
+
+                    // Add to the set of selected players regardless of whether the guess was correct
+                    cell_players.add(playerId.toString());
 
                     if (data.is_correct) {
                         // Clear the cell content
@@ -987,7 +998,6 @@
                             currentCell.appendChild(wrongGuessesSpan);
                         }
                         
-                        cell_players.add(playerId);  // Add to selected players set
                         currentCell.classList.add('correct');
                         currentCell.classList.add(`tier-${correctCellData.tier}`);
                     } else {
@@ -1022,6 +1032,9 @@
                     if (data.is_finished) {
                         // Add finished class to show completion message and share button
                         document.querySelector('.game-completion').classList.add('finished');
+                        
+                        // Add game-finished class to the game container for hover effects
+                        document.querySelector('.game-container').classList.add('game-finished');
 
                         // Create and add the correct players data script element
                         const correctPlayersScript = document.createElement('script');
@@ -1062,10 +1075,10 @@
                 .catch(error => {
                     console.error('Error:', error);
                     // Re-enable the button if there was an error
-                    if (button) {
-                        button.disabled = false;
-                        button.textContent = 'Select';
-                    }
+                    document.querySelectorAll(`button[data-player-id="${playerId}"]`).forEach(btn => {
+                        btn.disabled = false;
+                        btn.textContent = 'Select';
+                    });
                 });
         }
 
@@ -1080,6 +1093,17 @@
             if (event.target == document.getElementById('aboutModal')) {
                 closeAboutModal();
             }
+        }
+
+        // Function to update player suggestion buttons based on selected players
+        function updatePlayerSelectionButtons() {
+            document.querySelectorAll('.player-suggestion button').forEach(button => {
+                const playerId = button.getAttribute('data-player-id');
+                if (playerId && cell_players.has(playerId.toString())) {
+                    button.disabled = true;
+                    button.textContent = 'Selected';
+                }
+            });
         }
 
         searchInput.addEventListener('input', function () {
@@ -1112,6 +1136,9 @@
                         div.appendChild(button);
                         suggestionsDiv.appendChild(div);
                     });
+                    
+                    // Update button states based on selected players
+                    updatePlayerSelectionButtons();
                 });
         });
 
