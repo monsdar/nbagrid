@@ -9,7 +9,7 @@ logger.setLevel(logging.DEBUG)
 from datetime import datetime, timedelta
 from nbagrid_api_app.GameFilter import GameFilter
 from nbagrid_api_app.GameBuilder import GameBuilder
-from nbagrid_api_app.models import Player, GameResult, GameCompletion
+from nbagrid_api_app.models import Player, GameResult, GameCompletion, LastUpdated
 from nbagrid_api_app.GameState import GameState, CellData
 
 def get_valid_date(year, month, day):
@@ -282,6 +282,13 @@ def game(request, year, month, day):
     # Get completion count
     completion_count = GameCompletion.get_completion_count(requested_date.date())
     
+    # Get the last update timestamp
+    try:
+        last_updated = LastUpdated.objects.filter(data_type="player_data").first()
+        last_updated_date = last_updated.last_updated if last_updated else None
+    except:
+        last_updated_date = None
+    
     return render(request, 'game.html', {
         'year': year,
         'month': requested_date.strftime('%B'),
@@ -289,6 +296,8 @@ def game(request, year, month, day):
         'day': day,
         'static_filters': [f.get_desc() for f in static_filters],
         'dynamic_filters': [f.get_desc() for f in dynamic_filters],
+        'static_filters_detailed': [f.get_detailed_desc() for f in static_filters],
+        'dynamic_filters_detailed': [f.get_detailed_desc() for f in dynamic_filters],
         'grid': game_grid,
         'selected_players': set(),
         'attempts_remaining': game_state.attempts_remaining,
@@ -300,7 +309,8 @@ def game(request, year, month, day):
         'show_prev': show_prev,
         'show_next': show_next,
         'prev_date': prev_date,
-        'next_date': next_date
+        'next_date': next_date,
+        'last_updated_date': last_updated_date.strftime('%B %d, %Y') if last_updated_date else 'Unknown'
     })
 
 def search_players(request):

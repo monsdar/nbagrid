@@ -1,4 +1,5 @@
 from django import template
+import json
 
 register = template.Library()
 
@@ -31,4 +32,9 @@ def get_correct_cell(cell_data_list):
     """Get the CellData object that has is_correct set to True."""
     if not cell_data_list:
         return None
-    return next((cell_data for cell_data in cell_data_list if cell_data.get('is_correct', False)), None) 
+    return next((cell_data for cell_data in cell_data_list if cell_data.get('is_correct', False)), None)
+
+@register.filter
+def to_json(value):
+    """Convert a Python object to a JSON string."""
+    return json.dumps(value) 

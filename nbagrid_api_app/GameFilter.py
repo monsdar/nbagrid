@@ -16,6 +16,9 @@ class GameFilter(object):
     @abstractmethod
     def get_player_stats_str(self, player: Player) -> str:
         pass
+    @abstractmethod
+    def get_detailed_desc(self) -> str:
+        pass
 
     def __str__(self) -> str:
         return self.get_desc()
@@ -55,6 +58,9 @@ class DynamicGameFilter(GameFilter):
             desc_operator = '-'
         return f"{description} {self.current_value}{desc_operator}{unit}"
     
+    def get_detailed_desc(self) -> str:
+        return self.config.get('detailed_desc', f'{self.get_desc()}')
+                
     def widen_filter(self):
         widen_step = -(self.config['widen_step'] if 'widen_step' in self.config else 1)
         if 'comparison_type' in self.config and self.config['comparison_type'] == 'lower':
@@ -90,6 +96,11 @@ class PositionFilter(GameFilter):
         return f"Plays {self.selected_position} position"
     def get_player_stats_str(self, player: Player) -> str:
         return f"Position: {player.position}"
+    def get_detailed_desc(self) -> str:
+        return f"This filter selects players who are listed as {self.selected_position}s in their position. " \
+               f"Players can be listed with multiple positions, such as 'Guard, Forward', " \
+               f"and will be included if any of their positions match {self.selected_position}. " \
+               f"Positions are taken as listed on nba.com."
 
 class USAFilter(GameFilter):
     def apply_filter(self, players:Manager[Player]) -> Manager[Player]:
@@ -98,6 +109,10 @@ class USAFilter(GameFilter):
         return f"Born in USA"
     def get_player_stats_str(self, player: Player) -> str:
         return f"Birthplace: {player.country}"
+    def get_detailed_desc(self) -> str:
+        return "This filter selects players who were born in the United States of America.\n\n" \
+               "Players born in U.S. territories like Puerto Rico are considered international players and are excluded by this filter.\n\n" \
+               "Players who gained U.S. citizenship after being born elsewhere are also excluded."
 
 class InternationalFilter(GameFilter):
     def apply_filter(self, players:Manager[Player]) -> Manager[Player]:
@@ -106,6 +121,10 @@ class InternationalFilter(GameFilter):
         return f"Born outside of USA"
     def get_player_stats_str(self, player: Player) -> str:
         return f"Birthplace: {player.country}"
+    def get_detailed_desc(self) -> str:
+        return "This filter selects players who were born outside the USA, " \
+               "like Canada, Greenland, Mexico, etc. This also includes players " \
+               "born in countries around the Gulf of Mexico."
 
 class CountryFilter(GameFilter):
     def __init__(self, seed: int = 0):
@@ -128,6 +147,8 @@ class CountryFilter(GameFilter):
         return f"From country: {self.country_name}"
     def get_player_stats_str(self, player: Player) -> str:
         return f"Birthplace: {player.country}"
+    def get_detailed_desc(self) -> str:
+        return f"This filter selects players who were born in {self.country_name}."
 
 class TeamFilter(GameFilter):
     def __init__(self, seed: int = 0):
@@ -141,6 +162,9 @@ class TeamFilter(GameFilter):
     def get_player_stats_str(self, player: Player) -> str:
         team_abbrs = [team.abbr for team in player.teams.all()]
         return f"Teams: {', '.join(team_abbrs)}"
+    def get_detailed_desc(self) -> str:
+        return f"This filter selects players who played for the {self.team_name} at any point in their NBA career. " \
+               f"Players need to have played at least one game for the team to be included."
 
 class BooleanFilter(GameFilter):
     '''
@@ -152,6 +176,9 @@ class BooleanFilter(GameFilter):
         return ""
     def get_player_stats_str(self, player: Player) -> str:
         return ""
+    def get_detailed_desc(self) -> str:
+        return "This filter selects players who were chosen within the top 10 picks of any NBA draft. " \
+               "Players who were drafted 11th or lower, or went undrafted, are excluded. "
         
 class Top10DraftpickFilter(GameFilter):
     def apply_filter(self, players:Manager[Player]) -> Manager[Player]:
@@ -165,14 +192,21 @@ class Top10DraftpickFilter(GameFilter):
         if player.is_undrafted:
             draft_pick = "Undrafted"
         return f"Draft Pick: {draft_pick}"
+    
+    def get_detailed_desc(self) -> str:
+        return "This filter selects players who were chosen within the top 10 picks of any NBA draft. " \
+               "Players who were drafted 11th or lower, or went undrafted, are excluded. "
 
 class AllNbaFilter(GameFilter):
     def apply_filter(self, players:Manager[Player]) -> Manager[Player]:
         return players.filter(is_award_all_nba_first=True) | players.filter(is_award_all_nba_second=True) | players.filter(is_award_all_nba_third=True)
     def get_desc(self) -> str:
-        return "All-NBA player (1st, 2nd or 3rd team)"
+        return "All-NBA player"
     def get_player_stats_str(self, player: Player) -> str:
         return f"All-NBA: {player.is_award_all_nba_first or player.is_award_all_nba_second or player.is_award_all_nba_third}"
+    def get_detailed_desc(self) -> str:
+        return "This filter selects players who have been named to at least one All-NBA Team (First, Second, or Third team) " \
+               "during their career. Players on multiple different teams are valid as well."
     
 class AllDefensiveFilter(GameFilter):
     def apply_filter(self, players:Manager[Player]) -> Manager[Player]:
@@ -181,6 +215,9 @@ class AllDefensiveFilter(GameFilter):
         return "All-Defensive player"
     def get_player_stats_str(self, player: Player) -> str:
         return f"All-Defensive: {player.is_award_all_defensive}"
+    def get_detailed_desc(self) -> str:
+        return "This filter selects players who have been named to at least one NBA All-Defensive Team " \
+               "(First or Second) during their career."
 
 class AllRookieFilter(GameFilter):
     def apply_filter(self, players:Manager[Player]) -> Manager[Player]:
@@ -189,6 +226,9 @@ class AllRookieFilter(GameFilter):
         return "All-Rookie player"
     def get_player_stats_str(self, player: Player) -> str:
         return f"All-Rookie: {player.is_award_all_rookie}"
+    def get_detailed_desc(self) -> str:
+        return "This filter selects players who were named to an NBA All-Rookie Team (First or Second) " \
+               "in their debut season."
 
 
 class NbaChampFilter(GameFilter):
@@ -198,6 +238,10 @@ class NbaChampFilter(GameFilter):
         return "NBA Champion"
     def get_player_stats_str(self, player: Player) -> str:
         return f"NBA Champion: {player.is_award_champ}"
+    def get_detailed_desc(self) -> str:
+        return "This filter selects players who have won at least one NBA Championship during their career. " \
+               "This means they were on the roster of a team that won the NBA Finals, regardless of their role " \
+               "or playing time during the championship run."
 
 class AllStarFilter(GameFilter):
     def apply_filter(self, players:Manager[Player]) -> Manager[Player]:
@@ -206,6 +250,9 @@ class AllStarFilter(GameFilter):
         return "All-Star player"
     def get_player_stats_str(self, player: Player) -> str:
         return f"All-Star: {player.is_award_all_star}"
+    def get_detailed_desc(self) -> str:
+        return "This filter selects players who have been selected to at least one NBA All-Star Game during their career. " \
+               "This is regardless of how they were selected, whether it was by fan vote, player vote, or coach vote."
 
 class OlympicMedalFilter(GameFilter):
     def apply_filter(self, players:Manager[Player]) -> Manager[Player]:
@@ -214,6 +261,10 @@ class OlympicMedalFilter(GameFilter):
         return "Olympic medalist"
     def get_player_stats_str(self, player: Player) -> str:
         return f"Olympic Medal: {player.is_award_olympic_gold_medal or player.is_award_olympic_silver_medal or player.is_award_olympic_bronze_medal}"
+    def get_detailed_desc(self) -> str:
+        return "This filter selects players who have won an Olympic medal (gold, silver, or bronze) " \
+               "while representing their country in Olympic basketball. This includes players who competed " \
+               "for Team USA as well as players who represented other countries in Olympic competition."
 
 class TeamCountFilter(DynamicGameFilter):
     def apply_filter(self, players:Manager[Player]) -> Manager[Player]:
@@ -232,6 +283,9 @@ class TeamCountFilter(DynamicGameFilter):
     def get_player_stats_str(self, player: Player) -> str:
         team_abbrs = [team.abbr for team in player.teams.all()]
         return f"Teams: {len(team_abbrs)} ({', '.join(team_abbrs)})"
+    def get_detailed_desc(self) -> str:
+        return f"This filter selects players who have played for at least {self.current_value} different NBA teams " \
+               f"during their career. This includes all franchises a player has at least one game for."
 
 def get_dynamic_filters(seed:int=0) -> list[DynamicGameFilter]:
     random.seed(seed)
@@ -243,7 +297,8 @@ def get_dynamic_filters(seed:int=0) -> list[DynamicGameFilter]:
             'initial_max_value': 22,
             'initial_value_step': 2,
             'widen_step': 2,
-            'narrow_step': 2
+            'narrow_step': 2,
+            'detailed_desc': 'This filter selects players who averaged at least a certain number of points per game (PPG). Only regular season games are considered.'
         }),
         DynamicGameFilter({
             'field': 'career_rpg',
@@ -252,7 +307,8 @@ def get_dynamic_filters(seed:int=0) -> list[DynamicGameFilter]:
             'initial_max_value': 8,
             'initial_value_step': 1,
             'widen_step': 1,
-            'narrow_step': 1
+            'narrow_step': 1,
+            'detailed_desc': 'This filter selects players who averaged at least a certain number of rebounds per game (RPG). Only regular season games are considered.' 
         }),
         DynamicGameFilter({
             'field': 'career_apg',
@@ -261,7 +317,8 @@ def get_dynamic_filters(seed:int=0) -> list[DynamicGameFilter]:
             'initial_max_value': 5,
             'initial_value_step': 1,
             'widen_step': 1,
-            'narrow_step': 1
+            'narrow_step': 1,
+            'detailed_desc': 'This filter selects players who averaged at least a certain number of assists per game (APG). Only regular season games are considered.'
         }),
         DynamicGameFilter({
             'field': 'career_gp',
@@ -270,7 +327,8 @@ def get_dynamic_filters(seed:int=0) -> list[DynamicGameFilter]:
             'initial_max_value': 600,
             'initial_value_step': 50,
             'widen_step': 50,
-            'narrow_step': 50
+            'narrow_step': 50,
+            'detailed_desc': 'This filter selects players who have played at least a certain number of games (GP). Only regular season games are considered. This filter excludes games where the player did not attend due to injury or other reasons.'
         }),
         DynamicGameFilter({
             'field': 'num_seasons',
@@ -282,7 +340,8 @@ def get_dynamic_filters(seed:int=0) -> list[DynamicGameFilter]:
             'widen_step': 1,
             'narrow_step': 1,
             'comparison_type': 'higher',
-            'unit': 'seasons'
+            'unit': 'seasons',
+            'detailed_desc': 'This filter selects players who have played at least a certain number of NBA seasons.\n\nA player is credited with a season if they appeared in at least one regular season game during that year.\n\nSuspended seasons and lockout-shortened seasons still count as full seasons.'
         }),
         DynamicGameFilter({
             'field': 'num_seasons',
@@ -294,7 +353,8 @@ def get_dynamic_filters(seed:int=0) -> list[DynamicGameFilter]:
             'widen_step': 1,
             'narrow_step': 1,
             'comparison_type': 'lower',
-            'unit': 'seasons'
+            'unit': 'seasons',
+            'detailed_desc': 'This filter selects players who have played at most a certain number of NBA seasons. This includes any season where a player played at least one game. This does not include G-League or International games.'
         }),
         DynamicGameFilter({
             'field': 'height_cm',
@@ -306,7 +366,8 @@ def get_dynamic_filters(seed:int=0) -> list[DynamicGameFilter]:
             'widen_step': 5,
             'narrow_step': 5,
             'unit': 'cm',
-            'comparison_type': 'higher'
+            'comparison_type': 'higher',
+            'detailed_desc': 'This filter selects players who are taller than a certain height in centimeters.'
         }),
         DynamicGameFilter({
             'field': 'height_cm',
@@ -318,7 +379,8 @@ def get_dynamic_filters(seed:int=0) -> list[DynamicGameFilter]:
             'widen_step': 5,
             'narrow_step': 5,
             'unit': 'cm',
-            'comparison_type': 'lower'
+            'comparison_type': 'lower',
+            'detailed_desc': 'This filter selects players who are shorter than a certain height in centimeters.'
         }),
         # NOTE: Weight filter was not very fun to play,
         #       as it's hard to estimate and not something
@@ -340,7 +402,8 @@ def get_dynamic_filters(seed:int=0) -> list[DynamicGameFilter]:
             'initial_max_value': 55,
             'initial_value_step': 5,
             'widen_step': 5,
-            'narrow_step': 5
+            'narrow_step': 5,
+            'detailed_desc': 'This filter selects players who have scored at least a certain number of points in a single game. This includes regular season and playoff games.'
         }),
         DynamicGameFilter({
             'field': 'career_high_reb',
@@ -349,7 +412,8 @@ def get_dynamic_filters(seed:int=0) -> list[DynamicGameFilter]:
             'initial_max_value': 20,
             'initial_value_step': 5,
             'widen_step': 5,
-            'narrow_step': 5
+            'narrow_step': 5,
+            'detailed_desc': 'This filter selects players who have caught at least a certain number of rebounds in a single game. This includes regular season and playoff games.'
         }),
         DynamicGameFilter({
             'field': 'career_high_ast',
@@ -358,7 +422,8 @@ def get_dynamic_filters(seed:int=0) -> list[DynamicGameFilter]:
             'initial_max_value': 17,
             'initial_value_step': 5,
             'widen_step': 5,
-            'narrow_step': 5
+            'narrow_step': 5,
+            'detailed_desc': 'This filter selects players who have passed at least a certain number of assists in a single game. This includes regular season and playoff games.'
         }),
         DynamicGameFilter({
             'field': 'career_high_stl',
@@ -367,7 +432,8 @@ def get_dynamic_filters(seed:int=0) -> list[DynamicGameFilter]:
             'initial_max_value': 7,
             'initial_value_step': 1,
             'widen_step': 1,
-            'narrow_step': 1
+            'narrow_step': 1,
+            'detailed_desc': 'This filter selects players who have snatched at least a certain number of steals in a single game. This includes regular season and playoff games.'
         }),
         DynamicGameFilter({
             'field': 'career_high_blk',
@@ -376,7 +442,8 @@ def get_dynamic_filters(seed:int=0) -> list[DynamicGameFilter]:
             'initial_max_value': 7,
             'initial_value_step': 1,
             'widen_step': 1,
-            'narrow_step': 1
+            'narrow_step': 1,
+            'detailed_desc': 'This filter selects players who have blocked at least a certain number of shots in a single game. This includes regular season and playoff games.'
         }),
         TeamCountFilter({
             'description': 'Teams played for:',
@@ -384,7 +451,8 @@ def get_dynamic_filters(seed:int=0) -> list[DynamicGameFilter]:
             'initial_max_value': 7,
             'initial_value_step': 1,
             'widen_step': 1,
-            'narrow_step': 1
+            'narrow_step': 1,
+            'detailed_desc': 'This filter selects players who played for at least a certain number of NBA teams. This includes any team where a player played at least one game.'
         })
     ]
 

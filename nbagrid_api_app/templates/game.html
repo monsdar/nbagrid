@@ -694,6 +694,49 @@
                 flex-wrap: nowrap;
             }
         }
+
+        /* Filter details modal styles */
+        #filterDetailsModal .modal-content {
+            max-width: 600px;
+            line-height: 1.6;
+        }
+        
+        #filterTitle {
+            margin-top: 0;
+            color: white;
+            font-size: 18px;
+            border-bottom: 1px solid #444;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+        
+        #filterDescription {
+            white-space: pre-line;
+            font-size: 16px;
+            margin: 0;
+            padding: 0;
+        }
+        
+        .last-updated {
+            margin-top: 20px;
+            font-size: 12px;
+            color: #888;
+            border-top: 1px solid #444;
+            padding-top: 10px;
+        }
+        
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            line-height: 1;
+        }
+        
+        .close:hover {
+            color: white;
+        }
     </style>
 </head>
 
@@ -725,11 +768,11 @@
                 </div>
             </div>
             {% for static_filter in static_filters %}
-            <div class="cell header-cell header-col">{{ static_filter }}</div>
+            <div class="cell header-cell header-col" onclick="showFilterDetails('static', {{ forloop.counter0 }})">{{ static_filter }}</div>
             {% endfor %}
 
             {% for dynamic_filter in dynamic_filters %}
-            <div class="cell header-cell header-row">{{ dynamic_filter }}</div>
+            <div class="cell header-cell header-row" onclick="showFilterDetails('dynamic', {{ forloop.counter0 }})">{{ dynamic_filter }}</div>
             {% for static_filter in static_filters %}
             {% with row=forloop.parentloop.counter0 col=forloop.counter0 %}
             {% with row_str=row|stringformat:"s" %}
@@ -803,6 +846,14 @@
                     NBAGrid and would like to support its development and maintenance, consider buying me a coffee!</p>
                 <a href="https://buymeacoffee.com/monsdar" target="_blank" class="buy-coffee">Buy Me a Coffee</a>
             </div>
+        </div>
+    </div>
+
+    <div id="filterDetailsModal" class="modal">
+        <div class="modal-content">
+            <h2 id="filterTitle">Filter Details</h2>
+            <p id="filterDescription"></p>
+            <div class="last-updated">Player data last updated: {{ last_updated_date }}</div>
         </div>
     </div>
 
@@ -1093,6 +1144,9 @@
             if (event.target == document.getElementById('aboutModal')) {
                 closeAboutModal();
             }
+            if (event.target == document.getElementById('filterDetailsModal')) {
+                closeFilterDetailsModal();
+            }
         }
 
         // Function to update player suggestion buttons based on selected players
@@ -1185,6 +1239,38 @@
 
         function closeAboutModal() {
             document.getElementById('aboutModal').style.display = 'none';
+        }
+
+        function showFilterDetails(filterType, index) {
+            const modal = document.getElementById('filterDetailsModal');
+            const title = document.getElementById('filterTitle');
+            const description = document.getElementById('filterDescription');
+            
+            let filterText = '';
+            let detailedDescription = '';
+            
+            // Get the filter values from pre-generated JSON
+            const staticFilters = {{ static_filters|to_json|safe }};
+            const staticFiltersDetailed = {{ static_filters_detailed|to_json|safe }};
+            const dynamicFilters = {{ dynamic_filters|to_json|safe }};
+            const dynamicFiltersDetailed = {{ dynamic_filters_detailed|to_json|safe }};
+            
+            if (filterType === 'static' && index < staticFilters.length) {
+                filterText = staticFilters[index];
+                detailedDescription = staticFiltersDetailed[index];
+            } else if (filterType === 'dynamic' && index < dynamicFilters.length) {
+                filterText = dynamicFilters[index];
+                detailedDescription = dynamicFiltersDetailed[index];
+            }
+            
+            title.textContent = filterText;
+            description.textContent = detailedDescription;
+            
+            modal.style.display = 'block';
+        }
+        
+        function closeFilterDetailsModal() {
+            document.getElementById('filterDetailsModal').style.display = 'none';
         }
     </script>
 </body>

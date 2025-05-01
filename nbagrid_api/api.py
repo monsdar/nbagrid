@@ -62,6 +62,8 @@ def get_game_for_date(request, year: int, month: int, day: int):
     return {
         "static_filter": filter_static.get_desc(),
         "dynamic_filter": filter_dynamic.get_desc(),
+        "static_filter_detailed": filter_static.get_detailed_desc(),
+        "dynamic_filter_detailed": filter_dynamic.get_detailed_desc(),
         "num_solutions": len(result_players)
         }
 
