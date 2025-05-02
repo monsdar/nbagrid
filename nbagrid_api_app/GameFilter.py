@@ -240,7 +240,8 @@ class NbaChampFilter(GameFilter):
     def get_detailed_desc(self) -> str:
         return "This filter selects players who have won at least one NBA Championship during their career. " \
                "This means they were on the roster of a team that won the NBA Finals, regardless of their role " \
-               "or playing time during the championship run."
+               "or playing time during the championship run.\n\n" \
+               "'World Champion of what...?!' - Noah Lyles, World Champion"
 
 class AllStarFilter(GameFilter):
     def apply_filter(self, players:Manager[Player]) -> Manager[Player]:
