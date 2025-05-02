@@ -1049,10 +1049,10 @@
                         return;
                     }
 
-                    // Add to the set of selected players regardless of whether the guess was correct
-                    cell_players.add(playerId.toString());
-
                     if (data.is_correct) {
+                        // Add to the set of selected players only if the guess was correct
+                        cell_players.add(playerId.toString());
+                        
                         // Clear the cell content
                         currentCell.textContent = '';
                         
@@ -1062,7 +1062,7 @@
                             console.error('No correct cell data found');
                             return;
                         }
-                                                
+                        
                         // Add the player name
                         const playerNameSpan = document.createElement('span');
                         playerNameSpan.textContent = playerName;
