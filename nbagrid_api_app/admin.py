@@ -1,7 +1,8 @@
-
 from django.contrib import admin
 from django.urls import path
 from django.http import HttpResponseRedirect
+from django.db.models import Count
+from django.urls import reverse
 
 from nba_api.stats.static import teams as static_teams
 from nba_api.stats.static import players as static_players
@@ -9,8 +10,9 @@ from nba_api.stats.static import players as static_players
 import requests
 import logging
 import time
+from datetime import datetime
 
-from .models import Player, Team
+from .models import Player, Team, GameFilterDB, GameResult, GameCompletion, LastUpdated
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -131,4 +133,121 @@ class PlayerAdmin(admin.ModelAdmin):
                 continue
             logger.info(f"...updated player data: {player.name}")
             time.sleep(0.25) # wait a bit before doing the next API request to not run into stats.nba rate limits
+            
+class GameAdmin(admin.ModelAdmin):
+    change_list_template = "admin/game_changelist.html"
+    
+    def get_urls(self):
+        urls = super().get_urls()
+        my_urls = [
+            path('game_dates/', self.view_game_dates, name='game_dates'),
+            path('delete_game/<str:game_date>/', self.delete_game, name='delete_game'),
+        ]
+        return my_urls + urls
+    
+    def has_add_permission(self, request):
+        # Disable adding GameFilterDB objects directly through the admin
+        return False
+    
+    def has_change_permission(self, request, obj=None):
+        # Disable editing GameFilterDB objects directly
+        return False
+    
+    def view_game_dates(self, request):
+        # Get unique dates with counts of filters and completions
+        dates = GameFilterDB.objects.values('date').annotate(
+            filter_count=Count('id')
+        ).order_by('-date')
+        
+        # Get completion counts for each date
+        for date_info in dates:
+            date_info['completion_count'] = GameCompletion.get_completion_count(date_info['date'])
+            
+            # Calculate if game is complete (has all required filters)
+            # For a standard 3x3 grid, we expect 6 filters (3 static, 3 dynamic)
+            date_info['is_complete'] = date_info['filter_count'] == 6
+            
+            # Add stats on static/dynamic filters
+            static_count = GameFilterDB.objects.filter(
+                date=date_info['date'], filter_type='static'
+            ).count()
+            
+            dynamic_count = GameFilterDB.objects.filter(
+                date=date_info['date'], filter_type='dynamic'
+            ).count()
+            
+            date_info['static_count'] = static_count
+            date_info['dynamic_count'] = dynamic_count
+            
+            # Add a delete link
+            date_info['delete_link'] = reverse('admin:delete_game', args=[date_info['date']])
+        
+        from django.shortcuts import render
+        return render(
+            request,
+            'admin/game_list.html',
+            context={
+                'title': 'Game Management',
+                'dates': dates,
+                'opts': self.model._meta,
+            }
+        )
+    
+    def delete_game(self, request, game_date):
+        try:
+            # Parse the date string into a datetime.date object
+            game_date_obj = datetime.strptime(game_date, '%Y-%m-%d').date()
+            
+            # Delete all GameFilterDB entries for this date
+            deleted_count = GameFilterDB.objects.filter(date=game_date_obj).delete()[0]
+            
+            # Also delete related GameResult entries
+            GameResult.objects.filter(date=game_date_obj).delete()
+            
+            # Also delete related GameCompletion entries
+            GameCompletion.objects.filter(date=game_date_obj).delete()
+            
+            # Clear session data for this date across all sessions
+            from django.contrib.sessions.models import Session
+            from django.contrib.sessions.backends.db import SessionStore
+            
+            # Construct the session key for this date
+            date_key = f'game_state_{game_date_obj.year}_{game_date_obj.month}_{game_date_obj.day}'
+            
+            # Get all active sessions
+            for session in Session.objects.all():
+                try:
+                    # Load the session data
+                    session_data = SessionStore(session_key=session.session_key)
+                    # If this session contains data for the deleted game
+                    if date_key in session_data:
+                        # Remove the game state for this date
+                        del session_data[date_key]
+                        # Save the session
+                        session_data.save()
+                        logger.info(f"Cleared session data for game date {game_date} from session {session.session_key}")
+                except Exception as e:
+                    logger.error(f"Error clearing session {session.session_key}: {str(e)}")
+            
+            # Record the deletion
+            LastUpdated.update_timestamp(
+                data_type="game_deletion",
+                updated_by=f"Admin ({request.user.username})",
+                notes=f"Game for {game_date} deleted (removed {deleted_count} filters and cleared session data)"
+            )
+            
+            self.message_user(request, f"Successfully deleted game for {game_date} and cleared related session data", level="success")
+        except Exception as e:
+            self.message_user(request, f"Error deleting game: {str(e)}", level="error")
+        
+        # Use the proper reverse URL to the game_dates view instead of a relative path
+        return HttpResponseRedirect(reverse('admin:game_dates'))
+
+# Register the GameFilterDB model with our custom admin view
+admin.site.register(GameFilterDB, GameAdmin)
+
+# Register other models with default admin views
+admin.site.register(GameResult)
+admin.site.register(GameCompletion)
+admin.site.register(LastUpdated)
             

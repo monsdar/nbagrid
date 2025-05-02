@@ -1,0 +1,103 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls static admin_list %}
+
+{% block extrastyle %}
+  {{ block.super }}
+  <link rel="stylesheet" type="text/css" href="{% static "admin/css/changelists.css" %}">
+  <style>
+    .game-stats {
+      margin-top: 20px;
+      border-collapse: collapse;
+      width: 100%;
+    }
+    
+    .game-stats th, .game-stats td {
+      padding: 8px;
+      text-align: left;
+      border-bottom: 1px solid #ddd;
+    }
+    
+    .game-stats th {
+      background-color: #363333;
+    }
+    
+    .game-stats tr:hover {
+      background-color: #000000;
+    }
+    
+    .status-complete {
+      color: green;
+      font-weight: bold;
+    }
+    
+    .status-incomplete {
+      color: red;
+      font-weight: bold;
+    }
+    
+    .delete-button {
+      background-color: #f44336;
+      color: white;
+      padding: 6px 10px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    
+    .delete-button:hover {
+      background-color: #d32f2f;
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+  <div id="content-main">
+    <div class="module" id="changelist">
+      <h1>Game Management</h1>
+      <p class="help">This page shows all games in the database. You can delete games that should no longer be available.</p>
+      
+      {% if dates %}
+        <table class="game-stats">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Status</th>
+              <th>Filter Count</th>
+              <th>Static Filters</th>
+              <th>Dynamic Filters</th>
+              <th>Completion Count</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for date_info in dates %}
+              <tr>
+                <td>{{ date_info.date }}</td>
+                <td>
+                  {% if date_info.is_complete %}
+                    <span class="status-complete">Complete</span>
+                  {% else %}
+                    <span class="status-incomplete">Incomplete ({{ date_info.filter_count }}/6 filters)</span>
+                  {% endif %}
+                </td>
+                <td>{{ date_info.filter_count }}</td>
+                <td>{{ date_info.static_count }}</td>
+                <td>{{ date_info.dynamic_count }}</td>
+                <td>{{ date_info.completion_count }}</td>
+                <td>
+                  <form method="POST" action="{{ date_info.delete_link }}" 
+                        onsubmit="return confirm('Are you sure you want to delete the game for {{ date_info.date }}? This action cannot be undone.');">
+                    {% csrf_token %}
+                    <button type="submit" class="delete-button">Delete</button>
+                  </form>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p>No games are available in the database.</p>
+      {% endif %}
+    </div>
+  </div>
+{% endblock %} 
