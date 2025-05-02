@@ -71,31 +71,6 @@ def get_players_by_searchstr(request, name: str, num_players: int=5):
         return []
     return [{"stats_id": player.stats_id, "name": player.name} for player in Player.objects.filter(name__contains=name)[:num_players]]
 
-@api.get("/game/{year}/{month}/{day}")
-def get_game_for_date(request, year: int, month: int, day: int):
-    given_date = datetime(year=year, month=month, day=day)
-    (filter_static, filter_dynamic) = get_cached_game_for_date(given_date)
-    result_players = get_cached_solutions_for_date(given_date)
-    return {
-        "static_filter": filter_static.get_desc(),
-        "dynamic_filter": filter_dynamic.get_desc(),
-        "static_filter_detailed": filter_static.get_detailed_desc(),
-        "dynamic_filter_detailed": filter_dynamic.get_detailed_desc(),
-        "num_solutions": len(result_players)
-        }
-
-@api.post("/game/{year}/{month}/{day}/{player_id}")
-def post_player_for_date(request, year: int, month: int, day: int, player_id: int):
-    try:
-        given_date = datetime(year=year, month=month, day=day)
-        result_players = get_cached_solutions_for_date(given_date)
-        result_players.get(stats_id=player_id)
-        return 200
-    except GameDateTooEarlyException:
-        return 400
-    except Player.DoesNotExist:
-        return 404
-
 class PlayerSchema(Schema):
     name: str = "Player"
     display_name: str = "Player"
