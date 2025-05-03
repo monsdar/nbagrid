@@ -1,4 +1,5 @@
 from django.db import models
+from django_prometheus.models import ExportModelOperationsMixin
 
 from nba_api.stats.endpoints import commonplayerinfo, playercareerstats, playerawards
 
@@ -8,7 +9,7 @@ import logging
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-class Player(models.Model):
+class Player(ExportModelOperationsMixin('player'), models.Model):
     stats_id = models.IntegerField()
     
     # Player data
@@ -198,7 +199,7 @@ class Player(models.Model):
         inches = int(height_str.split('-')[1])
         return (feet * 12 + inches) * 2.54
     
-class Team(models.Model):
+class Team(ExportModelOperationsMixin('team'), models.Model):
     stats_id = models.IntegerField()
     name = models.CharField(max_length=200)
     abbr = models.CharField(max_length=3)
@@ -206,7 +207,7 @@ class Team(models.Model):
     def __str__(self):
         return f"{self.abbr} {self.name}" if self.abbr else self.name
     
-class GameResult(models.Model):
+class GameResult(ExportModelOperationsMixin('gameresult'), models.Model):
     date = models.DateField()
     cell_key = models.CharField(max_length=10)  # e.g., "0_1" for row 0, col 1
     player = models.ForeignKey(Player, on_delete=models.CASCADE)
@@ -336,7 +337,7 @@ class GameResult(models.Model):
     def __str__(self):
         return f"{self.date} - {self.cell_key} - {self.player.name} ({self.guess_count} guesses)"
     
-class GameCompletion(models.Model):
+class GameCompletion(ExportModelOperationsMixin('gamecompletion'), models.Model):
     date = models.DateField()
     session_key = models.CharField(max_length=40)  # Django session key
     completed_at = models.DateTimeField(auto_now_add=True)
@@ -375,7 +376,7 @@ class GameCompletion(models.Model):
     def __str__(self):
         return f"{self.date} - {self.session_key} - Score: {self.final_score} ({self.correct_cells}/9 cells)"
 
-class GameFilterDB(models.Model):
+class GameFilterDB(ExportModelOperationsMixin('gamefilterdb'), models.Model):
     """Stores the configuration of game filters for a specific date."""
     date = models.DateField()
     filter_type = models.CharField(max_length=10)  # 'static' or 'dynamic'
@@ -393,7 +394,7 @@ class GameFilterDB(models.Model):
     def __str__(self):
         return f"{self.date} - {self.filter_type} - {self.filter_class} ({self.filter_index})"
 
-class GameGrid(models.Model):
+class GameGrid(ExportModelOperationsMixin('gamegrid'), models.Model):
     """
     Central model that stores information about a specific game grid.
     Contains metadata about the grid and references to related models.
@@ -443,7 +444,7 @@ class GameGrid(models.Model):
     def __str__(self):
         return f"Game Grid for {self.date}"
 
-class LastUpdated(models.Model):
+class LastUpdated(ExportModelOperationsMixin('lastupdated'),    models.Model):
     """
     Model to track when data was last updated
     """

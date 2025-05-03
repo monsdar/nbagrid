@@ -15,13 +15,31 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, include
 from .api import api
 import nbagrid_api_app.views
+from django_prometheus import exports
+from nbagrid_api_app.auth import basic_auth_required
+from django.http import HttpResponse
+
+# Create secured versions of the django-prometheus endpoints
+@basic_auth_required
+def secured_metrics_view(request):
+    return HttpResponse(exports.ExportToDjangoView(request))
+
+# The metrics endpoint
+@basic_auth_required
+def secured_metrics_registry_view(request):
+    return HttpResponse(exports.ExportToDjangoPrometheusDjangoMetrics(request))
 
 urlpatterns = [
     path("", nbagrid_api_app.views.index, name="index"),
     path("<int:year>/<int:month>/<int:day>/", nbagrid_api_app.views.game, name="game"),
     path('admin/', admin.site.urls),
     path("api/", api.urls),
+    path('metrics/', nbagrid_api_app.views.metrics_view, name='metrics'),
+    
+    # Secure the django-prometheus exports
+    path('django_metrics', secured_metrics_view, name='django-metrics'),
+    path('prometheus/metrics', secured_metrics_registry_view, name='prometheus-django-metrics'),
 ]

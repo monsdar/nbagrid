@@ -3,6 +3,7 @@ from ninja.security import APIKeyHeader
 from nbagrid_api_app.models import Player, LastUpdated, GameFilterDB
 from nbagrid_api_app.GameBuilder import GameBuilder
 from django.conf import settings
+from nbagrid_api_app.metrics import track_request_latency, api_request_counter
 
 from datetime import datetime, timedelta
 from typing import Optional
@@ -67,9 +68,13 @@ def get_cached_solutions_for_date(given_date:datetime):
 
 @api.get("/players/{name}")
 def get_players_by_searchstr(request, name: str, num_players: int=5):
-    if len(name) < 3:
-        return []
-    return [{"stats_id": player.stats_id, "name": player.name} for player in Player.objects.filter(name__contains=name)[:num_players]]
+    timer_stop = track_request_latency('get_players_by_name')
+    try:
+        if len(name) < 3:
+            return []
+        return [{"stats_id": player.stats_id, "name": player.name} for player in Player.objects.filter(name__contains=name)[:num_players]]
+    finally:
+        timer_stop()
 
 class PlayerSchema(Schema):
     name: str = "Player"
@@ -152,32 +157,37 @@ class PrebuiltGameSchema(Schema):
     
 @api.post("/player/{stats_id}", auth=header_key)
 def update_player(request, stats_id: int, data: PlayerSchema):
+    timer_stop = track_request_latency('update_player')
     try:
-        # Try to get existing player or create a new one
-        player, created = Player.objects.get_or_create(
-            stats_id=stats_id,
-            defaults={'name': data.name or f"Player {stats_id}"}  # Use provided name or generate one
-        )
-        
-        # Update all fields from the schema
-        for field in data.dict():
-            if field != 'name' or not created:  # Don't update name if we just created the player
-                setattr(player, field, getattr(data, field))
-        
-        player.save()
-        
-        # Record the update timestamp
-        LastUpdated.update_timestamp(
-            data_type="player_data",
-            updated_by=f"API update for player {stats_id}",
-            notes=f"{'Created' if created else 'Updated'} player {player.name}"
-        )
-        
-        action = "created" if created else "updated"
-        return {"status": "success", "message": f"Player {player.name} {action} successfully"}
+        try:
+            # Try to get existing player or create a new one
+            player, created = Player.objects.get_or_create(
+                stats_id=stats_id,
+                defaults={'name': data.name or f"Player {stats_id}"}  # Use provided name or generate one
+            )
             
-    except Exception as e:
-        return {"status": "error", "message": str(e)}, 500
+            # Update all fields from the schema
+            for field in data.dict():
+                if field != 'name' or not created:  # Don't update name if we just created the player
+                    setattr(player, field, getattr(data, field))
+            
+            player.save()
+            
+            # Record the update timestamp
+            LastUpdated.update_timestamp(
+                data_type="player_data",
+                updated_by=f"API update for player {stats_id}",
+                notes=f"{'Created' if created else 'Updated'} player {player.name}"
+            )
+            
+            action = "created" if created else "updated"
+            return {"status": "success", "message": f"Player {player.name} {action} successfully"}
+                
+        except Exception as e:
+            timer_stop(status='error')
+            return {"status": "error", "message": str(e)}, 500
+    finally:
+        timer_stop()
 
 
 def get_next_available_date():            # Find the next available date that doesn't have a game
@@ -190,6 +200,7 @@ def get_next_available_date():            # Find the next available date that do
 @api.put("/game", auth=header_key)
 def submit_prebuilt_game(request, data: PrebuiltGameSchema):
     """Submit a prebuilt game with custom filters"""
+    timer_stop = track_request_latency('submit_prebuilt_game')
     try:
         # Determine the target date
         if data.year and data.month and data.day:
@@ -254,10 +265,13 @@ def submit_prebuilt_game(request, data: PrebuiltGameSchema):
         }
     except Exception as e:
         return {"status": "error", "message": str(e)}, 500
+    finally:
+        timer_stop()
 
 @api.put("/game/generate", auth=header_key)
 def generate_game(request, data: GameGridSchema = None):
-    """Generate a game grid for a future date"""
+    """Generate a new game for the specified date or the next available date"""
+    timer_stop = track_request_latency('generate_game')
     try:
         # Determine the target date
         if data and data.year and data.month and data.day:
@@ -305,24 +319,31 @@ def generate_game(request, data: GameGridSchema = None):
         }
     except Exception as e:
         return {"status": "error", "message": str(e)}, 500
+    finally:
+        timer_stop()
 
 @api.get("/updates")
 def get_all_updates(request):
-    """Get all update timestamps"""
-    updates = LastUpdated.objects.all()
-    return [
-        {
-            "data_type": update.data_type,
-            "last_updated": update.last_updated.isoformat() if update.last_updated else None,
-            "updated_by": update.updated_by,
-            "notes": update.notes
-        }
-        for update in updates
-    ]
+    """Get all update timestamps by data type"""
+    timer_stop = track_request_latency('get_all_updates')
+    try:
+        updates = LastUpdated.objects.all()
+        return [
+            {
+                "data_type": update.data_type,
+                "last_updated": update.last_updated.isoformat() if update.last_updated else None,
+                "updated_by": update.updated_by,
+                "notes": update.notes
+            }
+            for update in updates
+        ]
+    finally:
+        timer_stop()
 
 @api.get("/updates/{data_type}")
 def get_update_timestamp(request, data_type: str):
-    """Get the last update timestamp for a specific data type"""
+    """Get the most recent update timestamp for a specific data type"""
+    timer_stop = track_request_latency('get_update_timestamp')
     try:
         update = LastUpdated.objects.get(data_type=data_type)
         return {
@@ -333,10 +354,13 @@ def get_update_timestamp(request, data_type: str):
         }
     except LastUpdated.DoesNotExist:
         return {"error": f"No update record found for '{data_type}'"}, 404
+    finally:
+        timer_stop()
 
 @api.post("/updates", auth=header_key)
 def record_update(request, data: LastUpdatedSchema):
     """Record a new update timestamp"""
+    timer_stop = track_request_latency('record_update')
     try:
         update = LastUpdated.update_timestamp(
             data_type=data.data_type,
@@ -352,4 +376,6 @@ def record_update(request, data: LastUpdatedSchema):
         }
     except Exception as e:
         return {"status": "error", "message": str(e)}, 500
+    finally:
+        timer_stop()
     

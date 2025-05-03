@@ -1,3 +1,4 @@
 nba_api
 django-ninja
 python-dotenv
+django-prometheus

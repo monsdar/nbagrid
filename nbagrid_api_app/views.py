@@ -1,4 +1,4 @@
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.shortcuts import render, redirect
 from django.db.models import F
 
@@ -11,6 +11,9 @@ from nbagrid_api_app.GameFilter import GameFilter
 from nbagrid_api_app.GameBuilder import GameBuilder
 from nbagrid_api_app.models import Player, GameResult, GameCompletion, LastUpdated
 from nbagrid_api_app.GameState import GameState, CellData
+from nbagrid_api_app.metrics import track_request_latency, record_game_completion, update_active_games, increment_active_games, decrement_active_games
+from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+from nbagrid_api_app.auth import basic_auth_required
 
 def get_valid_date(year, month, day):
     """Validate and return a valid date for the game."""
@@ -221,8 +224,12 @@ def update_total_score(game_state, requested_date):
 
 def index(request):
     """Render today's game directly."""
-    current_date = datetime.now()
-    return game(request, current_date.year, current_date.month, current_date.day)
+    timer_stop = track_request_latency('index')
+    try:
+        current_date = datetime.now()
+        return game(request, current_date.year, current_date.month, current_date.day)
+    finally:
+        timer_stop()
 
 def get_correct_players(game_grid, game_state):
     """Get the correct players for each cell."""
@@ -265,69 +272,84 @@ def get_correct_players(game_grid, game_state):
 
 def game(request, year, month, day):
     """Main game view function."""
-    requested_date = get_valid_date(year, month, day)
-    # redirect to a valid date if the requested date is not valid
-    if requested_date != datetime(year=year, month=month, day=day):
-        return redirect('game', 
-            year=requested_date.year, 
-            month=requested_date.month, 
-            day=requested_date.day
-        )
-    
-    prev_date, next_date, show_prev, show_next = get_navigation_dates(requested_date)
-    static_filters, dynamic_filters = get_game_filters(requested_date)
-    game_state_key, game_state = initialize_game_state(request, year, month, day)
-    
-    game_grid = build_grid(static_filters, dynamic_filters)
-    
-    if request.method == 'POST':
-        response = handle_player_guess(request, game_grid, game_state, requested_date)
-        request.session[game_state_key] = game_state.to_dict()
-        return response
-    
-    # Get correct players for each cell
-    correct_players = get_correct_players(game_grid, game_state)
-    
-    # Get completion count
-    completion_count = GameCompletion.get_completion_count(requested_date.date())
-    
-    # Get the last update timestamp for player data specifically
+    timer_stop = track_request_latency('game')
     try:
-        last_updated = LastUpdated.objects.filter(data_type="player_data").order_by('-last_updated').first()
-        last_updated_date = last_updated.last_updated if last_updated else None
-    except Exception as e:
-        logger.error(f"Error fetching last update timestamp: {e}")
-        last_updated_date = None
-    
-    # Format the last updated date
-    if last_updated_date:
-        last_updated_str = last_updated_date.strftime('%B %d, %Y')
-    else:
-        last_updated_str = 'Unknown'
-    
-    return render(request, 'game.html', {
-        'year': year,
-        'month': requested_date.strftime('%B'),
-        'month_num': requested_date.month,
-        'day': day,
-        'static_filters': [f.get_desc() for f in static_filters],
-        'dynamic_filters': [f.get_desc() for f in dynamic_filters],
-        'static_filters_detailed': [f.get_detailed_desc() for f in static_filters],
-        'dynamic_filters_detailed': [f.get_detailed_desc() for f in dynamic_filters],
-        'grid': game_grid,
-        'selected_players': set(),
-        'attempts_remaining': game_state.attempts_remaining,
-        'selected_cells': game_state.selected_cells,
-        'is_finished': game_state.is_finished,
-        'correct_players': correct_players,
-        'total_score': game_state.total_score,
-        'completion_count': completion_count,
-        'show_prev': show_prev,
-        'show_next': show_next,
-        'prev_date': prev_date,
-        'next_date': next_date,
-        'last_updated_date': last_updated_str
-    })
+        requested_date = get_valid_date(year, month, day)
+        # redirect to a valid date if the requested date is not valid
+        if requested_date != datetime(year=year, month=month, day=day):
+            return redirect('game', 
+                year=requested_date.year, 
+                month=requested_date.month, 
+                day=requested_date.day
+            )
+        
+        prev_date, next_date, show_prev, show_next = get_navigation_dates(requested_date)
+        static_filters, dynamic_filters = get_game_filters(requested_date)
+        game_state_key, game_state = initialize_game_state(request, year, month, day)
+        
+        game_grid = build_grid(static_filters, dynamic_filters)
+        
+        if request.method == 'POST':
+            response = handle_player_guess(request, game_grid, game_state, requested_date)
+            
+            # Record game completion if the game is finished
+            if game_state.is_finished:
+                result = 'win' if game_state.total_score > 0 else 'lose'
+                record_game_completion(game_state.total_score, result)
+                
+            request.session[game_state_key] = game_state.to_dict()
+            return response
+        
+        # Get correct players for each cell
+        correct_players = get_correct_players(game_grid, game_state)
+        
+        # Get completion count
+        completion_count = GameCompletion.get_completion_count(requested_date.date())
+        
+        # Track active games (approximately based on completion count)
+        if not hasattr(request.session, 'tracked_game'):
+            request.session['tracked_game'] = True
+            increment_active_games()
+        
+        # Get the last update timestamp for player data specifically
+        try:
+            last_updated = LastUpdated.objects.filter(data_type="player_data").order_by('-last_updated').first()
+            last_updated_date = last_updated.last_updated if last_updated else None
+        except Exception as e:
+            logger.error(f"Error fetching last update timestamp: {e}")
+            last_updated_date = None
+        
+        # Format the last updated date
+        if last_updated_date:
+            last_updated_str = last_updated_date.strftime('%B %d, %Y')
+        else:
+            last_updated_str = 'Unknown'
+        
+        return render(request, 'game.html', {
+            'year': year,
+            'month': requested_date.strftime('%B'),
+            'month_num': requested_date.month,
+            'day': day,
+            'static_filters': [f.get_desc() for f in static_filters],
+            'dynamic_filters': [f.get_desc() for f in dynamic_filters],
+            'static_filters_detailed': [f.get_detailed_desc() for f in static_filters],
+            'dynamic_filters_detailed': [f.get_detailed_desc() for f in dynamic_filters],
+            'grid': game_grid,
+            'selected_players': set(),
+            'attempts_remaining': game_state.attempts_remaining,
+            'selected_cells': game_state.selected_cells,
+            'is_finished': game_state.is_finished,
+            'correct_players': correct_players,
+            'total_score': game_state.total_score,
+            'completion_count': completion_count,
+            'show_prev': show_prev,
+            'show_next': show_next,
+            'prev_date': prev_date,
+            'next_date': next_date,
+            'last_updated_date': last_updated_str
+        })
+    finally:
+        timer_stop()
 
 def search_players(request):
     """Search for players by name."""
@@ -337,3 +359,18 @@ def search_players(request):
     
     players = Player.objects.filter(name__icontains=name)[:5]
     return JsonResponse([{"stats_id": player.stats_id, "name": player.name} for player in players], safe=False)
+
+@basic_auth_required
+def metrics_view(request):
+    """Custom metrics view that adds application-specific metrics."""
+    timer_stop = track_request_latency('metrics')
+    try:
+        # Update metrics based on current DB state
+        # Count active games based on DB state (not perfect but gives an estimate)
+        active_games_count = GameCompletion.objects.filter(completed_at__gte=datetime.now() - timedelta(hours=1)).count()
+        update_active_games(active_games_count)
+        
+        # Return all metrics
+        return HttpResponse(generate_latest(), content_type=CONTENT_TYPE_LATEST)
+    finally:
+        timer_stop()

@@ -54,9 +54,11 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'nbagrid_api_app.apps.NbagridApiAppConfig',
+    'django_prometheus',
 ]
 
 MIDDLEWARE = [
+    'django_prometheus.middleware.PrometheusBeforeMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -64,6 +66,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'django_prometheus.middleware.PrometheusAfterMiddleware',
 ]
 
 ROOT_URLCONF = 'nbagrid_api.urls'
@@ -91,7 +94,7 @@ WSGI_APPLICATION = 'nbagrid_api.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
+        'ENGINE': 'django_prometheus.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
@@ -180,3 +183,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # API Settings
 NBAGRID_API_KEY = os.environ.get('NBAGRID_API_KEY', 'supersecret')
+
+# Prometheus metrics authentication
+PROMETHEUS_METRICS_ENABLED = True
+PROMETHEUS_METRICS_AUTH_USERNAME = os.environ.get('PROMETHEUS_METRICS_USERNAME', 'prometheus')
+PROMETHEUS_METRICS_AUTH_PASSWORD = os.environ.get('PROMETHEUS_METRICS_PASSWORD', 'prometheus_secret')
