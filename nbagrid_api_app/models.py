@@ -214,7 +214,7 @@ class GameResult(models.Model):
 
     class Meta:
         unique_together = ['date', 'cell_key', 'player']  # Ensure we can track multiple correct players per cell
-
+        
     @classmethod
     def get_cell_stats(cls, date, cell_key):
         """Get all correct players and their guess counts for a specific cell on a specific date."""
@@ -340,14 +340,40 @@ class GameCompletion(models.Model):
     date = models.DateField()
     session_key = models.CharField(max_length=40)  # Django session key
     completed_at = models.DateTimeField(auto_now_add=True)
+    correct_cells = models.IntegerField(default=0)  # Number of correctly filled cells
+    final_score = models.FloatField(default=0.0)    # Final score achieved Optional additional data
 
     class Meta:
         unique_together = ['date', 'session_key']  # Each session can only complete a game once
+        indexes = [
+            models.Index(fields=['date']),
+            models.Index(fields=['final_score']),  # Index for leaderboard queries
+        ]
 
     @classmethod
     def get_completion_count(cls, date):
         """Get the number of unique sessions that have completed this game."""
         return cls.objects.filter(date=date).count()
+    
+    @classmethod
+    def get_average_score(cls, date):
+        """Get the average score for a specific date."""
+        result = cls.objects.filter(date=date).aggregate(avg_score=models.Avg('final_score'))
+        return result['avg_score'] or 0
+    
+    @classmethod
+    def get_average_correct_cells(cls, date):
+        """Get the average number of correct cells for a specific date."""
+        result = cls.objects.filter(date=date).aggregate(avg_cells=models.Avg('correct_cells'))
+        return result['avg_cells'] or 0
+    
+    @classmethod
+    def get_top_scores(cls, date, limit=10):
+        """Get the top scores for a specific date."""
+        return cls.objects.filter(date=date).order_by('-final_score')[:limit]
+    
+    def __str__(self):
+        return f"{self.date} - {self.session_key} - Score: {self.final_score} ({self.correct_cells}/9 cells)"
 
 class GameFilterDB(models.Model):
     """Stores the configuration of game filters for a specific date."""
@@ -366,7 +392,57 @@ class GameFilterDB(models.Model):
 
     def __str__(self):
         return f"{self.date} - {self.filter_type} - {self.filter_class} ({self.filter_index})"
+
+class GameGrid(models.Model):
+    """
+    Central model that stores information about a specific game grid.
+    Contains metadata about the grid and references to related models.
+    """
+    date = models.DateField(unique=True, primary_key=True)
+    grid_size = models.IntegerField(default=3)  # Size of the grid (e.g., 3 for 3x3)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
     
+    # Store the correct players count for each cell
+    cell_correct_players = models.JSONField(default=dict)  # Format: {'0_0': 5, '0_1': 3, ...}
+    
+    @property
+    def completion_count(self):
+        """Get the completion count on the fly"""
+        return GameCompletion.get_completion_count(self.date)
+    
+    @property
+    def total_correct_players(self):
+        """Get the total number of unique correct players across all cells"""
+        total_correct_players = 0
+        for _, count in self.cell_correct_players.items():
+            total_correct_players += count
+        return total_correct_players
+            
+    @property
+    def total_guesses(self):
+        """Get the total guess count on the fly by summing all GameResult.guess_count values for this date"""
+        return GameResult.objects.filter(date=self.date).aggregate(
+            total=models.Sum('guess_count')
+        )['total'] or 0
+    
+    @property
+    def average_score(self):
+        """Get the average score for completions of this grid"""
+        return GameCompletion.get_average_score(self.date)
+    
+    @property
+    def average_correct_cells(self):
+        """Get the average number of correct cells for completions of this grid"""
+        return GameCompletion.get_average_correct_cells(self.date)
+    
+    def get_top_scores(self, limit=10):
+        """Get the top scores for this grid"""
+        return GameCompletion.get_top_scores(self.date, limit)
+    
+    def __str__(self):
+        return f"Game Grid for {self.date}"
+
 class LastUpdated(models.Model):
     """
     Model to track when data was last updated

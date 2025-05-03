@@ -1,5 +1,6 @@
 {% extends "admin/base_site.html" %}
 {% load i18n admin_urls static admin_list %}
+{% load custom_filters %}
 
 {% block extrastyle %}
   {{ block.super }}
@@ -25,16 +26,6 @@
       background-color: #000000;
     }
     
-    .status-complete {
-      color: green;
-      font-weight: bold;
-    }
-    
-    .status-incomplete {
-      color: red;
-      font-weight: bold;
-    }
-    
     .delete-button {
       background-color: #f44336;
       color: white;
@@ -47,25 +38,85 @@
     .delete-button:hover {
       background-color: #d32f2f;
     }
+    
+    .cell-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-gap: 4px;
+      margin-top: 10px;
+    }
+    
+    .cell {
+      background-color: #333;
+      padding: 8px;
+      border-radius: 4px;
+      text-align: center;
+    }
+    
+    .details-toggle {
+      background-color: #4CAF50;
+      color: white;
+      padding: 6px 10px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-right: 10px;
+    }
+    
+    .details-toggle:hover {
+      background-color: #45a049;
+    }
+    
+    .hidden {
+      display: none;
+    }
+    
+    .game-details {
+      margin-top: 10px;
+      padding: 10px;
+      background-color: #222;
+      border-radius: 4px;
+    }
   </style>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // Add click handlers for all toggle buttons
+      document.querySelectorAll('.details-toggle').forEach(function(button) {
+        button.addEventListener('click', function() {
+          var detailsId = this.getAttribute('data-target');
+          var detailsElement = document.getElementById(detailsId);
+          if (detailsElement.classList.contains('hidden')) {
+            detailsElement.classList.remove('hidden');
+            this.textContent = 'Hide Details';
+          } else {
+            detailsElement.classList.add('hidden');
+            this.textContent = 'Show Details';
+          }
+        });
+      });
+    });
+  </script>
 {% endblock %}
 
 {% block content %}
   <div id="content-main">
     <div class="module" id="changelist">
-      <h1>Game Management</h1>
-      <p class="help">This page shows all games in the database. You can delete games that should no longer be available.</p>
-      
+      <h1>Game Management</h1>      
+      <div style="margin-bottom: 20px;">
+        <a href="{% url 'admin:create_missing_gamegrids' %}" 
+           class="create-btn" 
+           style="background-color: #2196F3; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; display: inline-block;">
+          Create Missing GameGrid Objects
+        </a>
+      </div>
       {% if dates %}
         <table class="game-stats">
           <thead>
             <tr>
               <th>Date</th>
-              <th>Status</th>
-              <th>Filter Count</th>
-              <th>Static Filters</th>
-              <th>Dynamic Filters</th>
-              <th>Completion Count</th>
+              <th>Completions</th>
+              <th>Total Guesses</th>
+              <th>Correct Players</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -73,23 +124,36 @@
             {% for date_info in dates %}
               <tr>
                 <td>{{ date_info.date }}</td>
+                <td>Avg Score: {{ date_info.average_score|floatformat:0 }}<br/>Avg Correct Cells: {{ date_info.average_correct_cells|floatformat:1 }}<br/>Total: {{ date_info.completion_count }}</td>
+                <td>Total Guesses: {{ date_info.total_guesses }}</td>
+                <td>Min: {{ date_info.min_correct_players }}<br/>Max: {{ date_info.max_correct_players }}<br/>Avg: {{ date_info.avg_correct_players|floatformat:1 }}<br/>Total: {{ date_info.total_correct_players }}</td>
                 <td>
-                  {% if date_info.is_complete %}
-                    <span class="status-complete">Complete</span>
-                  {% else %}
-                    <span class="status-incomplete">Incomplete ({{ date_info.filter_count }}/6 filters)</span>
-                  {% endif %}
-                </td>
-                <td>{{ date_info.filter_count }}</td>
-                <td>{{ date_info.static_count }}</td>
-                <td>{{ date_info.dynamic_count }}</td>
-                <td>{{ date_info.completion_count }}</td>
-                <td>
+                  <button class="details-toggle" data-target="details-{{ date_info.date|date:'Ymd' }}">Show Details</button>
                   <form method="POST" action="{{ date_info.delete_link }}" 
-                        onsubmit="return confirm('Are you sure you want to delete the game for {{ date_info.date }}? This action cannot be undone.');">
+                        onsubmit="return confirm('Are you sure you want to delete the game for {{ date_info.date }}? This action cannot be undone.');"
+                        style="display: inline-block;">
                     {% csrf_token %}
                     <button type="submit" class="delete-button">Delete</button>
                   </form>
+                </td>
+              </tr>
+              <tr>
+                <td colspan="9">
+                  <div id="details-{{ date_info.date|date:'Ymd' }}" class="game-details hidden">
+                    <h3>Cell Statistics</h3>
+                    <p>Number of correct players for each cell:</p>                    
+                    <div class="cell-grid">
+                      {% for row in "012"|make_list %}
+                        {% for col in "012"|make_list %}
+                          {% with cell_key=row|add:"_"|add:col %}
+                          <div class="cell">
+                            Cell {{ row }},{{ col }}: {{ date_info.cell_stats|get_item:cell_key|default:"0" }} players
+                          </div>
+                          {% endwith %}
+                        {% endfor %}
+                      {% endfor %}
+                    </div>
+                  </div>
                 </td>
               </tr>
             {% endfor %}

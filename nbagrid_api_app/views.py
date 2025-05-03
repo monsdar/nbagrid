@@ -140,7 +140,16 @@ def handle_player_guess(request, game_grid, game_state: GameState, requested_dat
             
             # Record game completion
             if not GameCompletion.objects.filter(date=requested_date.date(), session_key=request.session.session_key).exists():
-                GameCompletion.objects.create(date=requested_date.date(), session_key=request.session.session_key)
+                # Count how many cells have correct guesses
+                correct_cells_count = sum(1 for cell_key, cell_data_list in game_state.selected_cells.items() 
+                                      if any(cell_data.get('is_correct', False) for cell_data in cell_data_list))
+                
+                GameCompletion.objects.create(
+                    date=requested_date.date(),
+                    session_key=request.session.session_key,
+                    correct_cells=correct_cells_count,
+                    final_score=game_state.total_score
+                )
         
         # Save the updated game state to the session
         game_state_key = f'game_state_{requested_date.year}_{requested_date.month}_{requested_date.day}'

@@ -1,4 +1,4 @@
-from nbagrid_api_app.models import Player, GameFilterDB
+from nbagrid_api_app.models import Player, GameFilterDB, GameGrid
 from nbagrid_api_app.GameFilter import GameFilter, get_dynamic_filters, get_static_filters, create_filter_from_db
 from django.db.models import Manager
 
@@ -69,6 +69,8 @@ class GameBuilder(object):
                     dynamic_filters.append(filter_obj)
             
             if len(static_filters) == self.num_statics and len(dynamic_filters) == self.num_dynamics:
+                # Ensure GameGrid exists for the requested date
+                self.update_game_grid(requested_date, static_filters, dynamic_filters)
                 return (static_filters, dynamic_filters)
         
         # If no filters exist or they're incomplete, generate new ones
@@ -103,8 +105,53 @@ class GameBuilder(object):
                         filter_index=idx
                     )
                 
+                # Create/update the GameGrid for this date
+                self.update_game_grid(requested_date, static_filters, dynamic_filters)
+                
                 return (static_filters, dynamic_filters)
         raise Exception(f"Failed to generate a grid with {self.num_dynamics} dynamic filters and {self.num_statics} static filters")
+
+    def update_game_grid(self, date, static_filters, dynamic_filters):
+        """
+        Create or update the GameGrid for the specified date with calculated player counts
+        
+        Args:
+            date: The game date
+            static_filters: The static filters (rows)
+            dynamic_filters: The dynamic filters (columns)
+        """
+        # Create or get the GameGrid for this date
+        game_grid, created = GameGrid.objects.get_or_create(
+            date=date,
+            defaults={'grid_size': self.num_statics}  # Assuming grid_size is the number of rows
+        )
+        
+        # Get all players
+        all_players = Player.objects.all()
+        
+        # Calculate cell player counts
+        cell_stats = {}
+        
+        # For each cell in the grid (row x column)
+        for row_idx, row_filter in enumerate(static_filters):
+            for col_idx, col_filter in enumerate(dynamic_filters):
+                cell_key = f"{row_idx}_{col_idx}"
+                
+                # Apply both filters to get players that match this cell
+                matching_players = row_filter.apply_filter(col_filter.apply_filter(all_players))
+                
+                # Store the count of matching players
+                cell_stats[cell_key] = matching_players.count()
+                
+                logger.debug(f"Cell {cell_key}: {cell_stats[cell_key]} matching players")
+        
+        # Update the GameGrid with all calculated stats at once
+        game_grid.cell_correct_players = cell_stats
+        game_grid.save()
+        
+        logger.info(f"Updated GameGrid for {date} with correct player counts: {cell_stats}")
+        
+        return game_grid
         
     def generate_grid(self, use_dynamic_filters_in_row:bool=False):
         # Get 3 random static filters for X-axis

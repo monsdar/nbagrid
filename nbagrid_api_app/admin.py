@@ -12,7 +12,7 @@ import logging
 import time
 from datetime import datetime
 
-from .models import Player, Team, GameFilterDB, GameResult, GameCompletion, LastUpdated
+from .models import Player, Team, GameFilterDB, GameResult, GameCompletion, LastUpdated, GameGrid
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -142,6 +142,7 @@ class GameAdmin(admin.ModelAdmin):
         my_urls = [
             path('game_dates/', self.view_game_dates, name='game_dates'),
             path('delete_game/<str:game_date>/', self.delete_game, name='delete_game'),
+            path('create_missing_gamegrids/', self.create_missing_gamegrids, name='create_missing_gamegrids'),
         ]
         return my_urls + urls
     
@@ -154,33 +155,41 @@ class GameAdmin(admin.ModelAdmin):
         return False
     
     def view_game_dates(self, request):
-        # Get unique dates with counts of filters and completions
-        dates = GameFilterDB.objects.values('date').annotate(
-            filter_count=Count('id')
-        ).order_by('-date')
+        # Get unique dates from GameGrid
+        dates = GameGrid.objects.all().order_by('-date')
         
-        # Get completion counts for each date
-        for date_info in dates:
-            date_info['completion_count'] = GameCompletion.get_completion_count(date_info['date'])
+        date_info_list = []
+        
+        for game_grid in dates:
+            min_correct_players = 999
+            for cell in game_grid.cell_correct_players:
+                if game_grid.cell_correct_players[cell] < min_correct_players:
+                    min_correct_players = game_grid.cell_correct_players[cell]
+            max_correct_players = 0
+            for cell in game_grid.cell_correct_players:
+                if game_grid.cell_correct_players[cell] > max_correct_players:
+                    max_correct_players = game_grid.cell_correct_players[cell]
+            avg_correct_players = game_grid.total_correct_players / 9
             
-            # Calculate if game is complete (has all required filters)
-            # For a standard 3x3 grid, we expect 6 filters (3 static, 3 dynamic)
-            date_info['is_complete'] = date_info['filter_count'] == 6
-            
-            # Add stats on static/dynamic filters
-            static_count = GameFilterDB.objects.filter(
-                date=date_info['date'], filter_type='static'
-            ).count()
-            
-            dynamic_count = GameFilterDB.objects.filter(
-                date=date_info['date'], filter_type='dynamic'
-            ).count()
-            
-            date_info['static_count'] = static_count
-            date_info['dynamic_count'] = dynamic_count
-            
+            date_info = {
+                'date': game_grid.date,
+                'completion_count': game_grid.completion_count,
+                'total_guesses': game_grid.total_guesses,
+                'min_correct_players': min_correct_players,
+                'max_correct_players': max_correct_players,
+                'avg_correct_players': avg_correct_players,
+                'total_correct_players': game_grid.total_correct_players,
+                'average_score': int(game_grid.average_score * 100),
+                'average_correct_cells': game_grid.average_correct_cells,
+            }
+                                                
             # Add a delete link
-            date_info['delete_link'] = reverse('admin:delete_game', args=[date_info['date']])
+            date_info['delete_link'] = reverse('admin:delete_game', args=[game_grid.date])
+            
+            # Add cell player counts details
+            date_info['cell_stats'] = game_grid.cell_correct_players
+                        
+            date_info_list.append(date_info)
         
         from django.shortcuts import render
         return render(
@@ -188,7 +197,7 @@ class GameAdmin(admin.ModelAdmin):
             'admin/game_list.html',
             context={
                 'title': 'Game Management',
-                'dates': dates,
+                'dates': date_info_list,
                 'opts': self.model._meta,
             }
         )
@@ -200,6 +209,10 @@ class GameAdmin(admin.ModelAdmin):
             
             # Delete all GameFilterDB entries for this date
             deleted_count = GameFilterDB.objects.filter(date=game_date_obj).delete()[0]
+            
+            # Delete GameGrid entry
+            if GameGrid.objects.filter(date=game_date_obj).exists():
+                GameGrid.objects.filter(date=game_date_obj).delete()
             
             # Also delete related GameResult entries
             GameResult.objects.filter(date=game_date_obj).delete()
@@ -242,12 +255,81 @@ class GameAdmin(admin.ModelAdmin):
         
         # Use the proper reverse URL to the game_dates view instead of a relative path
         return HttpResponseRedirect(reverse('admin:game_dates'))
+    
+    def create_missing_gamegrids(self, request):
+        """
+        Create GameGrid objects for dates that have GameFilterDB entries but no GameGrid
+        """
+        try:
+            # Import GameBuilder to use its functionality
+            from nbagrid_api_app.GameBuilder import GameBuilder
+            
+            # Find dates with GameFilterDB entries
+            filter_dates = GameFilterDB.objects.values('date').distinct()
+            
+            # Find dates that don't have GameGrid entries
+            missing_grid_dates = []
+            created_count = 0
+            
+            for date_dict in filter_dates:
+                date = date_dict['date']
+                if not GameGrid.objects.filter(date=date).exists():
+                    missing_grid_dates.append(date)
+            
+            # Process each missing date
+            for date in missing_grid_dates:
+                # Create a GameBuilder
+                builder = GameBuilder()
+                
+                # Get the filters for this date
+                try:
+                    # This will use existing filters and create a GameGrid
+                    static_filters, dynamic_filters = builder.get_tuned_filters(date)
+                    created_count += 1
+                    logger.info(f"Created GameGrid for {date}")
+                except Exception as e:
+                    logger.error(f"Error creating GameGrid for {date}: {str(e)}")
+            
+            if created_count > 0:
+                self.message_user(
+                    request, 
+                    f"Successfully created {created_count} GameGrid objects for past games", 
+                    level="success"
+                )
+            else:
+                self.message_user(
+                    request, 
+                    "No missing GameGrid objects found", 
+                    level="info"
+                )
+                
+            # Record the action
+            LastUpdated.update_timestamp(
+                data_type="gamegrid_creation",
+                updated_by=f"Admin ({request.user.username})",
+                notes=f"Created {created_count} GameGrid objects for past games"
+            )
+            
+        except Exception as e:
+            self.message_user(request, f"Error creating GameGrid objects: {str(e)}", level="error")
+            logger.error(f"Error in create_missing_gamegrids: {str(e)}")
+        
+        # Redirect back to the game_dates view
+        return HttpResponseRedirect(reverse('admin:game_dates'))
 
-# Register the GameFilterDB model with our custom admin view
-admin.site.register(GameFilterDB, GameAdmin)
+# Register the GameGrid model with our custom admin view
+admin.site.register(GameGrid, GameAdmin)
 
-# Register other models with default admin views
+# Register GameResult model
 admin.site.register(GameResult)
-admin.site.register(GameCompletion)
-admin.site.register(LastUpdated)
+
+# Create a dedicated admin view for GameFilterDB
+class GameFilterDBAdmin(admin.ModelAdmin):
+    list_display = ('date', 'filter_type', 'filter_class', 'filter_index')
+    list_filter = ('date', 'filter_type', 'filter_class')
+    search_fields = ('date', 'filter_class')
+    date_hierarchy = 'date'
+
+# Register GameFilterDB with the dedicated admin view
+admin.site.register(GameFilterDB, GameFilterDBAdmin)
             
