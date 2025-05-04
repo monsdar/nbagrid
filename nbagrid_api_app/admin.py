@@ -17,6 +17,73 @@ from .models import Player, Team, GameFilterDB, GameResult, GameCompletion, Last
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
+# Static lists of Olympic medal winners by name
+# These will be manually updated when admin is running update_olympic_medal_winners
+# This is needed because the stats.nba.com API doesn't provide this information for international players before 2024
+static_olympic_gold_winners = [
+    # Add Olympic gold medal winners here (empty by default)
+]
+
+static_olympic_silver_winners = [
+    # France 2020
+    "Frank Ntilikina",
+    "Timothé Luwawu-Cabarrot",
+    "Thomas Heurtel",
+    "Nicolas Batum",
+    "Guerschon Yabusele",
+    "Evan Fournier",
+    "Nando de Colo",
+    "Vincent Poirier",
+    "Andrew Albicy",
+    "Rudy Gobert",
+    "Petr Cornelie",
+    "Moustapha Fall",
+    
+    # Serbia 2016
+    "Miloš Teodosić",
+    "Marko Simonović",
+    "Bogdan Bogdanović",
+    "Stefan Marković",
+    "Nikola Kalinić",
+    "Nemanja Nedović",
+    "Stefan Birčević",
+    "Miroslav Raduljica",
+    "Nikola Jokić",
+    "Vladimir Štimac",
+    "Stefan Jović",
+    "Milan Mačvan",
+]
+
+static_olympic_bronze_winners = [
+    # Australia 2020
+    "Chris Goulding",
+    "Patty Mills",
+    "Josh Green",
+    "Joe Ingles",
+    "Matthew Dellavedova",
+    "Nathan Sobey",
+    "Matisse Thybulle",
+    "Dante Exum",
+    "Aron Baynes",
+    "Jock Landale",
+    "Duop Reath",
+    "Nick Kay",
+    
+    # Spain 2016
+    "Pau Gasol",
+    "Rudy Fernández",
+    "Sergio Rodríguez",
+    "Juan Carlos Navarro",
+    "José Manuel Calderón",
+    "Felipe Reyes",
+    "Víctor Claver",
+    "Willy Hernangómez",
+    "Álex Abrines",
+    "Sergio Llull",
+    "Nikola Mirotić",
+    "Ricky Rubio",
+]
+
 @admin.register(Team)
 class TeamAdmin(admin.ModelAdmin):
     change_list_template = "admin/team_changelist.html"
@@ -42,6 +109,10 @@ class TeamAdmin(admin.ModelAdmin):
 @admin.register(Player)
 class PlayerAdmin(admin.ModelAdmin):
     change_list_template = "admin/player_changelist.html"
+    list_display = ('name', 'position', 'country', 'is_award_olympic_gold_medal', 'is_award_olympic_silver_medal', 'is_award_olympic_bronze_medal')
+    list_filter = ('position', 'country', 'is_award_olympic_gold_medal', 'is_award_olympic_silver_medal', 'is_award_olympic_bronze_medal')
+    search_fields = ('name', 'display_name')
+    
     def get_urls(self):
         urls = super().get_urls()
         my_urls = [
@@ -49,6 +120,7 @@ class PlayerAdmin(admin.ModelAdmin):
             path('sync_players_from_nba_stats/', self.sync_player_data_from_nba_stats),
             path('sync_player_stats_from_nba_stats/', self.sync_player_stats_from_nba_stats),
             path('sync_player_awards_from_nba_stats/', self.sync_player_awards_from_nba_stats),
+            path('update_olympic_medal_winners/', self.update_olympic_medal_winners),
         ]
         return my_urls + urls
     
@@ -70,6 +142,50 @@ class PlayerAdmin(admin.ModelAdmin):
     def sync_player_awards_from_nba_stats(self, request):
         self.sync_player_awards()
         self.message_user(request, "Successfully synced player awards", level="success")
+        return HttpResponseRedirect("../")
+    
+    def update_olympic_medal_winners(self, request):
+        """Update Olympic medal status for players based on static lists"""
+        gold_count = 0
+        silver_count = 0
+        bronze_count = 0
+        
+        # Update gold medal winners
+        for player_name in static_olympic_gold_winners:
+            players = Player.objects.filter(name__iexact=static_players._strip_accents(player_name))
+            for player in players:
+                player.is_award_olympic_gold_medal = True
+                player.save()
+                gold_count += 1
+                
+        # Update silver medal winners
+        for player_name in static_olympic_silver_winners:
+            players = Player.objects.filter(name__iexact=static_players._strip_accents(player_name))
+            for player in players:
+                player.is_award_olympic_silver_medal = True
+                player.save()
+                silver_count += 1
+                
+        # Update bronze medal winners
+        for player_name in static_olympic_bronze_winners:
+            players = Player.objects.filter(name__iexact=static_players._strip_accents(player_name))
+            for player in players:
+                player.is_award_olympic_bronze_medal = True
+                player.save()
+                bronze_count += 1
+        
+        # Record the update timestamp
+        LastUpdated.update_timestamp(
+            data_type="olympic_medals_update",
+            updated_by=f"Admin ({request.user.username})",
+            notes=f"Updated Olympic medal winners: {gold_count} gold, {silver_count} silver, {bronze_count} bronze"
+        )
+        
+        self.message_user(
+            request, 
+            f"Successfully updated Olympic medal winners: {gold_count} gold, {silver_count} silver, {bronze_count} bronze", 
+            level="success"
+        )
         return HttpResponseRedirect("../")
     
     def init_players(self):
