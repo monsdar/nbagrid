@@ -1,14 +1,14 @@
 from django.core.management.base import BaseCommand
-import os
+from django.conf import settings
 from nbagrid_api_app.metrics import test_pythonanywhere_api
 
 class Command(BaseCommand):
     help = 'Test the PythonAnywhere API connection and metrics'
 
     def handle(self, *args, **options):
-        pa_username = os.environ.get('PYTHONANYWHERE_USERNAME')
-        pa_token = os.environ.get('PYTHONANYWHERE_API_TOKEN')
-        pa_host = os.environ.get('PYTHONANYWHERE_HOST', 'www.pythonanywhere.com')
+        pa_username = settings.PYTHONANYWHERE_USERNAME
+        pa_token = settings.PYTHONANYWHERE_API_TOKEN
+        pa_host = settings.PYTHONANYWHERE_HOST
         
         if not pa_username or not pa_token:
             self.stdout.write(self.style.ERROR('Missing PYTHONANYWHERE_USERNAME or PYTHONANYWHERE_API_TOKEN environment variables'))
