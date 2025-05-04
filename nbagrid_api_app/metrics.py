@@ -8,6 +8,11 @@ game_completions_counter = Counter(
     ['result']  # 'win', 'lose'
 )
 
+game_starts_counter = Counter(
+    'nbagrid_game_starts_total',
+    'Number of started games'
+)
+
 game_score_histogram = Histogram(
     'nbagrid_game_score',
     'Distribution of game scores',
@@ -18,6 +23,11 @@ game_score_histogram = Histogram(
 active_games_gauge = Gauge(
     'nbagrid_active_games',
     'Number of currently active games'
+)
+
+unique_users_gauge = Counter(
+    'nbagrid_unique_users',
+    'Number of unique users based on session keys'
 )
 
 # API request latency
@@ -50,6 +60,10 @@ def record_game_completion(score, result):
     game_completions_counter.labels(result=result).inc()
     game_score_histogram.labels(result=result).observe(score)
 
+# Increment counter when a new game is started
+def record_game_start():
+    game_starts_counter.inc()
+
 # Update active games gauge
 def update_active_games(count):
     active_games_gauge.set(count)
@@ -58,6 +72,6 @@ def update_active_games(count):
 def increment_active_games():
     active_games_gauge.inc()
 
-# Decrement active games
-def decrement_active_games():
-    active_games_gauge.dec() 
+# Update unique users gauge
+def increment_unique_users():
+    unique_users_gauge.inc()

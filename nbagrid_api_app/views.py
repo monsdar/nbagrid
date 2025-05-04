@@ -1,6 +1,5 @@
 from django.http import JsonResponse, HttpResponse
 from django.shortcuts import render, redirect
-from django.db.models import F
 
 import logging
 logger = logging.getLogger(__name__)
@@ -11,7 +10,7 @@ from nbagrid_api_app.GameFilter import GameFilter
 from nbagrid_api_app.GameBuilder import GameBuilder
 from nbagrid_api_app.models import Player, GameResult, GameCompletion, LastUpdated
 from nbagrid_api_app.GameState import GameState, CellData
-from nbagrid_api_app.metrics import track_request_latency, record_game_completion, update_active_games, increment_active_games, decrement_active_games
+from nbagrid_api_app.metrics import track_request_latency, record_game_completion, update_active_games, increment_active_games, increment_unique_users, record_game_start
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 from nbagrid_api_app.auth import basic_auth_required
 
@@ -283,6 +282,13 @@ def game(request, year, month, day):
                 day=requested_date.day
             )
         
+        # Track unique users based on session key
+        if not request.session.get('user_counted', False):
+            request.session['user_counted'] = True
+            request.session.save()
+            increment_unique_users()
+            logger.info(f"New unique user counted with session key: {request.session.session_key}")
+        
         prev_date, next_date, show_prev, show_next = get_navigation_dates(requested_date)
         static_filters, dynamic_filters = get_game_filters(requested_date)
         game_state_key, game_state = initialize_game_state(request, year, month, day)
@@ -294,7 +300,12 @@ def game(request, year, month, day):
             
             # Record game completion if the game is finished
             if game_state.is_finished:
-                result = 'win' if game_state.total_score > 0 else 'lose'
+                # Count how many cells have correct guesses
+                correct_cells_count = sum(1 for _, cell_data_list in game_state.selected_cells.items() 
+                                      if any(cell_data.get('is_correct', False) for cell_data in cell_data_list))
+                
+                # Win if at least 9 cells are correct, lose otherwise
+                result = 'win' if correct_cells_count >= 9 else 'lose'
                 record_game_completion(game_state.total_score, result)
                 
             request.session[game_state_key] = game_state.to_dict()
@@ -306,10 +317,23 @@ def game(request, year, month, day):
         # Get completion count
         completion_count = GameCompletion.get_completion_count(requested_date.date())
         
-        # Track active games (approximately based on completion count)
-        if not hasattr(request.session, 'tracked_game'):
-            request.session['tracked_game'] = True
+        # Track active games with per-date tracking
+        date_str = requested_date.date().isoformat()
+        if not request.session.get('tracked_games', {}):
+            request.session['tracked_games'] = {}
+        
+        tracked_games = request.session.get('tracked_games', {})
+        if date_str not in tracked_games:
+            tracked_games[date_str] = True
+            request.session['tracked_games'] = tracked_games
+            request.session.save()
+            
+            # Increment active games counter
             increment_active_games()
+            
+            # Record a new game start
+            record_game_start()
+            logger.info(f"New game started for date {date_str} with session key: {request.session.session_key}")
         
         # Get the last update timestamp for player data specifically
         try:
