@@ -1,5 +1,6 @@
 from django.http import JsonResponse, HttpResponse
 from django.shortcuts import render, redirect
+from django.conf import settings
 
 import logging
 logger = logging.getLogger(__name__)
@@ -10,9 +11,10 @@ from nbagrid_api_app.GameFilter import GameFilter
 from nbagrid_api_app.GameBuilder import GameBuilder
 from nbagrid_api_app.models import Player, GameResult, GameCompletion, LastUpdated
 from nbagrid_api_app.GameState import GameState, CellData
-from nbagrid_api_app.metrics import track_request_latency, record_game_completion, update_active_games, increment_active_games, increment_unique_users, record_game_start
+from nbagrid_api_app.metrics import track_request_latency, record_game_completion, update_active_games, increment_active_games, increment_unique_users, record_game_start, update_pythonanywhere_cpu_metrics
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 from nbagrid_api_app.auth import basic_auth_required
+import os
 
 def get_valid_date(year, month, day):
     """Validate and return a valid date for the game."""
@@ -393,6 +395,17 @@ def metrics_view(request):
         # Count active games based on DB state (not perfect but gives an estimate)
         active_games_count = GameCompletion.objects.filter(completed_at__gte=datetime.now() - timedelta(hours=1)).count()
         update_active_games(active_games_count)
+        
+        # Update PythonAnywhere CPU metrics if environment variables are set
+        pa_username = settings.PYTHONANYWHERE_USERNAME
+        pa_token = settings.PYTHONANYWHERE_API_TOKEN
+        pa_host = settings.PYTHONANYWHERE_HOST
+        
+        if pa_username and pa_token:
+            try:
+                update_pythonanywhere_cpu_metrics(pa_username, pa_token, pa_host)
+            except Exception as e:
+                logger.error(f"Error updating PythonAnywhere CPU metrics: {e}")
         
         # Return all metrics
         return HttpResponse(generate_latest(), content_type=CONTENT_TYPE_LATEST)
