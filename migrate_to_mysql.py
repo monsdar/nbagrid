@@ -58,6 +58,37 @@ def update_django_settings(mysql_config):
         'PORT': '3306',
     }
 
+def clear_mysql_database(mysql_config):
+    """Clear all tables in the MySQL database."""
+    print("Clearing MySQL database...")
+    conn = mysql.connector.connect(
+        host=mysql_config['host'],
+        user=mysql_config['user'],
+        password=mysql_config['password'],
+        database=mysql_config['database']
+    )
+    cursor = conn.cursor()
+    
+    # Disable foreign key checks temporarily
+    cursor.execute("SET FOREIGN_KEY_CHECKS = 0")
+    
+    # Get all tables
+    cursor.execute("SHOW TABLES")
+    tables = cursor.fetchall()
+    
+    # Drop all tables
+    for table in tables:
+        print(f"Dropping table: {table[0]}")
+        cursor.execute(f"DROP TABLE IF EXISTS `{table[0]}`")
+    
+    # Re-enable foreign key checks
+    cursor.execute("SET FOREIGN_KEY_CHECKS = 1")
+    
+    conn.commit()
+    cursor.close()
+    conn.close()
+    print("MySQL database cleared successfully")
+
 def migrate_data():
     """Migrate data from SQLite to MySQL."""
     # First, dump data from SQLite while still using SQLite configuration
@@ -66,24 +97,49 @@ def migrate_data():
         print("SQLite database not found!")
         return
     
+    print(f"Found SQLite database at: {sqlite_db}")
+    
     # Create a temporary file for the dump
     dump_file = 'db_dump.json'
     
     # Dump data from SQLite
     print("Dumping data from SQLite...")
-    call_command('dumpdata', '--natural-foreign', '--natural-primary', '-e', 'contenttypes', '-e', 'auth.permission', output=dump_file)
+    try:
+        call_command('dumpdata', '--natural-foreign', '--natural-primary', output=dump_file)
+        # Check if dump file was created and has content
+        if Path(dump_file).exists():
+            size = Path(dump_file).stat().st_size
+            print(f"Dump file created successfully. Size: {size} bytes")
+            if size == 0:
+                print("WARNING: Dump file is empty!")
+        else:
+            print("ERROR: Dump file was not created!")
+    except Exception as e:
+        print(f"Error during dumpdata: {str(e)}")
+        return
     
     # Now switch to MySQL configuration
     mysql_config = create_mysql_database()
     update_django_settings(mysql_config)
     
+    # Clear the MySQL database
+    clear_mysql_database(mysql_config)
+    
     # Run migrations on MySQL database
     print("Running migrations on MySQL database...")
-    call_command('migrate')
+    try:
+        call_command('migrate')
+    except Exception as e:
+        print(f"Error during migrate: {str(e)}")
+        return
     
     # Load data into MySQL
     print("Loading data into MySQL...")
-    call_command('loaddata', dump_file)
+    try:
+        call_command('loaddata', dump_file)
+    except Exception as e:
+        print(f"Error during loaddata: {str(e)}")
+        return
     
     # Clean up
     os.remove(dump_file)
