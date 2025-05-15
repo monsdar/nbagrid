@@ -92,12 +92,27 @@ WSGI_APPLICATION = 'nbagrid_api.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django_prometheus.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+# Check if MySQL environment variables are set
+if all(os.environ.get(var) for var in ['MYSQL_USER', 'MYSQL_PASSWORD', 'MYSQL_DATABASE']):
+    print("Using MySQL database configuration from environment variables")
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': os.environ.get('MYSQL_DATABASE'),
+            'USER': os.environ.get('MYSQL_USER'),
+            'PASSWORD': os.environ.get('MYSQL_PASSWORD'),
+            'HOST': os.environ.get('MYSQL_ADDRESS', 'localhost'),
+            'PORT': '3306',
+        }
     }
-}
+else:
+    print("Using SQLite database configuration")
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django_prometheus.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 # Logging
 # https://docs.djangoproject.com/en/5.2/howto/logging/
