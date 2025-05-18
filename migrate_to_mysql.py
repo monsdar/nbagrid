@@ -104,16 +104,17 @@ def migrate_data():
     
     # Dump data from SQLite
     print("Dumping data from SQLite...")
-    try:
+    try:        
+        # Now create the full dump
         call_command('dumpdata', '--natural-foreign', '--natural-primary', output=dump_file)
         # Check if dump file was created and has content
         if Path(dump_file).exists():
             size = Path(dump_file).stat().st_size
-            print(f"Dump file created successfully. Size: {size} bytes")
+            print(f"\nDump file created successfully. Size: {size} bytes")
             if size == 0:
-                print("WARNING: Dump file is empty!")
+                raise Exception("Dump file is empty!")
         else:
-            print("ERROR: Dump file was not created!")
+            raise Exception("Dump file was not created!")
     except Exception as e:
         print(f"Error during dumpdata: {str(e)}")
         return
@@ -126,7 +127,7 @@ def migrate_data():
     clear_mysql_database(mysql_config)
     
     # Run migrations on MySQL database
-    print("Running migrations on MySQL database...")
+    print("\nRunning migrations on MySQL database...")
     try:
         call_command('migrate')
     except Exception as e:
@@ -136,14 +137,13 @@ def migrate_data():
     # Load data into MySQL
     print("Loading data into MySQL...")
     try:
-        call_command('loaddata', dump_file)
+        call_command('loaddata', dump_file, verbosity=2)  # Increased verbosity
     except Exception as e:
         print(f"Error during loaddata: {str(e)}")
         return
-    
-    # Clean up
-    os.remove(dump_file)
+        
     print("Migration completed successfully!")
+    print(f"Dump file preserved at: {dump_file}")
 
 if __name__ == '__main__':
     migrate_data() 
