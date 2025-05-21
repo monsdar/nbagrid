@@ -812,6 +812,7 @@
             <h2>Thanks for playing!</h2>
             <div class="score">{{ total_score|multiply:100|floatformat:0 }}</div>
             <div class="score-label">Total Score</div>
+            <div class="completion-count">Total guesses: <span id="total-guesses">{{ total_guesses }}</span></div>
             <div class="completion-count">Completed by <span id="completion-count">{{ completion_count }}</span> players</div>
             <button class="share-button" onclick="shareResults()">Share Results</button>
             <button class="about-button" onclick="openAboutModal()">About</button>
@@ -1109,6 +1110,12 @@
                     if (data.completion_count !== undefined) {
                         const countElement = document.getElementById('completion-count');
                         countElement.textContent = data.completion_count;
+                    }
+
+                    // Update total guesses if available
+                    if (data.total_guesses !== undefined) {
+                        const guessesElement = document.getElementById('total-guesses');
+                        guessesElement.textContent = data.total_guesses;
                     }
 
                     updateAttemptsCounter(data.attempts_remaining);

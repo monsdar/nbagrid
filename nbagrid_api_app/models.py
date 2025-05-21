@@ -236,6 +236,11 @@ class GameResult(ExportModelOperationsMixin('gameresult'), models.Model):
             .order_by('guess_count')[:limit]
 
     @classmethod
+    def get_total_guesses(cls, date):
+        """Get the total number of correct guesses for a specific date."""
+        return cls.objects.filter(date=date).aggregate(total=models.Sum('guess_count'))['total'] or 0
+
+    @classmethod
     def get_player_rarity_score(cls, date, cell_key, player):
         """Calculate a rarity score for a player in a specific cell on a specific date.
         Score is between 0 and 1, where 1 is the rarest (least guessed) and 0 is the most common.

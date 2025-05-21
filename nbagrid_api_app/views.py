@@ -55,7 +55,7 @@ def get_game_filters(requested_date: datetime) -> tuple[list[GameFilter], list[G
             for col in range(len(static_filters)):
                 cell_key = f'{row}_{col}'
                 init_filters = [dynamic_filters[row], static_filters[col]]
-                GameResult.initialize_scores_from_recent_games(requested_date.date(), cell_key, filters=init_filters)
+                GameResult.initialize_scores_from_recent_games(requested_date.date(), cell_key, filters=init_filters, game_factor=1)
     return filters
         
 def initialize_game_state(request, year, month, day) -> tuple[str, GameState]:
@@ -162,6 +162,8 @@ def handle_player_guess(request, game_grid, game_state: GameState, requested_dat
         
         # Get completion count
         completion_count = GameCompletion.get_completion_count(requested_date.date())
+        # Get total guess count
+        total_guesses = GameResult.get_total_guesses(requested_date.date())
         
         return JsonResponse({
             'is_correct': is_correct,
@@ -172,6 +174,7 @@ def handle_player_guess(request, game_grid, game_state: GameState, requested_dat
             'total_score': game_state.total_score,
             'cell_players': cell_players,
             'completion_count': completion_count,
+            'total_guesses': total_guesses,
             'selected_cells': {k: [cd for cd in v] for k, v in game_state.selected_cells.items()}
         })
     except Exception as e:
@@ -319,6 +322,9 @@ def game(request, year, month, day):
         # Get completion count
         completion_count = GameCompletion.get_completion_count(requested_date.date())
         
+        # Get total guess count
+        total_guesses = GameResult.get_total_guesses(requested_date.date())
+        
         # Track active games with per-date tracking
         date_str = requested_date.date().isoformat()
         if not request.session.get('tracked_games', {}):
@@ -368,6 +374,7 @@ def game(request, year, month, day):
             'correct_players': correct_players,
             'total_score': game_state.total_score,
             'completion_count': completion_count,
+            'total_guesses': total_guesses,
             'show_prev': show_prev,
             'show_next': show_next,
             'prev_date': prev_date,

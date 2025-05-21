@@ -301,7 +301,7 @@ class GameResultTests(TestCase):
         # Clean up any existing records
         GameResult.objects.all().delete()
         
-        game_factor = 3
+        game_factor = 1
         
         # Create test dates for the last 5 games
         today = date.today()
