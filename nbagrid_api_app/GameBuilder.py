@@ -1,10 +1,10 @@
 from nbagrid_api_app.models import Player, GameFilterDB, GameGrid
 from nbagrid_api_app.GameFilter import GameFilter, get_dynamic_filters, get_static_filters, create_filter_from_db
 from django.db.models import Manager
-
-from datetime import datetime
+from datetime import datetime, timedelta
 import logging
 import random
+import math
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -20,6 +20,113 @@ class GameBuilder(object):
         self.num_statics = 3
         self.num_dynamics = 3
         
+        # Define high-priority filters that should be selected more often
+        self.high_priority_filters = {
+            'TeamFilter': 0.1, # TeamFilter is almost always selected
+            'PositionFilter': 1.0,  # PositionFilter is unaffected by last usage
+        }
+        
+    def weighted_choice(self, items, weights):
+        """Make a weighted random choice from a list of items.
+        
+        Args:
+            items: List of items to choose from
+            weights: List of weights (higher weight = less likely to be selected)
+            
+        Returns:
+            Randomly selected item based on weights
+        """
+        # Convert weights to probabilities (inverse of weights)
+        total = sum(1.0 / w for w in weights)
+        r = random.random() * total
+        upto = 0
+        for item, weight in zip(items, weights):
+            upto += 1.0 / weight
+            if upto > r:
+                return item
+        return items[-1]  # Fallback
+        
+    def get_filter_weights(self, filter_pool, filter_type, days=7):
+        """Calculate weights for filters based on recent usage from GameFilterDB.
+        
+        Args:
+            filter_pool: List of available filters
+            filter_type: 'static' or 'dynamic'
+            days: Number of days to look back for usage
+            
+        Returns:
+            Dict mapping filter class names to their weights (higher weight = less likely to be selected)
+        """
+        # Get recent filter usage from GameFilterDB
+        cutoff_date = datetime.now().date() - timedelta(days=days)
+        recent_usage = GameFilterDB.objects.filter(
+            date__gte=cutoff_date,
+            filter_type=filter_type
+        )
+        
+        weights = {}
+        
+        # Initialize weights for all filters
+        for filter_obj in filter_pool:
+            filter_class = filter_obj.__class__.__name__
+            weights[filter_class] = 1.0  # Base weight
+            
+            # Count recent usage
+            usage_count = recent_usage.filter(filter_class=filter_class).count()
+            if usage_count > 0:
+                # Increase weight based on usage (more usage = higher weight = less likely to be selected)
+                weights[filter_class] += usage_count * 0.5
+                
+                # Add extra weight for very recent usage (last 2 days)
+                very_recent = recent_usage.filter(
+                    filter_class=filter_class,
+                    date__gte=datetime.now().date() - timedelta(days=2)
+                ).count()
+                if very_recent > 0:
+                    weights[filter_class] += very_recent * 1.0
+            
+            # Adjust weight based on high priority filters
+            if filter_class in self.high_priority_filters:
+                weights[filter_class] = self.high_priority_filters[filter_class]
+        
+        return weights
+        
+    def select_filters(self, filter_pool, num_filters, filter_type):
+        """Select filters using weighted random choice based on recent usage.
+        
+        Args:
+            filter_pool: List of available filters
+            num_filters: Number of filters to select
+            filter_type: 'static' or 'dynamic'
+            
+        Returns:
+            List of selected filters
+        """
+        # Get filter weights based on recent usage
+        weights = self.get_filter_weights(filter_pool, filter_type)
+        
+        # Convert weights to list matching filter_pool order
+        weight_list = [weights[f.__class__.__name__] for f in filter_pool]
+        
+        # Select filters using weighted random choice
+        selected_filters = []
+        available_filters = filter_pool.copy()
+        available_weights = weight_list.copy()
+        
+        for _ in range(num_filters):
+            if not available_filters:
+                break
+                
+            selected = self.weighted_choice(available_filters, available_weights)
+            selected_filters.append(selected)
+            
+            # Remove selected filter from available options
+            idx = available_filters.index(selected)
+            available_filters.pop(idx)
+            available_weights.pop(idx)
+        
+        return selected_filters
+
     def tune_filter(self, dynamic_filter:GameFilter, static_filters:list[GameFilter], all_players:Manager[Player]):
         num_results = []
         success = True
@@ -154,11 +261,11 @@ class GameBuilder(object):
         return game_grid
         
     def generate_grid(self, use_dynamic_filters_in_row:bool=False):
-        # Get 3 random static filters for X-axis
+        # Get filters for rows using weighted selection
         row_filter_pool = self.static_filters
         if use_dynamic_filters_in_row:
             row_filter_pool += self.dynamic_filters
-        row_filters = random.sample(row_filter_pool, self.num_statics)
+        row_filters = self.select_filters(row_filter_pool, self.num_statics, 'static')
         column_filters = []
         
         # Go through the list of dynamic filters and tune them to the static filters
