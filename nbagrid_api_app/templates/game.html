@@ -312,6 +312,12 @@
             color: white;
             margin-bottom: 0;
         }
+        .game-subtitle {
+            font-size: 10px;
+            font-style: italic;
+            color: #888;
+            display: none;
+        }
 
         .date-navigation {
             display: flex;
@@ -561,6 +567,9 @@
             .game-attempts #attempts-remaining {
                 font-size: 24px;
             }
+            .game-subtitle {
+                font-size: 10px;
+            }
 
             .nav-arrow,
             .completion-message {
@@ -744,7 +753,7 @@
 <body>
     <div class="game-container {% if is_finished %}game-finished{% endif %}">
         <div class="game-header">
-            <div class="game-title-large">NBAGrid</div>
+            <div class="game-title-large"><a href="{% url 'index' %}" style="color: white; text-decoration: none;">NBAGrid</a></div>
             <div class="date-navigation">
                 {% if show_prev %}
                 <a href="{% url 'game' year=prev_date.year month=prev_date.month day=prev_date.day %}"
@@ -760,6 +769,7 @@
                 <span class="nav-arrow disabled">→</span>
                 {% endif %}
             </div>
+            <div class="game-subtitle">Click title to return Home</div>
         </div>
         <div class="grid-container">
             <div class="cell game-title-cell">
@@ -1281,6 +1291,45 @@
         function closeAboutModal() {
             document.getElementById('aboutModal').style.display = 'none';
         }
+
+        // Function to toggle subtitle visibility
+        function toggleSubtitle(show) {
+            const subtitle = document.querySelector('.game-subtitle');
+            if (subtitle) {
+                subtitle.style.display = show ? 'block' : 'none';
+            }
+        }
+
+        // Add click handlers to date navigation arrows
+        document.addEventListener('DOMContentLoaded', function() {
+            const prevArrow = document.querySelector('.nav-arrow:not(.disabled)');
+            const nextArrow = document.querySelector('.nav-arrow:not(.disabled)');
+            
+            if (prevArrow) {
+                prevArrow.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const href = this.getAttribute('href');
+                    if (href) {
+                        window.location.href = href;
+                    }
+                });
+            }
+            
+            if (nextArrow) {
+                nextArrow.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const href = this.getAttribute('href');
+                    if (href) {
+                        window.location.href = href;
+                    }
+                });
+            }
+
+            // Initial subtitle state
+            const isSpecificDate = window.location.pathname.match(/\/\d+\/\d+\/\d+\/$/);
+            console.log('Initial subtitle state:', isSpecificDate);
+            toggleSubtitle(isSpecificDate);
+        });
     </script>
 </body>
 
