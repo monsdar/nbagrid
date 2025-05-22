@@ -94,8 +94,20 @@ WSGI_APPLICATION = 'nbagrid_api.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-# Check if MySQL environment variables are set
-if all(os.environ.get(var) for var in ['MYSQL_USER', 'MYSQL_PASSWORD', 'MYSQL_DATABASE']):
+# Check database configuration based on environment variables
+if all(os.environ.get(var) for var in ['POSTGRES_DB', 'POSTGRES_USER', 'POSTGRES_PASSWORD']):
+    print("Using PostgreSQL database configuration from environment variables")
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.environ.get('POSTGRES_DB'),
+            'USER': os.environ.get('POSTGRES_USER'),
+            'PASSWORD': os.environ.get('POSTGRES_PASSWORD'),
+            'HOST': os.environ.get('POSTGRES_HOST', 'localhost'),
+            'PORT': os.environ.get('POSTGRES_PORT', '5432'),
+        }
+    }
+elif all(os.environ.get(var) for var in ['MYSQL_USER', 'MYSQL_PASSWORD', 'MYSQL_DATABASE']):
     print("Using MySQL database configuration from environment variables")
     DATABASES = {
         'default': {
