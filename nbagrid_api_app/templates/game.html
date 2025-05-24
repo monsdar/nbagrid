@@ -1467,7 +1467,11 @@
             // Animate each stat
             animateStat(elements.totalCompletions, data.completion_count, data.completion_count - 1);
             animateStat(elements.currentStreak, streakDisplay, oldStreakDisplay);
-            if (data.total_score === 9) {
+            
+            // Count correct cells from the grid
+            const gridCells = document.querySelectorAll('.cell.correct');
+            const correctCells = gridCells.length;        
+            if (correctCells === 9) {
                 animateStat(elements.perfectGames, data.perfect_games, data.perfect_games - 1, true);
             } else {
                 elements.perfectGames.textContent = data.perfect_games;
