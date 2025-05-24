@@ -139,6 +139,7 @@ def handle_player_guess(request, game_grid, game_state: GameState, requested_dat
         
         # If game is finished, get correct players for all remaining cells
         cell_players = {}
+        game_completed = False
         if game_state.is_finished:
             cell_players = get_correct_players(game_grid, game_state)
             
@@ -154,16 +155,38 @@ def handle_player_guess(request, game_grid, game_state: GameState, requested_dat
                     correct_cells=correct_cells_count,
                     final_score=game_state.total_score
                 )
+                game_completed = True
         
         # Save the updated game state to the session
         game_state_key = f'game_state_{requested_date.year}_{requested_date.month}_{requested_date.day}'
         request.session[game_state_key] = game_state.to_dict()
         request.session.save()
         
-        # Get completion count
+        # Get stats data
         completion_count = GameCompletion.get_completion_count(requested_date.date())
-        # Get total guess count
         total_guesses = GameResult.get_total_guesses(requested_date.date())
+        perfect_games = GameCompletion.get_perfect_games(requested_date.date())
+        average_score = GameCompletion.get_average_score(requested_date.date())
+        
+        # Get score rank and streak data if game is finished
+        score_rank = None
+        streak = 0
+        streak_rank = None
+        
+        if game_state.is_finished:
+            # If we just completed the game, force a refresh of the stats
+            if game_completed:
+                from django.db import transaction
+                transaction.commit()
+            
+            rank, total = GameCompletion.get_score_rank(requested_date.date(), game_state.total_score)
+            score_rank = (rank, total)
+            
+            # Calculate streak if game is finished
+            streak, streak_rank, total_completions = GameCompletion.get_current_streak(request.session.session_key, requested_date.date())
+            streak_rank = (streak_rank, total_completions) if streak > 0 else None
+            
+            logger.info(f"Game completed. Stats: completion_count={completion_count}, perfect_games={perfect_games}, score_rank={score_rank}, streak={streak}, streak_rank={streak_rank}")
         
         return JsonResponse({
             'is_correct': is_correct,
@@ -175,6 +198,11 @@ def handle_player_guess(request, game_grid, game_state: GameState, requested_dat
             'cell_players': cell_players,
             'completion_count': completion_count,
             'total_guesses': total_guesses,
+            'perfect_games': perfect_games,
+            'average_score': average_score,
+            'score_rank': score_rank,
+            'streak': streak,
+            'streak_rank': streak_rank,
             'selected_cells': {k: [cd for cd in v] for k, v in game_state.selected_cells.items()}
         })
     except Exception as e:
@@ -325,6 +353,25 @@ def game(request, year, month, day):
         # Get total guess count
         total_guesses = GameResult.get_total_guesses(requested_date.date())
         
+        # Get perfect games count
+        perfect_games = GameCompletion.get_perfect_games(requested_date.date())
+        
+        # Get average score
+        average_score = GameCompletion.get_average_score(requested_date.date())
+        
+        # Get score rank if game is finished
+        score_rank = None
+        if game_state.is_finished:
+            rank, total = GameCompletion.get_score_rank(requested_date.date(), game_state.total_score)
+            score_rank = (rank, total)
+            
+            # Calculate streak if game is finished
+            streak, streak_rank, total_completions = GameCompletion.get_current_streak(request.session.session_key, requested_date.date())
+            streak_rank = (streak_rank, total_completions) if streak > 0 else None
+            logger.info(f"Streak: {streak}, Streak rank: {streak_rank}")
+        else:
+            streak, streak_rank = (0, None)
+        
         # Track active games with per-date tracking
         date_str = requested_date.date().isoformat()
         if not request.session.get('tracked_games', {}):
@@ -375,6 +422,11 @@ def game(request, year, month, day):
             'total_score': game_state.total_score,
             'completion_count': completion_count,
             'total_guesses': total_guesses,
+            'perfect_games': perfect_games,
+            'average_score': average_score,
+            'score_rank': score_rank,
+            'streak': streak,
+            'streak_rank': streak_rank,
             'show_prev': show_prev,
             'show_next': show_next,
             'prev_date': prev_date,

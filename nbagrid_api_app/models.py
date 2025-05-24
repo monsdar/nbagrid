@@ -4,6 +4,7 @@ from django_prometheus.models import ExportModelOperationsMixin
 from nba_api.stats.endpoints import commonplayerinfo, playercareerstats, playerawards
 
 import logging
+from datetime import timedelta
 
 
 logger = logging.getLogger(__name__)
@@ -348,13 +349,44 @@ class GameCompletion(ExportModelOperationsMixin('gamecompletion'), models.Model)
     completed_at = models.DateTimeField(auto_now_add=True)
     correct_cells = models.IntegerField(default=0)  # Number of correctly filled cells
     final_score = models.FloatField(default=0.0)    # Final score achieved Optional additional data
+    completion_streak = models.IntegerField(default=1)  # Consecutive days of completion
+    perfect_streak = models.IntegerField(default=1)  # Consecutive days of perfect completion
 
     class Meta:
         unique_together = ['date', 'session_key']  # Each session can only complete a game once
         indexes = [
             models.Index(fields=['date']),
             models.Index(fields=['final_score']),  # Index for leaderboard queries
+            models.Index(fields=['completion_streak']),  # Index for streak queries
+            models.Index(fields=['perfect_streak']),  # Index for perfect streak queries
         ]
+
+    def save(self, *args, **kwargs):
+        """Override save to maintain streak counts."""
+        if not self.pk:  # Only on creation
+            # Check for previous day's completion
+            prev_date = self.date - timedelta(days=1)
+            try:
+                prev_completion = GameCompletion.objects.get(
+                    session_key=self.session_key,
+                    date=prev_date
+                )
+                # If previous day exists, increment completion streak
+                self.completion_streak = prev_completion.completion_streak + 1
+                
+                # For perfect streak, check if previous day was perfect
+                if self.correct_cells == 9:
+                    if prev_completion.correct_cells == 9:
+                        self.perfect_streak = prev_completion.perfect_streak + 1
+                    else:
+                        self.perfect_streak = 1
+                else:
+                    self.perfect_streak = 1
+            except GameCompletion.DoesNotExist:
+                # No previous completion, reset streaks to 1
+                self.completion_streak = 1
+                self.perfect_streak = 1 if self.correct_cells == 9 else 0
+        super().save(*args, **kwargs)
 
     @classmethod
     def get_completion_count(cls, date):
@@ -372,6 +404,88 @@ class GameCompletion(ExportModelOperationsMixin('gamecompletion'), models.Model)
         """Get the average number of correct cells for a specific date."""
         result = cls.objects.filter(date=date).aggregate(avg_cells=models.Avg('correct_cells'))
         return result['avg_cells'] or 0
+    
+    @classmethod
+    def get_perfect_games(cls, date):
+        """Get the number of games where all cells were correctly filled."""
+        return cls.objects.filter(date=date, correct_cells=9).count()
+    
+    @classmethod
+    def get_score_rank(cls, date, score):
+        """Get the rank of a score among all completions for a date.
+        Returns a tuple of (rank, total_completions) where rank is 1-based."""
+        # Get all completions for the date ordered by score (descending)
+        completions = cls.objects.filter(date=date).order_by('-final_score')
+        total_completions = completions.count()
+        
+        if total_completions == 0:
+            return (0, 0)
+            
+        # Find the rank of the given score
+        rank = 1
+        for completion in completions:
+            if completion.final_score < score:
+                break
+            if completion.final_score == score:
+                return (rank, total_completions)
+            rank += 1
+            
+        return (rank, total_completions)
+    
+    @classmethod
+    def get_current_streak(cls, session_key, current_date):
+        """Get the current streak for a user.
+        Returns a tuple of (completion_streak, streak_rank, total_completions) where streak_rank is the user's position
+        among all users' active streaks."""
+        try:
+            # Get the user's current completion
+            completion = cls.objects.get(
+                session_key=session_key,
+                date=current_date
+            )
+            streak = completion.completion_streak
+            
+            # Get all completions for this date that are part of an active streak
+            # A completion is part of an active streak if it's the most recent completion for that session
+            active_completions = []
+            all_sessions = cls.objects.values('session_key').distinct()
+            
+            for session in all_sessions:
+                try:
+                    # Get the most recent completion for this session
+                    latest_completion = cls.objects.filter(
+                        session_key=session['session_key'],
+                        date=current_date
+                    ).first()
+                    
+                    # Only include if it's from today and has a streak
+                    if latest_completion and latest_completion.completion_streak > 0:
+                        active_completions.append(latest_completion.completion_streak)
+                except cls.DoesNotExist:
+                    continue
+            
+            total_completions = len(active_completions)
+            
+            # If there's only one player with a streak, they're rank 1 of 1
+            if total_completions == 1:
+                return (streak, 1, 1)
+            
+            # Sort streaks in descending order
+            active_completions.sort(reverse=True)
+            
+            # Find the rank of the current user's streak
+            streak_rank = 1
+            for rank in active_completions:
+                if rank < streak:
+                    break
+                if rank == streak:
+                    return (streak, streak_rank, total_completions)
+                streak_rank += 1
+                
+            return (streak, streak_rank, total_completions)
+            
+        except cls.DoesNotExist:
+            return (0, 0, 0)
     
     @classmethod
     def get_top_scores(cls, date, limit=10):

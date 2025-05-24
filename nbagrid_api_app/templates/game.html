@@ -101,21 +101,18 @@
             color: white;
             margin: 0;
             padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
         }
 
         .game-attempts {
             font-size: 14px;
-            margin-bottom: 10px;
+            margin-bottom: 0;
         }
 
         .game-score {
-            font-size: 24px;
-            font-weight: bold;
-            color: #1d428a;
-        }
-
-        .game-score-label {
-            font-size: 14px;
+            font-size: 16px;
             color: white;
         }
 
@@ -350,12 +347,11 @@
         }
 
         .game-completion {
-            display: block;
+            display: none;
             text-align: center;
             background-color: #1a1a1a;
             padding: 20px;
             margin-top: 3px;
-
         }
 
         .game-completion h2 {
@@ -378,35 +374,14 @@
             margin-bottom: 20px;
         }
 
-        .game-completion .share-button {
-            display: none;
-            background-color: #1d428a;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            padding: 10px 20px;
-            font-size: 16px;
-            cursor: pointer;
-            margin-top: 10px;
-        }
-
-        .game-completion .share-button:hover {
-            background-color: #2a4d6e;
-        }
-
         .game-completion.finished h2,
-        .game-completion.finished .share-button {
+        .game-completion.finished {
             display: block;
         }
 
         .completion-message {
             font-size: 20px;
             padding: 10px 0;
-        }
-
-        .share-button {
-            font-size: 14px;
-            padding: 8px 16px;
         }
 
         .about-content h2 {
@@ -444,27 +419,12 @@
             margin-bottom: 15px;
         }
 
-        .support-section .buy-coffee {
-            display: block;
-            background-color: #1d428a;
-            color: white;
-            border: none;
-            cursor: pointer;
-            font-size: 16px;
-            margin-bottom: 20px;
-            text-align: center;
-            text-decoration: none;
-            transition: background-color .3s ease;
-            padding: 10px 20px;
-        }
-
         .game-attempts #attempts-remaining.low-attempts,
         .game-attempts.low-attempts .attempts-label {
             color: orange;
         }
 
-        .player-suggestion button:hover,
-        .support-section .buy-coffee:hover {
+        .player-suggestion button:hover {
             background-color: #2a4d6e;
         }
 
@@ -556,11 +516,6 @@
                 font-size: 12px;
                 padding: 6px;
                 margin: 5px 0;
-            }
-
-            .share-button {
-                font-size: 12px;
-                padding: 6px 12px;
             }
 
             .game-title-large,
@@ -655,40 +610,7 @@
             margin: 0 auto;
         }
 
-        .share-button {
-            width: 100%;
-            padding: 0.75rem;
-            background-color: #2a4d6e;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: background-color 0.3s;
-            font-size: 16px;
-        }
-
-        .share-button:hover {
-            background-color: #3a5d7e;
-        }
-
-        .about-button {
-            width: 100%;
-            padding: 0.75rem;
-            background-color: #333;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: background-color 0.3s;
-            display: none;
-            font-size: 16px;
-        }
-
-        .about-button:hover {
-            background-color: #444;
-        }
-
-        .game-completion.finished .about-button {
+        .game-completion.finished {
             display: block;
         }
 
@@ -747,6 +669,117 @@
         .close:hover {
             color: white;
         }
+
+        /* Stats modal styles */
+        .stats-container {
+            margin: 20px 0;
+        }
+
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #444;
+        }
+
+        .stat-item:first-child {
+            font-size: 24px;
+            font-weight: bold;
+            color: #4CAF50;
+            padding: 15px 0;
+        }
+
+        .stat-item:first-child .stat-value {
+            color: #4CAF50;
+        }
+
+        .stat-item:last-child {
+            border-bottom: none;
+        }
+
+        .stat-label {
+            color: #888;
+            font-size: 16px;
+        }
+
+        .stat-value {
+            color: white;
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        /* Stat animation styles */
+        @keyframes statCountUp {
+            0% {
+                color: white;
+                transform: translateY(10px);
+                opacity: 0;
+            }
+            50% {
+                color: #4CAF50;
+            }
+            100% {
+                color: #4CAF50;
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .stat-animation {
+            animation: statCountUp 0.8s ease-out 0.5s forwards;
+        }
+
+        @keyframes scoreCountUp {
+            0% {
+                color: white;
+            }
+            100% {
+                color: #4CAF50;
+            }
+        }
+
+        .score-animation {
+            animation: scoreCountUp 0.8s ease-out forwards;
+        }
+
+        .game-completion.finished {
+            display: block;
+        }
+
+        /* Base button styles */
+        .btn {
+            width: 95%;
+            padding: 0.75rem;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            font-size: 16px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        /* Button variants */
+        .btn-primary {
+            background-color: #1d428a;
+        }
+        .btn-primary:hover {
+            background-color: #2a4d6e;
+        }
+
+        .btn-secondary {
+            background-color: #333;
+        }
+        .btn-secondary:hover {
+            background-color: #444;
+        }
+
+        /* Button spacing */
+        .btn-mt {
+            margin-top: 20px;
+        }
     </style>
 </head>
 
@@ -774,9 +807,10 @@
         <div class="grid-container">
             <div class="cell game-title-cell">
                 <div class="game-attempts {% if attempts_remaining <= 3 %}low-attempts{% endif %}">
+                    <span class="attempts-label">Guesses:</span>
                     <span id="attempts-remaining">{{ attempts_remaining }}</span>
-                    <span class="attempts-label">attempts remaining</span>
                 </div>
+                <div class="game-score">Score: {{ total_score|multiply:100|floatformat:0 }}</div>
             </div>
             {% for static_filter in static_filters %}
             <div class="cell header-cell header-col" onclick="showFilterDetails('static', {{ forloop.counter0 }})">{{ static_filter }}</div>
@@ -819,13 +853,8 @@
             {% endfor %}
         </div>
         <div class="game-completion {% if is_finished %}finished{% endif %}">
-            <h2>Thanks for playing!</h2>
-            <div class="score">{{ total_score|multiply:100|floatformat:0 }}</div>
-            <div class="score-label">Total Score</div>
-            <div class="completion-count">Total guesses: <span id="total-guesses">{{ total_guesses }}</span></div>
-            <div class="completion-count">Completed by <span id="completion-count">{{ completion_count }}</span> players</div>
-            <button class="share-button" onclick="shareResults()">Share Results</button>
-            <button class="about-button" onclick="openAboutModal()">About</button>
+            <button class="btn btn-primary" onclick="openStatsModal()">Stats</button>
+            <button class="btn btn-secondary" onclick="openAboutModal()">About</button>
         </div>
     </div>
 
@@ -856,7 +885,7 @@
                 <h3>Support This Project</h3>
                 <p>While hosting this service isn't extremely expensive, it's not free either. If you enjoy playing
                     NBAGrid and would like to support its development and maintenance, consider buying me a coffee!</p>
-                <a href="https://buymeacoffee.com/monsdar" target="_blank" class="buy-coffee">Buy Me a Coffee</a>
+                <a href="https://buymeacoffee.com/monsdar" target="_blank" class="btn btn-primary" style="color: white;">Buy Me a Coffee</a>
             </div>
         </div>
     </div>
@@ -866,6 +895,39 @@
             <h2 id="filterTitle">Filter Details</h2>
             <p id="filterDescription"></p>
             <div class="last-updated">Player data last updated: {{ last_updated_date }}</div>
+        </div>
+    </div>
+
+    <div id="statsModal" class="modal">
+        <div class="modal-content">
+            <h2>You completed today's Game!</h2>
+            <div class="stats-container">
+                <div class="stat-item">
+                    <span class="stat-label">Score:</span>
+                    <span class="stat-value">{{ total_score|multiply:100|floatformat:0 }}</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Score Rank:</span>
+                    <span class="stat-value" id="score-rank">-</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Completed Grids:</span>
+                    <span class="stat-value" id="total-completions">-</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Perfect Grids:</span>
+                    <span class="stat-value" id="perfect-games">-</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Active Streak:</span>
+                    <span class="stat-value" id="current-streak">-</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Active Streak Rank:</span>
+                    <span class="stat-value" id="streak-rank">-</span>
+                </div>
+            </div>
+            <button class="btn btn-primary btn-mt btn-share" onclick="shareResults()">Share Results</button>
         </div>
     </div>
 
@@ -1051,6 +1113,9 @@
             })
                 .then(response => response.json())
                 .then(data => {
+                    // Store the server response for refreshStats to use
+                    window.lastServerResponse = data;
+                    
                     if (data.error) {
                         // Re-enable the button if there was an error
                         document.querySelectorAll(`button[data-player-id="${playerId}"]`).forEach(btn => {
@@ -1113,19 +1178,9 @@
 
                     // Update score display if total_score is available
                     if (data.total_score !== undefined) {
-                        document.querySelector('.game-completion .score').textContent = (data.total_score * 100).toFixed(0);
-                    }
-
-                    // Update completion count if available
-                    if (data.completion_count !== undefined) {
-                        const countElement = document.getElementById('completion-count');
-                        countElement.textContent = data.completion_count;
-                    }
-
-                    // Update total guesses if available
-                    if (data.total_guesses !== undefined) {
-                        const guessesElement = document.getElementById('total-guesses');
-                        guessesElement.textContent = data.total_guesses;
+                        const score = (data.total_score * 100).toFixed(0);
+                        document.querySelector('.game-title-cell .game-score').textContent = 'Score: ' + score;
+                        document.querySelector('#statsModal .stat-item:first-child .stat-value').textContent = score;
                     }
 
                     updateAttemptsCounter(data.attempts_remaining);
@@ -1171,6 +1226,13 @@
                             // Set onclick handler for all cells
                             cell.onclick = function () { showCorrectPlayers(this); };
                         });
+
+                        // Close the player selection modal if it's open
+                        closeModal();
+                        
+                        // Show stats dialog with the updated data
+                        openStatsModal();
+
                     }
                     closeModal();
                 })
@@ -1197,6 +1259,9 @@
             }
             if (event.target == document.getElementById('filterDetailsModal')) {
                 closeFilterDetailsModal();
+            }
+            if (event.target == document.getElementById('statsModal')) {
+                closeStatsModal();
             }
         }
 
@@ -1273,7 +1338,7 @@
             // Copy to clipboard
             navigator.clipboard.writeText(result).then(() => {
                 // Show a brief notification that the results were copied
-                const button = document.querySelector('.share-button');
+                const button = document.querySelector('.btn-share');
                 const originalText = button.textContent;
                 button.textContent = 'Copied!';
                 setTimeout(() => {
@@ -1290,6 +1355,127 @@
 
         function closeAboutModal() {
             document.getElementById('aboutModal').style.display = 'none';
+        }
+
+        function openStatsModal() {
+            document.getElementById('statsModal').style.display = 'block';
+            refreshStats();
+        }
+
+        function closeStatsModal() {
+            document.getElementById('statsModal').style.display = 'none';
+        }
+
+        function refreshStats() {
+            console.log('Refreshing stats...');
+            
+            // Get data from the server response if available
+            const data = window.lastServerResponse || {
+                completion_count: {{ completion_count|default:"0" }},
+                total_score: {{ total_score|default:"0" }},
+                perfect_games: {{ perfect_games|default:"0" }},
+                score_rank: {% if score_rank %}{{ score_rank|to_json|safe }}{% else %}null{% endif %},
+                streak: {{ streak|default:"0" }},
+                streak_rank: {% if streak_rank %}{{ streak_rank|to_json|safe }}{% else %}null{% endif %}
+            };
+            
+            // Animate score counting up
+            const scoreElement = document.querySelector('#statsModal .stat-item:first-child .stat-value');
+            const finalScore = (data.total_score * 100).toFixed(0);
+            let currentScore = 0;
+            const duration = 800; // 800ms
+            const steps = 20; // 20 steps
+            const increment = finalScore / steps;
+            const stepDuration = duration / steps;
+
+            function updateScore() {
+                if (currentScore < finalScore) {
+                    currentScore = Math.min(currentScore + increment, finalScore);
+                    scoreElement.textContent = Math.round(currentScore);
+                    setTimeout(updateScore, stepDuration);
+                } else {
+                    scoreElement.textContent = finalScore;
+                }
+            }
+
+            // Start the animation
+            scoreElement.classList.add('score-animation');
+            updateScore();
+            
+            console.log('Stats data:', {
+                totalCompletions: data.completion_count,
+                userScore: data.total_score,
+                perfectGames: data.perfect_games,
+                scoreRank: data.score_rank,
+                streak: data.streak,
+                streakRank: data.streak_rank
+            });
+            
+            // Format score rank display
+            let scoreRankDisplay = "-";
+            if (data.score_rank && Array.isArray(data.score_rank) && data.score_rank.length === 2) {
+                const [rank, total] = data.score_rank;
+                scoreRankDisplay = `Rank ${rank} of ${total}`;
+            }
+            
+            // Format streak display
+            let streakDisplay = "-";
+            let oldStreakDisplay = "-";
+            if (data.streak > 0) {
+                streakDisplay = `${data.streak} days`;
+                oldStreakDisplay = `${data.streak-1} days`;
+            }
+            
+            // Format streak rank display
+            let streakRankDisplay = "-";
+            if (data.streak_rank && Array.isArray(data.streak_rank) && data.streak_rank.length === 2) {
+                const [rank, total] = data.streak_rank;
+                streakRankDisplay = `Rank ${rank} of ${total}`;
+            }
+            
+            // Update the stats display
+            const elements = {
+                totalCompletions: document.getElementById('total-completions'),
+                perfectGames: document.getElementById('perfect-games'),
+                scoreRank: document.getElementById('score-rank'),
+                currentStreak: document.getElementById('current-streak'),
+                streakRank: document.getElementById('streak-rank')
+            };
+
+            // Function to animate stat changes
+            function animateStat(element, newValue, oldValue, isPerfect = false) {
+                if (newValue > oldValue) {
+                    // Remove any existing animation class
+                    element.classList.remove('stat-animation');
+                    // Force a reflow
+                    void element.offsetWidth;
+                    // Add the animation class
+                    element.classList.add('stat-animation');
+                    
+                    // Show old value first
+                    element.textContent = oldValue;
+                    
+                    // Update to new value when animation starts (after 0.5s delay)
+                    setTimeout(() => {
+                        element.textContent = newValue;
+                    }, 500);
+                } else {
+                    element.textContent = newValue;
+                }
+            }
+
+            // Animate each stat
+            animateStat(elements.totalCompletions, data.completion_count, data.completion_count - 1);
+            animateStat(elements.currentStreak, streakDisplay, oldStreakDisplay);
+            if (data.total_score === 9) {
+                animateStat(elements.perfectGames, data.perfect_games, data.perfect_games - 1, true);
+            } else {
+                elements.perfectGames.textContent = data.perfect_games;
+            }
+            
+            // Update non-animated stats
+            elements.scoreRank.textContent = scoreRankDisplay;
+            elements.streakRank.textContent = streakRankDisplay;
         }
 
         // Function to toggle subtitle visibility
