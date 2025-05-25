@@ -85,6 +85,85 @@ def build_grid(static_filters: list[GameFilter], dynamic_filters: list[GameFilte
         grid.append(row)
     return grid
 
+def get_game_stats(requested_date):
+    """Get common game statistics for a given date."""
+    return {
+        'completion_count': GameCompletion.get_completion_count(requested_date.date()),
+        'total_guesses': GameResult.get_total_guesses(requested_date.date()),
+        'perfect_games': GameCompletion.get_perfect_games(requested_date.date()),
+        'average_score': GameCompletion.get_average_score(requested_date.date())
+    }
+
+def get_user_data(request):
+    """Get or create user data for the current session."""
+    try:
+        user_data = UserData.get_or_create_user(request.session.session_key)
+        logger.info(f"Created/retrieved UserData for session {request.session.session_key} with display name {user_data.display_name}")
+        return user_data
+    except Exception as e:
+        logger.error(f"Failed to create UserData: {e}")
+        return None
+
+def handle_game_completion(request, requested_date, game_state, correct_cells_count):
+    """Handle game completion logic."""
+    if not GameCompletion.objects.filter(date=requested_date.date(), session_key=request.session.session_key).exists():
+        GameCompletion.objects.create(
+            date=requested_date.date(),
+            session_key=request.session.session_key,
+            correct_cells=correct_cells_count,
+            final_score=game_state.total_score
+        )
+        
+        # Create UserData for first-time game completion
+        try:
+            user_data = UserData.get_or_create_user(request.session.session_key)
+            logger.info(f"Created/retrieved UserData for session {request.session.session_key} with display name {user_data.display_name}")
+        except Exception as e:
+            logger.error(f"Failed to create UserData: {e}")
+        
+        # Record game completion metrics
+        result = 'win' if correct_cells_count >= 9 else 'lose'
+        record_game_completion(game_state.total_score, result)
+        return True
+    return False
+
+def get_ranking_data(requested_date, session_key):
+    """Get ranking data for the current user."""
+    streak, streak_rank, total_completions = GameCompletion.get_current_streak(session_key, requested_date.date())
+    streak_rank = (streak_rank, total_completions) if streak > 0 else None
+    ranking_data = GameCompletion.get_ranking_with_neighbors(requested_date.date(), session_key)
+    return streak, streak_rank, ranking_data
+
+def get_player_stats(session_key):
+    """Get player statistics including total completions, perfect completions, and streaks."""
+    try:
+        # Get total completions and perfect completions
+        total_completions = GameCompletion.objects.filter(session_key=session_key).count()
+        perfect_completions = GameCompletion.objects.filter(session_key=session_key, correct_cells=9).count()
+        
+        # Get current completion streak
+        current_streak = 0
+        perfect_streak = 0
+        latest_completion = GameCompletion.objects.filter(session_key=session_key).order_by('-date').first()
+        if latest_completion:
+            current_streak = latest_completion.completion_streak
+            perfect_streak = latest_completion.perfect_streak
+        
+        return {
+            'total_completions': total_completions,
+            'perfect_completions': perfect_completions,
+            'current_streak': current_streak,
+            'perfect_streak': perfect_streak
+        }
+    except Exception as e:
+        logger.error(f"Error getting player stats: {e}")
+        return {
+            'total_completions': 0,
+            'perfect_completions': 0,
+            'current_streak': 0,
+            'perfect_streak': 0
+        }
+
 def handle_player_guess(request, game_grid, game_state: GameState, requested_date: datetime):
     """Handle a player's guess."""
     if game_state.is_finished or game_state.attempts_remaining <= 0:
@@ -143,26 +222,12 @@ def handle_player_guess(request, game_grid, game_state: GameState, requested_dat
         if game_state.is_finished:
             cell_players = get_correct_players(game_grid, game_state)
             
-            # Record game completion
-            if not GameCompletion.objects.filter(date=requested_date.date(), session_key=request.session.session_key).exists():
-                # Count how many cells have correct guesses
-                correct_cells_count = sum(1 for cell_key, cell_data_list in game_state.selected_cells.items() 
-                                      if any(cell_data.get('is_correct', False) for cell_data in cell_data_list))
-                
-                GameCompletion.objects.create(
-                    date=requested_date.date(),
-                    session_key=request.session.session_key,
-                    correct_cells=correct_cells_count,
-                    final_score=game_state.total_score
-                )
-                game_completed = True
-                
-                # Create UserData for first-time game completion
-                try:
-                    user_data = UserData.get_or_create_user(request.session.session_key)
-                    logger.info(f"Created/retrieved UserData for session {request.session.session_key} with display name {user_data.display_name}")
-                except Exception as e:
-                    logger.error(f"Failed to create UserData: {e}")
+            # Count how many cells have correct guesses
+            correct_cells_count = sum(1 for cell_key, cell_data_list in game_state.selected_cells.items() 
+                                  if any(cell_data.get('is_correct', False) for cell_data in cell_data_list))
+            
+            # Handle game completion
+            game_completed = handle_game_completion(request, requested_date, game_state, correct_cells_count)
         
         # Save the updated game state to the session
         game_state_key = f'game_state_{requested_date.year}_{requested_date.month}_{requested_date.day}'
@@ -170,30 +235,13 @@ def handle_player_guess(request, game_grid, game_state: GameState, requested_dat
         request.session.save()
         
         # Get stats data
-        completion_count = GameCompletion.get_completion_count(requested_date.date())
-        total_guesses = GameResult.get_total_guesses(requested_date.date())
-        perfect_games = GameCompletion.get_perfect_games(requested_date.date())
-        average_score = GameCompletion.get_average_score(requested_date.date())
+        stats = get_game_stats(requested_date)
         
-        # Get score rank and streak data if game is finished
-        score_rank = None
-        streak = 0
-        streak_rank = None
+        # Get ranking data if game is finished
+        streak, streak_rank, ranking_data = get_ranking_data(requested_date, request.session.session_key) if game_state.is_finished else (0, None, None)
         
-        if game_state.is_finished:
-            # If we just completed the game, force a refresh of the stats
-            if game_completed:
-                from django.db import transaction
-                transaction.commit()
-            
-            rank, total = GameCompletion.get_score_rank(requested_date.date(), game_state.total_score)
-            score_rank = (rank, total)
-            
-            # Calculate streak if game is finished
-            streak, streak_rank, total_completions = GameCompletion.get_current_streak(request.session.session_key, requested_date.date())
-            streak_rank = (streak_rank, total_completions) if streak > 0 else None
-            
-            logger.info(f"Game completed. Stats: completion_count={completion_count}, perfect_games={perfect_games}, score_rank={score_rank}, streak={streak}, streak_rank={streak_rank}")
+        # Get player stats
+        player_stats = get_player_stats(request.session.session_key)
         
         return JsonResponse({
             'is_correct': is_correct,
@@ -203,14 +251,15 @@ def handle_player_guess(request, game_grid, game_state: GameState, requested_dat
             'is_finished': game_state.is_finished,
             'total_score': game_state.total_score,
             'cell_players': cell_players,
-            'completion_count': completion_count,
-            'total_guesses': total_guesses,
-            'perfect_games': perfect_games,
-            'average_score': average_score,
-            'score_rank': score_rank,
+            'completion_count': stats['completion_count'],
+            'total_guesses': stats['total_guesses'],
+            'perfect_games': stats['perfect_games'],
+            'average_score': stats['average_score'],
             'streak': streak,
             'streak_rank': streak_rank,
-            'selected_cells': {k: [cd for cd in v] for k, v in game_state.selected_cells.items()}
+            'selected_cells': {k: [cd for cd in v] for k, v in game_state.selected_cells.items()},
+            'ranking_data': ranking_data,
+            'player_stats': player_stats
         })
     except Exception as e:
         logger.error(f"Error handling guess: {e}")
@@ -329,6 +378,9 @@ def game(request, year, month, day):
             increment_unique_users()
             logger.info(f"New unique user counted with session key: {request.session.session_key}")
         
+        # Get user data
+        user_data = get_user_data(request)
+        
         prev_date, next_date, show_prev, show_next = get_navigation_dates(requested_date)
         static_filters, dynamic_filters = get_game_filters(requested_date)
         game_state_key, game_state = initialize_game_state(request, year, month, day)
@@ -337,54 +389,25 @@ def game(request, year, month, day):
         
         if request.method == 'POST':
             response = handle_player_guess(request, game_grid, game_state, requested_date)
-            
-            # Record game completion if the game is finished
-            if game_state.is_finished:
-                # Count how many cells have correct guesses
-                correct_cells_count = sum(1 for _, cell_data_list in game_state.selected_cells.items() 
-                                      if any(cell_data.get('is_correct', False) for cell_data in cell_data_list))
-                
-                # Win if at least 9 cells are correct, lose otherwise
-                result = 'win' if correct_cells_count >= 9 else 'lose'
-                record_game_completion(game_state.total_score, result)
-                
             request.session[game_state_key] = game_state.to_dict()
             return response
         
         # Get correct players for each cell
         correct_players = get_correct_players(game_grid, game_state)
         
-        # Get completion count
-        completion_count = GameCompletion.get_completion_count(requested_date.date())
+        # Get stats data
+        stats = get_game_stats(requested_date)
         
-        # Get total guess count
-        total_guesses = GameResult.get_total_guesses(requested_date.date())
+        # Get the last update timestamp for player data
+        try:
+            last_updated = LastUpdated.objects.filter(data_type="player_data").order_by('-last_updated').first()
+            last_updated_date = last_updated.last_updated if last_updated else None
+        except Exception as e:
+            logger.error(f"Error fetching last update timestamp: {e}")
+            last_updated_date = None
         
-        # Get perfect games count
-        perfect_games = GameCompletion.get_perfect_games(requested_date.date())
-        
-        # Get average score
-        average_score = GameCompletion.get_average_score(requested_date.date())
-        
-        # Get score rank if game is finished
-        score_rank = None
-        if game_state.is_finished:
-            # Create UserData for first-time game completion
-            try:
-                user_data = UserData.get_or_create_user(request.session.session_key)
-                logger.info(f"Created/retrieved UserData for session {request.session.session_key} with display name {user_data.display_name}")
-            except Exception as e:
-                logger.error(f"Failed to create UserData: {e}")
-            
-            rank, total = GameCompletion.get_score_rank(requested_date.date(), game_state.total_score)
-            score_rank = (rank, total)
-            
-            # Calculate streak if game is finished
-            streak, streak_rank, total_completions = GameCompletion.get_current_streak(request.session.session_key, requested_date.date())
-            streak_rank = (streak_rank, total_completions) if streak > 0 else None
-            logger.info(f"Streak: {streak}, Streak rank: {streak_rank}")
-        else:
-            streak, streak_rank = (0, None)
+        # Format the last updated date
+        last_updated_str = last_updated_date.strftime('%B %d, %Y') if last_updated_date else 'Unknown'
         
         # Track active games with per-date tracking
         date_str = requested_date.date().isoformat()
@@ -404,19 +427,11 @@ def game(request, year, month, day):
             record_game_start()
             logger.info(f"New game started for date {date_str} with session key: {request.session.session_key}")
         
-        # Get the last update timestamp for player data specifically
-        try:
-            last_updated = LastUpdated.objects.filter(data_type="player_data").order_by('-last_updated').first()
-            last_updated_date = last_updated.last_updated if last_updated else None
-        except Exception as e:
-            logger.error(f"Error fetching last update timestamp: {e}")
-            last_updated_date = None
+        # Get ranking data if game is finished
+        streak, streak_rank, ranking_data = get_ranking_data(requested_date, request.session.session_key) if game_state.is_finished else (0, None, None)
         
-        # Format the last updated date
-        if last_updated_date:
-            last_updated_str = last_updated_date.strftime('%B %d, %Y')
-        else:
-            last_updated_str = 'Unknown'
+        # Get player stats
+        player_stats = get_player_stats(request.session.session_key)
         
         return render(request, 'game.html', {
             'year': year,
@@ -434,18 +449,20 @@ def game(request, year, month, day):
             'is_finished': game_state.is_finished,
             'correct_players': correct_players,
             'total_score': game_state.total_score,
-            'completion_count': completion_count,
-            'total_guesses': total_guesses,
-            'perfect_games': perfect_games,
-            'average_score': average_score,
-            'score_rank': score_rank,
+            'completion_count': stats['completion_count'],
+            'total_guesses': stats['total_guesses'],
+            'perfect_games': stats['perfect_games'],
+            'average_score': stats['average_score'],
             'streak': streak,
             'streak_rank': streak_rank,
             'show_prev': show_prev,
             'show_next': show_next,
             'prev_date': prev_date,
             'next_date': next_date,
-            'last_updated_date': last_updated_str
+            'last_updated_date': last_updated_str,
+            'ranking_data': ranking_data,
+            'user_data': user_data,
+            'player_stats': player_stats
         })
     finally:
         timer_stop()

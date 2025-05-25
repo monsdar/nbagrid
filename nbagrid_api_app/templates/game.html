@@ -709,6 +709,72 @@
             font-weight: bold;
         }
 
+        /* Ranking styles */
+        .ranking-container {
+            margin: 20px 0;
+            border-top: 1px solid #444;
+            padding-top: 20px;
+        }
+
+        .ranking-title {
+            color: white;
+            font-size: 18px;
+            margin-bottom: 15px;
+        }
+
+        .ranking-entry {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            font-size: 14px;
+            color: #888;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+            margin: 2px 0;
+        }
+
+        .ranking-entry.current-user {
+            color: white;
+            background-color: rgba(76, 175, 80, 0.15);
+            padding: 8px 12px;
+            font-weight: 500;
+            border-left: 3px solid #4CAF50;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            animation: highlightCurrentUser 0.5s ease-out;
+        }
+
+        @keyframes highlightCurrentUser {
+            0% {
+                background-color: rgba(76, 175, 80, 0.3);
+                transform: translateX(-5px);
+            }
+            100% {
+                background-color: rgba(76, 175, 80, 0.15);
+                transform: translateX(0);
+            }
+        }
+
+        .ranking-entry.current-user .ranking-rank,
+        .ranking-entry.current-user .ranking-name,
+        .ranking-entry.current-user .ranking-score {
+            color: white;
+            font-weight: 500;
+        }
+
+        .ranking-entry.current-user .ranking-rank {
+            color: #4CAF50;
+        }
+
+        .ranking-name {
+            flex-grow: 1;
+            margin: 0 10px;
+        }
+
+        .ranking-score {
+            font-weight: bold;
+        }
+
         /* Stat animation styles */
         @keyframes statCountUp {
             0% {
@@ -779,6 +845,32 @@
         /* Button spacing */
         .btn-mt {
             margin-top: 20px;
+        }
+
+        .stats-section-title {
+            color: white;
+            font-size: 18px;
+            margin: 20px 0 10px;
+            padding-bottom: 5px;
+            border-bottom: 1px solid #444;
+        }
+
+        .stats-container {
+            margin: 10px 0;
+        }
+
+        .stats-container:first-child {
+            margin-top: 0;
+        }
+
+        .ranking-container {
+            margin: 20px 0;
+            border-top: 1px solid #444;
+            padding-top: 20px;
+        }
+
+        .ranking-container .stats-section-title {
+            margin-top: 0;
         }
     </style>
 </head>
@@ -901,32 +993,51 @@
     <div id="statsModal" class="modal">
         <div class="modal-content">
             <h2>You completed today's Game!</h2>
+            
+            <!-- Section 1: Today's Game -->
             <div class="stats-container">
+                <h3 class="stats-section-title">Today's Game</h3>
                 <div class="stat-item">
-                    <span class="stat-label">Score:</span>
+                    <span class="stat-label">Your Score:</span>
                     <span class="stat-value">{{ total_score|multiply:100|floatformat:0 }}</span>
                 </div>
                 <div class="stat-item">
-                    <span class="stat-label">Score Rank:</span>
-                    <span class="stat-value" id="score-rank">-</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-label">Completed Grids:</span>
+                    <span class="stat-label">Total Completions:</span>
                     <span class="stat-value" id="total-completions">-</span>
                 </div>
                 <div class="stat-item">
-                    <span class="stat-label">Perfect Grids:</span>
+                    <span class="stat-label">Perfect Completions:</span>
                     <span class="stat-value" id="perfect-games">-</span>
                 </div>
+            </div>
+
+            <!-- Section 2: Ranking -->
+            <div class="ranking-container">
+                <h3 class="stats-section-title">Ranking</h3>
+                <div id="ranking-list"></div>
+            </div>
+
+            <!-- Section 3: Player Stats -->
+            <div class="stats-container">
+                <h3 class="stats-section-title">Player Stats</h3>
                 <div class="stat-item">
-                    <span class="stat-label">Active Streak:</span>
+                    <span class="stat-label">Total Completions:</span>
+                    <span class="stat-value" id="player-total-completions">-</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Perfect Completions:</span>
+                    <span class="stat-value" id="player-perfect-completions">-</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Completion Streak:</span>
                     <span class="stat-value" id="current-streak">-</span>
                 </div>
                 <div class="stat-item">
-                    <span class="stat-label">Active Streak Rank:</span>
-                    <span class="stat-value" id="streak-rank">-</span>
+                    <span class="stat-label">Perfect Streak:</span>
+                    <span class="stat-value" id="perfect-streak">-</span>
                 </div>
             </div>
+
             <button class="btn btn-primary btn-mt btn-share" onclick="shareResults()">Share Results</button>
         </div>
     </div>
@@ -1334,6 +1445,19 @@
             const scoreElement = document.querySelector('.game-title-cell .game-score');
             const score = scoreElement ? scoreElement.textContent.replace('Score: ', '') : '-';
             result += '\nScore: ' + score;
+
+            // Get streak information
+            const streakElement = document.getElementById('current-streak');
+            const streak = streakElement ? streakElement.textContent : '-';
+            result += '\nStreak: ' + streak;
+
+            // Get rank information
+            const currentUserRank = document.querySelector('.ranking-entry.current-user .ranking-rank');
+            const totalCompletions = document.getElementById('total-completions');
+            const rank = currentUserRank ? currentUserRank.textContent.replace('.', '') : '-';
+            const total = totalCompletions ? totalCompletions.textContent : '-';
+            result += '\nRank: ' + rank + ' of ' + total;
+
             result += '\nPlay at: {{ request.scheme }}://{{ request.get_host }}{% url "game" year=year month=month_num day=day %}';
 
             // Copy to clipboard
@@ -1359,8 +1483,12 @@
         }
 
         function openStatsModal() {
-            document.getElementById('statsModal').style.display = 'block';
-            refreshStats();
+            const modal = document.getElementById('statsModal');
+            modal.style.display = 'block';
+            // Use requestAnimationFrame to ensure the modal is visible before updating stats
+            requestAnimationFrame(() => {
+                refreshStats();
+            });
         }
 
         function closeStatsModal() {
@@ -1375,48 +1503,78 @@
                 completion_count: {{ completion_count|default:"0" }},
                 total_score: {{ total_score|default:"0" }},
                 perfect_games: {{ perfect_games|default:"0" }},
-                score_rank: {% if score_rank %}{{ score_rank|to_json|safe }}{% else %}null{% endif %},
                 streak: {{ streak|default:"0" }},
-                streak_rank: {% if streak_rank %}{{ streak_rank|to_json|safe }}{% else %}null{% endif %}
+                streak_rank: {% if streak_rank %}{{ streak_rank|to_json|safe }}{% else %}null{% endif %},
+                ranking_data: {% if ranking_data %}{{ ranking_data|to_json|safe }}{% else %}[]{% endif %},
+                player_stats: {% if player_stats %}{{ player_stats|to_json|safe }}{% else %}{}{% endif %}
             };
             
-            // Animate score counting up
-            const scoreElement = document.querySelector('#statsModal .stat-item:first-child .stat-value');
-            const finalScore = (data.total_score * 100).toFixed(0);
-            let currentScore = 0;
-            const duration = 800; // 800ms
-            const steps = 20; // 20 steps
-            const increment = finalScore / steps;
-            const stepDuration = duration / steps;
+            // Get all stat elements
+            const elements = {
+                score: document.querySelector('#statsModal .stat-item:first-child .stat-value'),
+                totalCompletions: document.getElementById('total-completions'),
+                perfectGames: document.getElementById('perfect-games'),
+                playerTotalCompletions: document.getElementById('player-total-completions'),
+                playerPerfectCompletions: document.getElementById('player-perfect-completions'),
+                currentStreak: document.getElementById('current-streak'),
+                perfectStreak: document.getElementById('perfect-streak')
+            };
 
-            function updateScore() {
-                if (currentScore < finalScore) {
-                    currentScore = Math.min(currentScore + increment, finalScore);
-                    scoreElement.textContent = Math.round(currentScore);
-                    setTimeout(updateScore, stepDuration);
+            // Function to animate stat changes
+            function animateStat(element, newValue, oldValue) {
+                if (!element) return;
+                if (newValue > oldValue) {
+                    element.classList.remove('stat-animation');
+                    void element.offsetWidth;
+                    element.classList.add('stat-animation');
+                    element.textContent = oldValue;
+                    setTimeout(() => {
+                        element.textContent = newValue;
+                    }, 500);
                 } else {
-                    scoreElement.textContent = finalScore;
+                    element.textContent = newValue;
                 }
             }
 
-            // Start the animation
-            scoreElement.classList.add('score-animation');
-            updateScore();
-            
-            console.log('Stats data:', {
-                totalCompletions: data.completion_count,
-                userScore: data.total_score,
-                perfectGames: data.perfect_games,
-                scoreRank: data.score_rank,
-                streak: data.streak,
-                streakRank: data.streak_rank
-            });
-            
-            // Format score rank display
-            let scoreRankDisplay = "-";
-            if (data.score_rank && Array.isArray(data.score_rank) && data.score_rank.length === 2) {
-                const [rank, total] = data.score_rank;
-                scoreRankDisplay = `Rank ${rank} of ${total}`;
+            // Update score if element exists
+            if (elements.score) {
+                const finalScore = (data.total_score * 100).toFixed(0);
+                let currentScore = 0;
+                const duration = 800; // 800ms
+                const steps = 20; // 20 steps
+                const increment = finalScore / steps;
+                const stepDuration = duration / steps;
+
+                function updateScore() {
+                    if (currentScore < finalScore) {
+                        currentScore = Math.min(currentScore + increment, finalScore);
+                        elements.score.textContent = Math.round(currentScore);
+                        setTimeout(updateScore, stepDuration);
+                    } else {
+                        elements.score.textContent = finalScore;
+                    }
+                }
+
+                // Start the animation
+                elements.score.classList.add('score-animation');
+                updateScore();
+            }
+
+            // Update Today's Game stats
+            if (data.completion_count !== undefined) {
+                animateStat(elements.totalCompletions, data.completion_count, data.completion_count - 1);
+            }
+            if (data.perfect_games !== undefined) {
+                animateStat(elements.perfectGames, data.perfect_games, data.perfect_games - 1);
+            }
+
+            // Update Player Stats
+            const playerStats = data.player_stats || {};
+            if (playerStats.total_completions !== undefined) {
+                animateStat(elements.playerTotalCompletions, playerStats.total_completions, (playerStats.total_completions || 0) - 1);
+            }
+            if (playerStats.perfect_completions !== undefined) {
+                animateStat(elements.playerPerfectCompletions, playerStats.perfect_completions, (playerStats.perfect_completions || 0) - 1);
             }
             
             // Format streak display
@@ -1426,61 +1584,46 @@
                 streakDisplay = `${data.streak} days`;
                 oldStreakDisplay = `${data.streak-1} days`;
             }
-            
-            // Format streak rank display
-            let streakRankDisplay = "-";
-            if (data.streak_rank && Array.isArray(data.streak_rank) && data.streak_rank.length === 2) {
-                const [rank, total] = data.streak_rank;
-                streakRankDisplay = `Rank ${rank} of ${total}`;
+            animateStat(elements.currentStreak, streakDisplay, oldStreakDisplay);
+
+            // Format perfect streak display
+            let perfectStreakDisplay = "-";
+            if (playerStats.perfect_streak > 0) {
+                perfectStreakDisplay = `${playerStats.perfect_streak} days`;
+            }
+            if (elements.perfectStreak) {
+                elements.perfectStreak.textContent = perfectStreakDisplay;
             }
             
-            // Update the stats display
-            const elements = {
-                totalCompletions: document.getElementById('total-completions'),
-                perfectGames: document.getElementById('perfect-games'),
-                scoreRank: document.getElementById('score-rank'),
-                currentStreak: document.getElementById('current-streak'),
-                streakRank: document.getElementById('streak-rank')
-            };
-
-            // Function to animate stat changes
-            function animateStat(element, newValue, oldValue, isPerfect = false) {
-                if (newValue > oldValue) {
-                    // Remove any existing animation class
-                    element.classList.remove('stat-animation');
-                    // Force a reflow
-                    void element.offsetWidth;
-                    // Add the animation class
-                    element.classList.add('stat-animation');
+            // Update ranking
+            const rankingList = document.getElementById('ranking-list');
+            const rankingData = data.ranking_data || [];
+            
+            if (rankingList) {
+                if (rankingData.length > 0) {
+                    let rankingHtml = '';
+                    const currentUserDisplayName = '{{ user_data.display_name }}';
                     
-                    // Show old value first
-                    element.textContent = oldValue;
-                    
-                    // Update to new value when animation starts (after 0.5s delay)
-                    setTimeout(() => {
-                        element.textContent = newValue;
-                    }, 500);
+                    rankingData.forEach(function(entry) {
+                        const rank = entry[0];
+                        const name = entry[1];
+                        const score = entry[2];
+                        const isCurrentUser = name === currentUserDisplayName;
+                        
+                        const entryClass = isCurrentUser ? 'ranking-entry current-user' : 'ranking-entry';
+                        const formattedScore = (score * 100).toFixed(0);
+                        rankingHtml += 
+                            '<div class="' + entryClass + '">' +
+                            '<span class="ranking-rank">' + rank + '.</span>' +
+                            '<span class="ranking-name">' + name + '</span>' +
+                            '<span class="ranking-score">' + formattedScore + '</span>' +
+                            '</div>';
+                    });
+                    rankingList.innerHTML = rankingHtml;
                 } else {
-                    element.textContent = newValue;
+                    rankingList.innerHTML = '<div class="ranking-entry">No ranking data available</div>';
                 }
             }
-
-            // Animate each stat
-            animateStat(elements.totalCompletions, data.completion_count, data.completion_count - 1);
-            animateStat(elements.currentStreak, streakDisplay, oldStreakDisplay);
-            
-            // Count correct cells from the grid
-            const gridCells = document.querySelectorAll('.cell.correct');
-            const correctCells = gridCells.length;        
-            if (correctCells === 9) {
-                animateStat(elements.perfectGames, data.perfect_games, data.perfect_games - 1, true);
-            } else {
-                elements.perfectGames.textContent = data.perfect_games;
-            }
-            
-            // Update non-animated stats
-            elements.scoreRank.textContent = scoreRankDisplay;
-            elements.streakRank.textContent = streakRankDisplay;
         }
 
         // Function to toggle subtitle visibility

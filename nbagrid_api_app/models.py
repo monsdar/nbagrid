@@ -455,28 +455,6 @@ class GameCompletion(ExportModelOperationsMixin('gamecompletion'), models.Model)
         return cls.objects.filter(date=date, correct_cells=9).count()
     
     @classmethod
-    def get_score_rank(cls, date, score):
-        """Get the rank of a score among all completions for a date.
-        Returns a tuple of (rank, total_completions) where rank is 1-based."""
-        # Get all completions for the date ordered by score (descending)
-        completions = cls.objects.filter(date=date).order_by('-final_score')
-        total_completions = completions.count()
-        
-        if total_completions == 0:
-            return (0, 0)
-            
-        # Find the rank of the given score
-        rank = 1
-        for completion in completions:
-            if completion.final_score < score:
-                break
-            if completion.final_score == score:
-                return (rank, total_completions)
-            rank += 1
-            
-        return (rank, total_completions)
-    
-    @classmethod
     def get_current_streak(cls, session_key, current_date):
         """Get the current streak for a user.
         Returns a tuple of (completion_streak, streak_rank, total_completions) where streak_rank is the user's position
@@ -535,6 +513,51 @@ class GameCompletion(ExportModelOperationsMixin('gamecompletion'), models.Model)
     def get_top_scores(cls, date, limit=10):
         """Get the top scores for a specific date."""
         return cls.objects.filter(date=date).order_by('-final_score')[:limit]
+    
+    @classmethod
+    def get_ranking_with_neighbors(cls, date, session_key):
+        """Get a ranking that includes the current user and their 4 nearest neighbors.
+        Returns a list of tuples (rank, display_name, score) where rank is 1-based."""
+        # Get all completions ordered by score
+        completions = cls.objects.filter(date=date).order_by('-final_score')
+        total_completions = completions.count()
+        
+        if total_completions == 0:
+            return []
+            
+        # Get all completions with their user data
+        ranking = []
+        current_user_rank = None
+        
+        for rank, completion in enumerate(completions, 1):
+            try:
+                display_name = UserData.get_display_name(completion.session_key)
+                ranking.append((rank, display_name, completion.final_score))
+                
+                if completion.session_key == session_key:
+                    current_user_rank = rank
+            except Exception as e:
+                logger.error(f"Error getting display name for session {completion.session_key}: {e}")
+                continue
+        
+        if current_user_rank is None:
+            return ranking[:5]  # Just return top 5 if current user not found
+            
+        # Calculate start and end indices to show 5 entries
+        # Try to show 2 entries before and 2 entries after the current user
+        start_idx = max(0, current_user_rank - 3)  # Show 2 entries before current user
+        end_idx = min(len(ranking), start_idx + 5)  # Show 5 entries total
+        
+        # If we're near the end, adjust start_idx to show 5 entries
+        if end_idx - start_idx < 5:
+            start_idx = max(0, end_idx - 5)
+            
+        # If we're near the start, adjust end_idx to show 5 entries
+        if start_idx == 0 and len(ranking) >= 5:
+            end_idx = 5
+            
+        # Return the slice of ranking that includes the current user and their neighbors
+        return ranking[start_idx:end_idx]
     
     def __str__(self):
         return f"{self.date} - {self.session_key} - Score: {self.final_score} ({self.correct_cells}/9 cells)"
