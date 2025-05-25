@@ -14,7 +14,9 @@ from nbagrid_api_app.GameState import GameState, CellData
 from nbagrid_api_app.metrics import track_request_latency, record_game_completion, update_active_games, increment_active_games, increment_unique_users, record_game_start, update_pythonanywhere_cpu_metrics
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 from nbagrid_api_app.auth import basic_auth_required
-import os
+import json
+import re
+import random
 
 def get_valid_date(year, month, day):
     """Validate and return a valid date for the game."""
@@ -475,6 +477,67 @@ def search_players(request):
     
     players = Player.objects.filter(name__icontains=name)[:5]
     return JsonResponse([{"stats_id": player.stats_id, "name": player.name} for player in players], safe=False)
+
+def update_display_name(request):
+    """Update the user's display name."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+    
+    try:
+        data = json.loads(request.body)
+        new_name = data.get('display_name', '').strip()
+        
+        # Validate the name
+        if not new_name:
+            return JsonResponse({'error': 'Name cannot be empty'}, status=400)
+        
+        if len(new_name) < 6:
+            return JsonResponse({'error': 'Name must be at least 6 characters long'}, status=400)
+            
+        if len(new_name) > 14:
+            return JsonResponse({'error': 'Name must be 14 characters or less'}, status=400)
+            
+        if not re.match(r'^[a-zA-Z0-9\s]+$', new_name):
+            return JsonResponse({'error': 'Name can only contain letters, numbers and spaces'}, status=400)
+        
+        # Update the user's display name
+        user_data = UserData.get_or_create_user(request.session.session_key)
+        user_data.display_name = new_name
+        user_data.save()
+        
+        return JsonResponse({'success': True})
+    except Exception as e:
+        logger.error(f"Error updating display name: {e}")
+        return JsonResponse({'error': 'Server error'}, status=500)
+
+def generate_random_name(request):
+    """Generate a random display name for the user."""
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+    
+    try:
+        # Try up to 5 times to generate a valid name
+        max_attempts = 5
+        for attempt in range(max_attempts):
+            # Use current timestamp as part of the seed to ensure different names each time
+            seed = f"{request.session.session_key}_{datetime.now().timestamp()}_{attempt}"
+            random_name = Player.generate_random_name(seed)
+            
+            # Validate the generated name
+            if (len(random_name) >= 6 and 
+                len(random_name) <= 14 and 
+                re.match(r'^[a-zA-Z0-9\s]+$', random_name)):
+                return JsonResponse({'name': random_name})
+            
+            # If we're on the last attempt and still haven't found a valid name,
+            # return a simple fallback name
+            if attempt == max_attempts - 1:
+                return JsonResponse({'name': 'Player' + str(random.randint(1000, 9999))})
+                
+        return JsonResponse({'error': 'Failed to generate valid name'}, status=500)
+    except Exception as e:
+        logger.error(f"Error generating random name: {e}")
+        return JsonResponse({'error': 'Server error'}, status=500)
 
 @basic_auth_required
 def metrics_view(request):

@@ -872,6 +872,33 @@
         .ranking-container .stats-section-title {
             margin-top: 0;
         }
+
+        .display-name-container {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-top: 10px;
+        }
+
+        #display-name-input {
+            flex-grow: 1;
+            padding: 8px;
+            border: 1px solid #444;
+            border-radius: 4px;
+            background-color: #2a2a2a;
+            color: white;
+            font-size: 14px;
+        }
+
+        .btn-sm {
+            padding: 8px 12px;
+            font-size: 14px;
+            white-space: nowrap;
+        }
+
+        #display-name-input:invalid {
+            border-color: #ff4444;
+        }
     </style>
 </head>
 
@@ -977,7 +1004,7 @@
                 <h3>Support This Project</h3>
                 <p>While hosting this service isn't extremely expensive, it's not free either. If you enjoy playing
                     NBAGrid and would like to support its development and maintenance, consider buying me a coffee!</p>
-                <a href="https://buymeacoffee.com/monsdar" target="_blank" class="btn btn-primary" style="color: white;">Buy Me a Coffee</a>
+                <a href="https://buymeacoffee.com/monsdar" target="_blank" class="btn btn-primary" style="color: white;">☕ Buy Me a Coffee ☕</a>
             </div>
         </div>
     </div>
@@ -1038,6 +1065,18 @@
                 </div>
             </div>
 
+
+            <!-- Display Name Section -->
+            <div class="stats-container">
+                <h3 class="stats-section-title">Settings</h3>
+                <div class="display-name-container">
+                    <input type="text" id="display-name-input" maxlength="14" value="{{ user_data.display_name }}" 
+                           pattern="[a-zA-Z0-9\s]+" title="Only letters, numbers and spaces allowed">
+                    <button class="btn btn-secondary btn-sm" onclick="generateRandomName()">🎲</button>
+                    <button class="btn btn-primary btn-sm" onclick="updateDisplayName()">✓</button>
+                </div>
+            </div>
+            
             <button class="btn btn-primary btn-mt btn-share" onclick="shareResults()">Share Results</button>
         </div>
     </div>
@@ -1664,6 +1703,63 @@
             console.log('Initial subtitle state:', isSpecificDate);
             toggleSubtitle(isSpecificDate);
         });
+
+        function generateRandomName() {
+            fetch('/api/random-name/')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('display-name-input').value = data.name;
+                })
+                .catch(error => {
+                    console.error('Error generating random name:', error);
+                });
+        }
+
+        function updateDisplayName() {
+            const input = document.getElementById('display-name-input');
+            const newName = input.value.trim();
+            
+            // Validate the name
+            if (!newName.match(/^[a-zA-Z0-9\s]+$/)) {
+                alert('Name can only contain letters, numbers and spaces');
+                return;
+            }
+            
+            if (newName.length < 6) {
+                alert('Name must be at least 6 characters long');
+                return;
+            }
+            
+            if (newName.length > 14) {
+                alert('Name must be 14 characters or less');
+                return;
+            }
+
+            fetch('/api/update-display-name/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({ display_name: newName })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Update the name in the ranking list if it exists
+                    const currentUserEntry = document.querySelector('.ranking-entry.current-user .ranking-name');
+                    if (currentUserEntry) {
+                        currentUserEntry.textContent = newName;
+                    }
+                } else {
+                    alert('Failed to update name: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error updating display name:', error);
+                alert('Failed to update name. Please try again.');
+            });
+        }
     </script>
 </body>
 
