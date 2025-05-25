@@ -1330,8 +1330,9 @@
                 }
             }
 
-            // Get the score from the DOM
-            const score = document.querySelector('.game-completion .score').textContent;
+            // Get the score from the .game-score element
+            const scoreElement = document.querySelector('.game-title-cell .game-score');
+            const score = scoreElement ? scoreElement.textContent.replace('Score: ', '') : '-';
             result += '\nScore: ' + score;
             result += '\nPlay at: {{ request.scheme }}://{{ request.get_host }}{% url "game" year=year month=month_num day=day %}';
 
