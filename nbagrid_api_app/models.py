@@ -78,6 +78,50 @@ class Player(ExportModelOperationsMixin('player'), models.Model):
     
     def __str__(self):
         return self.name
+
+    @classmethod
+    def generate_random_name(cls, seed_string):
+        """
+        Generate a random player name by combining first and last names from existing players.
+        Uses the seed_string to ensure consistent results for the same input.
+        
+        Args:
+            seed_string: String to use as seed for random name generation
+            
+        Returns:
+            A string containing a random player name (max 14 chars)
+        """
+        import hashlib
+        import random
+        
+        # Use the seed string to generate a deterministic random seed
+        seed_hash = int(hashlib.md5(seed_string.encode()).hexdigest(), 16)
+        random.seed(seed_hash)
+        
+        # Get all unique first and last names from players
+        all_names = cls.objects.values_list('name', flat=True)
+        first_names = set()
+        last_names = set()
+        
+        for name in all_names:
+            parts = name.split()
+            if len(parts) >= 2:
+                first_names.add(parts[0])
+                last_names.add(parts[-1])
+        
+        # Generate combinations until we find one that fits
+        max_attempts = 10
+        for _ in range(max_attempts):
+            first = random.choice(list(first_names))
+            last = random.choice(list(last_names))
+            combined = f"{first} {last}"
+            
+            if len(combined) <= 14:
+                return combined
+        
+        # If we couldn't find a short enough combination, truncate the last one
+        return combined[:14]
+
     def has_played_for_team(self, abbr):
         return self.teams.filter(abbr=abbr).exists()
     
@@ -612,4 +656,57 @@ class LastUpdated(ExportModelOperationsMixin('lastupdated'),    models.Model):
             return cls.objects.get(data_type=data_type).last_updated
         except cls.DoesNotExist:
             return None
+
+class UserData(ExportModelOperationsMixin('userdata'), models.Model):
+    """
+    Model to store user-related data based on their session ID.
+    This model can be extended with additional fields as needed.
+    """
+    session_key = models.CharField(max_length=40, primary_key=True, help_text="Django session key as primary identifier")
+    display_name = models.CharField(max_length=14, help_text="Generated display name for the user")
+    created_at = models.DateTimeField(auto_now_add=True, help_text="When this user data was created")
+    last_active = models.DateTimeField(auto_now=True, help_text="When this user was last active")
+
+    def __str__(self):
+        return f"{self.display_name} ({self.session_key})"
+
+    @classmethod
+    def get_or_create_user(cls, session_key):
+        """
+        Get or create user data for a given session key.
+        If user data already exists for this session, return it.
+        Otherwise, generate new data and store it.
+        
+        Args:
+            session_key: The session key to get/create user data for
+            
+        Returns:
+            The UserData instance
+        """
+        try:
+            user_data = cls.objects.get(session_key=session_key)
+            # Update last_active timestamp
+            user_data.save()  # This will trigger auto_now=True for last_active
+            return user_data
+        except cls.DoesNotExist:
+            # Generate new display name and create user data
+            display_name = Player.generate_random_name(session_key)
+            return cls.objects.create(
+                session_key=session_key,
+                display_name=display_name
+            )
+
+    @classmethod
+    def get_display_name(cls, session_key):
+        """
+        Get the display name for a given session key.
+        If no user data exists, creates it first.
+        
+        Args:
+            session_key: The session key to get the display name for
+            
+        Returns:
+            The display name string
+        """
+        return cls.get_or_create_user(session_key).display_name
     

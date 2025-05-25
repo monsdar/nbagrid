@@ -9,7 +9,7 @@ logger.setLevel(logging.DEBUG)
 from datetime import datetime, timedelta
 from nbagrid_api_app.GameFilter import GameFilter
 from nbagrid_api_app.GameBuilder import GameBuilder
-from nbagrid_api_app.models import Player, GameResult, GameCompletion, LastUpdated
+from nbagrid_api_app.models import Player, GameResult, GameCompletion, LastUpdated, UserData
 from nbagrid_api_app.GameState import GameState, CellData
 from nbagrid_api_app.metrics import track_request_latency, record_game_completion, update_active_games, increment_active_games, increment_unique_users, record_game_start, update_pythonanywhere_cpu_metrics
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
@@ -156,6 +156,13 @@ def handle_player_guess(request, game_grid, game_state: GameState, requested_dat
                     final_score=game_state.total_score
                 )
                 game_completed = True
+                
+                # Create UserData for first-time game completion
+                try:
+                    user_data = UserData.get_or_create_user(request.session.session_key)
+                    logger.info(f"Created/retrieved UserData for session {request.session.session_key} with display name {user_data.display_name}")
+                except Exception as e:
+                    logger.error(f"Failed to create UserData: {e}")
         
         # Save the updated game state to the session
         game_state_key = f'game_state_{requested_date.year}_{requested_date.month}_{requested_date.day}'
@@ -362,6 +369,13 @@ def game(request, year, month, day):
         # Get score rank if game is finished
         score_rank = None
         if game_state.is_finished:
+            # Create UserData for first-time game completion
+            try:
+                user_data = UserData.get_or_create_user(request.session.session_key)
+                logger.info(f"Created/retrieved UserData for session {request.session.session_key} with display name {user_data.display_name}")
+            except Exception as e:
+                logger.error(f"Failed to create UserData: {e}")
+            
             rank, total = GameCompletion.get_score_rank(requested_date.date(), game_state.total_score)
             score_rank = (rank, total)
             
