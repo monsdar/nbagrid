@@ -312,7 +312,8 @@ class GameResult(ExportModelOperationsMixin('gameresult'), models.Model):
         2. Count how many times each player has been picked in the past
         3. Rank players by their pick count (decreasing)
         4. Initialize guess_count based on rank (multiplied by game_factor)
-        5. Set guess_count to 0 for bottom third of players
+        5. Set guess_count to 0 for players that haven't been picked in the past
+        6. Set guess_count to 0 for bottom third of players
         
         Args:
             date: The date to initialize scores for
