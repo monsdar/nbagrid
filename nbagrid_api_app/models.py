@@ -306,82 +306,71 @@ class GameResult(ExportModelOperationsMixin('gameresult'), models.Model):
 
     @classmethod
     def initialize_scores_from_recent_games(cls, date, cell_key, num_games=5, game_factor=5, filters=[]):
-        """Initialize GameResult entries for players based on their appearances in recent games.
-        For each of the last 5 games, we check the top 10 most picked players (across all cells).
-        If a player is in the top 10 for a game, their count increases by 1.
-        The maximum count a player can have is 5 (if they were in top 10 for all 5 games).
-        
-        The game_factor is a multiplier for the number of appearances.
-        For example, if a player appears in the top 10 for 3 games, they will have an
-        initial score of 3 * game_factor. This is to account for the fact that players with 5 appearances
-        should have a "Common" appearance in comparison to players with 1 appearance. Due to the
-        number of overall players this won't happen without that factor.
+        """Initialize GameResult entries for players based on their historical pick frequency.
+        For each cell, we:
+        1. Get all possible players for that cell (filtered by any provided filters)
+        2. Count how many times each player has been picked in the past
+        3. Rank players by their pick count (decreasing)
+        4. Initialize guess_count based on rank (multiplied by game_factor)
+        5. Set guess_count to 0 for bottom third of players
         
         Args:
             date: The date to initialize scores for
             cell_key: The cell key to initialize scores for
-            num_games: Number of recent games to look back at
-            game_factor: Factor to multiply the number of appearances by
+            num_games: Number of recent games to look back at (unused in new implementation)
+            game_factor: Factor to multiply the rank by for guess_count
+            filters: List of filters to apply to possible players
         """
-        # Get the date range for recent games
-        recent_dates = cls.objects.filter(date__lt=date)\
-            .order_by('-date')\
-            .values_list('date', flat=True)\
-            .distinct()[:num_games]
-        
-        if not recent_dates:
-            return
-            
         logger.debug(f"Initializing scores for date {date}, cell {cell_key}")
-        logger.debug(f"Found {len(recent_dates)} recent dates: {recent_dates}")
-            
-        # For each game date, get the top 10 most picked players
-        top_players = {}
-        for game_date in recent_dates:
-            # Get top 10 players for this game date (across all cells)
-            top_players_for_date = cls.objects.filter(date=game_date)\
-                .select_related('player')\
-                .values('player', 'player__stats_id')\
-                .annotate(total_guesses=models.Sum('guess_count'))\
-                .order_by('-total_guesses')[:10]
-            
-            logger.debug(f"For date {game_date}, found {len(top_players_for_date)} top players")
-            
-            # Increment count for each top player
-            for player_data in top_players_for_date:
-                player_id = player_data['player__stats_id']
-                player_key = player_data['player']
+        
+        # Get all possible players for this cell
+        possible_players = Player.objects.all()
+        
+        # Apply any filters
+        if filters:
+            logger.debug(f"Applying {len(filters)} filters to possible players")
+            for f in filters:
+                logger.debug(f"Applying filter '{f.get_desc()}'")
+                possible_players = f.apply_filter(possible_players)
+        
+        # Get historical pick counts for each player
+        player_counts = {}
+        for player in possible_players:
+            # Count total picks for this player across all cells and dates
+            count = cls.objects.filter(player=player).aggregate(
+                total=models.Sum('guess_count')
+            )['total'] or 0
+            player_counts[player] = count
+        
+        # Sort players by count (decreasing)
+        sorted_players = sorted(
+            player_counts.items(),
+            key=lambda x: x[1],
+            reverse=True
+        )
+        
+        # Calculate cutoff for bottom third
+        total_players = len(sorted_players)
+        bottom_third_cutoff = total_players // 3
+        
+        # Initialize scores based on rank
+        for rank, (player, _) in enumerate(sorted_players, 1):
+            # Calculate guess_count based on rank
+            is_bottom_third = rank >= (total_players - bottom_third_cutoff)
+            has_counted_games = player_counts[player] >= 0
+            if (not is_bottom_third) and has_counted_games:
+                guess_count = (total_players - rank + 1) * game_factor
+            else:
+                guess_count = 0
                 
-                # check if player matches any of the filters if any are given
-                if filters:
-                    player = Player.objects.filter(stats_id=player_id)
-                    logger.debug(f"Checking player {player_id} against filters...")
-                    for f in filters:
-                        logger.debug(f"...applying filter '{f.get_desc()}' to player {player_id}")
-                        player = f.apply_filter(player)
-                    if not player:
-                        logger.debug(f"Player {player_id} does not match the filters, skipping")
-                        continue
-                    else:
-                        logger.debug(f"Player {player_id} matches the filters, adding to initial players for that cell")
-                    
-                # add the player to the top players
-                if player_key not in top_players:
-                    top_players[player_key] = 0
-                top_players[player_key] += 1
-                logger.debug(f"Player {player_id} now has {top_players[player_key]} appearances")
-        
-        logger.debug(f"Final player appearances: {top_players}")
-        
-        # Create or update GameResult entries for these players
-        for player_key, count in top_players.items():
-            final_count = count * game_factor
-            logger.debug(f"Setting player {player_key} count to {final_count} ({count} appearances * {game_factor})")
+            logger.debug(f"Setting player {player.name} count to {guess_count} (rank {rank})")
+            
+            # Create or update GameResult entry
             cls.objects.update_or_create(
                 date=date,
                 cell_key=cell_key,
-                player_id=player_key,
-                defaults={'guess_count': final_count}
+                player=player,
+                defaults={'guess_count': guess_count}
             )
 
     def __str__(self):

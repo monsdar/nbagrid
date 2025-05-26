@@ -57,7 +57,7 @@ def get_game_filters(requested_date: datetime) -> tuple[list[GameFilter], list[G
             for col in range(len(static_filters)):
                 cell_key = f'{row}_{col}'
                 init_filters = [dynamic_filters[row], static_filters[col]]
-                GameResult.initialize_scores_from_recent_games(requested_date.date(), cell_key, filters=init_filters, game_factor=1)
+                GameResult.initialize_scores_from_recent_games(requested_date.date(), cell_key, filters=init_filters, game_factor=3)
     return filters
         
 def initialize_game_state(request, year, month, day) -> tuple[str, GameState]:

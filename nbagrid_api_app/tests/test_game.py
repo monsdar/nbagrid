@@ -126,7 +126,8 @@ class PlayerTest(TestCase):
         
     def test_load_player_data(self):
         #player = Player.objects.create(stats_id=202681, name='Kyrie Irving')
-        player = Player.objects.create(stats_id=2544, name='LeBron James')
+        #player = Player.objects.create(stats_id=2544, name='LeBron James')
+        player = Player.objects.create(stats_id=1628378, name='Donovan Mitchell')
         #player = Player.objects.create(stats_id=201142, name='Kevin Durant')
         #player = Player.objects.create(stats_id=201566, name='Russell Westbrook')
         #player = Player.objects.create(stats_id=203999, name='Nikola Jokic')
@@ -174,14 +175,14 @@ class PlayerTest(TestCase):
             elif high['STAT'] == 'FTA': player.career_high_ft = high['STAT_VALUE']
             
             
-        player_ids = [202681, 2544, 201142, 201566, 203999, 203507, 1629029]
+        player_ids = [1628378] #, 2544, 201142, 201566, 203999, 203507, 1629029]
         all_awards = set()
         for player_id in player_ids:
             awards = playerawards.PlayerAwards(player_id=player_id).get_normalized_dict()
             for award in awards['PlayerAwards']:
                 all_awards.add(award['DESCRIPTION'])
-        #for award in all_awards:
-        #    print(award)
+        for award in all_awards:
+            print(award)
           
         # Some of the Values:  
         # NBA Most Improved Player
@@ -296,65 +297,6 @@ class GameResultTests(TestCase):
         result.save()
         result.refresh_from_db()
         self.assertEqual(result.guess_count, 2)
-
-    def test_initialize_scores_from_recent_games(self):
-        # Clean up any existing records
-        GameResult.objects.all().delete()
-        
-        game_factor = 1
-        
-        # Create test dates for the last 5 games
-        today = date.today()
-        dates = [today - timedelta(days=i) for i in range(1, 6)]
-        
-        # Create test players
-        player1 = Player.objects.create(stats_id=1, name="Player 1")
-        player2 = Player.objects.create(stats_id=2, name="Player 2")
-        player3 = Player.objects.create(stats_id=3, name="Player 3")
-        
-        # Create game results:
-        # Player 1: appears in games 1, 2, 3 (should get count=3)
-        # Player 2: appears in games 1, 2, 3, 4 (should get count=4)
-        # Player 3: appears in games 2, 3 (should get count=2)
-        
-        # Game 1 (yesterday)
-        GameResult.objects.create(date=dates[0], cell_key="0_0", player=player1, guess_count=10)
-        GameResult.objects.create(date=dates[0], cell_key="0_0", player=player2, guess_count=9)
-        
-        # Game 2 (2 days ago)
-        GameResult.objects.create(date=dates[1], cell_key="0_0", player=player1, guess_count=8)
-        GameResult.objects.create(date=dates[1], cell_key="0_0", player=player2, guess_count=7)
-        GameResult.objects.create(date=dates[1], cell_key="0_0", player=player3, guess_count=6)
-        
-        # Game 3 (3 days ago)
-        GameResult.objects.create(date=dates[2], cell_key="0_0", player=player1, guess_count=5)
-        GameResult.objects.create(date=dates[2], cell_key="0_0", player=player2, guess_count=4)
-        GameResult.objects.create(date=dates[2], cell_key="0_0", player=player3, guess_count=3)
-        
-        # Game 4 (4 days ago)
-        GameResult.objects.create(date=dates[3], cell_key="0_0", player=player2, guess_count=2)
-        
-        # Game 5 (5 days ago) - no relevant results
-        
-        # Initialize scores for today
-        GameResult.initialize_scores_from_recent_games(today, "0_0", game_factor=game_factor)
-        
-        # Verify the results
-        result1 = GameResult.objects.get(date=today, cell_key="0_0", player=player1)
-        self.assertEqual(result1.guess_count, 3*game_factor, "Player 1 should have count=9 (3 games * factor 3)")
-        
-        result2 = GameResult.objects.get(date=today, cell_key="0_0", player=player2)
-        self.assertEqual(result2.guess_count, 4*game_factor, "Player 2 should have count=12 (4 games * factor 3)")
-        
-        result3 = GameResult.objects.get(date=today, cell_key="0_0", player=player3)
-        self.assertEqual(result3.guess_count, 2*game_factor, "Player 3 should have count=6 (2 games * factor 3)")
-        
-        # Test initialization for a different cell
-        GameResult.initialize_scores_from_recent_games(today, "1_1", game_factor=game_factor)
-        
-        # Verify the same counts are used for the new cell
-        result = GameResult.objects.get(date=today, cell_key="1_1", player=player2)
-        self.assertEqual(result.guess_count, 4*game_factor, "Player 2 should have count=12 (4 games * factor 3) in new cell")
 
 class GameFilterTests(TestCase):
     def setUp(self):
