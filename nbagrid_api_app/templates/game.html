@@ -799,9 +799,15 @@
         @keyframes scoreCountUp {
             0% {
                 color: white;
+                transform: scale(1);
+            }
+            50% {
+                color: #4CAF50;
+                transform: scale(1.1);
             }
             100% {
                 color: #4CAF50;
+                transform: scale(1);
             }
         }
 
@@ -1026,7 +1032,7 @@
                 <h3 class="stats-section-title">Today's Game</h3>
                 <div class="stat-item">
                     <span class="stat-label">Your Score:</span>
-                    <span class="stat-value">{{ total_score|multiply:100|floatformat:0 }}</span>
+                    <span class="stat-value score-value">{{ total_score|multiply:100|floatformat:0 }}</span>
                 </div>
                 <div class="stat-item">
                     <span class="stat-label">Total Completions:</span>
@@ -1556,7 +1562,7 @@
             
             // Get all stat elements
             const elements = {
-                score: document.querySelector('#statsModal .stat-item:first-child .stat-value'),
+                score: document.querySelector('.score-value'),
                 totalCompletions: document.getElementById('total-completions'),
                 perfectGames: document.getElementById('perfect-games'),
                 playerTotalCompletions: document.getElementById('player-total-completions'),
@@ -1564,6 +1570,8 @@
                 currentStreak: document.getElementById('current-streak'),
                 perfectStreak: document.getElementById('perfect-streak')
             };
+
+            console.log('Score element:', elements.score); // Debug log
 
             // Function to animate stat changes
             function animateStat(element, newValue, oldValue) {
@@ -1600,9 +1608,16 @@
                     }
                 }
 
-                // Start the animation
+                // Reset and start the animation
+                elements.score.style.animation = 'none';
+                elements.score.offsetHeight; // Force reflow
+                elements.score.style.animation = null;
+                elements.score.classList.remove('score-animation');
+                void elements.score.offsetWidth; // Force reflow
                 elements.score.classList.add('score-animation');
                 updateScore();
+            } else {
+                console.error('Score element not found in stats modal');
             }
 
             // Update Today's Game stats
