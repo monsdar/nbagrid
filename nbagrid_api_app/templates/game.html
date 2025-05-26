@@ -1328,9 +1328,15 @@
 
                     // Update score display if total_score is available
                     if (data.total_score !== undefined) {
-                        const score = (data.total_score * 100).toFixed(0);
-                        document.querySelector('.game-title-cell .game-score').textContent = 'Score: ' + score;
-                        document.querySelector('#statsModal .stat-item:first-child .stat-value').textContent = score;
+                        const scoreElement = document.querySelector('.game-title-cell .game-score');
+                        if (scoreElement) {
+                            const score = (data.total_score * 100).toFixed(0);
+                            scoreElement.textContent = 'Score: ' + score;
+                        }
+                        const statsScoreElement = document.querySelector('#statsModal .stat-item:first-child .stat-value');
+                        if (statsScoreElement) {
+                            statsScoreElement.textContent = (data.total_score * 100).toFixed(0);
+                        }
                     }
 
                     updateAttemptsCounter(data.attempts_remaining);
