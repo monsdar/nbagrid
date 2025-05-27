@@ -89,6 +89,7 @@ class PlayerSchema(Schema):
     height_cm: int = 0
     country: str = ""
     position: str = ""
+    base_salary: int = 0  # Base salary in USD
     career_gp: int = 0
     career_gs: int = 0
     career_min: int = 0

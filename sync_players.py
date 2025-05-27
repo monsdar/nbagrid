@@ -28,7 +28,7 @@ def get_local_players(db_path: str) -> Dict[int, Dict[str, Any]]:
             elif col.startswith('is_'):
                 value = bool(value)
             # Convert numeric values
-            elif col.startswith(('career_', 'draft_', 'num_', 'weight_', 'height_')):
+            elif col.startswith(('career_', 'draft_', 'num_', 'weight_', 'height_', 'base_salary')):
                 value = float(value) if '.' in str(value) else int(value)
             player_data[col] = value
         
