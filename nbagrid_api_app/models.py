@@ -27,6 +27,7 @@ class Player(ExportModelOperationsMixin('player'), models.Model):
     height_cm = models.IntegerField(default=0)
     country = models.CharField(max_length=100, default="")
     position = models.CharField(max_length=20, default="")
+    base_salary = models.IntegerField(default=0)  # Base salary in USD
     
     # Player Stats
     career_gp = models.IntegerField(default=0)

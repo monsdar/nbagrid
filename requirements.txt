@@ -3,3 +3,4 @@ django-ninja
 python-dotenv
 django-prometheus
 requests
+bs4

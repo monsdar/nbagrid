@@ -47,6 +47,8 @@ class DynamicGameFilter(GameFilter):
         description = self.config['stats_desc'] if 'stats_desc' in self.config else self.config['description']
         field = self.config['field']
         stat_value = getattr(player, field)
+        if stat_value > 1000000:
+            stat_value = f"{stat_value / 1000000:.1f}"
         unit = f" {self.config['unit']}" if 'unit' in self.config else ''
         return f"{description} {stat_value}{unit}"
     
@@ -56,7 +58,10 @@ class DynamicGameFilter(GameFilter):
         desc_operator = '+'
         if 'comparison_type' in self.config and self.config['comparison_type'] == 'lower':
             desc_operator = '-'
-        return f"{description} {self.current_value}{desc_operator}{unit}"
+        display_value = self.current_value
+        if self.current_value > 1000000:
+            display_value = f"{self.current_value / 1000000:.1f}"
+        return f"{description} {display_value}{desc_operator}{unit}"
     
     def get_detailed_desc(self) -> str:
         return self.config.get('detailed_desc', f'{self.get_desc()}')
@@ -290,6 +295,18 @@ class TeamCountFilter(DynamicGameFilter):
 def get_dynamic_filters(seed:int=0) -> list[DynamicGameFilter]:
     random.seed(seed)
     return [
+        DynamicGameFilter({
+            'field': 'base_salary',
+            'description': 'Salary 24/25 more than',
+            'stats_desc': 'Salary 24/25:',
+            'initial_min_value': 20000000,
+            'initial_max_value': 40000000,
+            'initial_value_step': 5000000,
+            'widen_step': 5000000,
+            'narrow_step': 5000000,
+            'unit': 'M USD',
+            'detailed_desc': 'This filter selects players with a base salary of at least the given amount for the 2024/2025 NBA season.'
+        }),
         DynamicGameFilter({
             'field': 'career_ppg',
             'description': 'Career points per game:',
