@@ -360,7 +360,7 @@ class PlayerAdmin(admin.ModelAdmin):
         for player_name in static_all_nba_first_team:
             players = Player.objects.filter(name__iexact=static_players._strip_accents(player_name))
             for player in players:
-                player.is_award_all_nba_first_team = True
+                player.is_award_all_nba_first = True
                 player.save()
                 first_team_count += 1
                 
@@ -368,7 +368,7 @@ class PlayerAdmin(admin.ModelAdmin):
         for player_name in static_all_nba_second_team:
             players = Player.objects.filter(name__iexact=static_players._strip_accents(player_name))
             for player in players:
-                player.is_award_all_nba_second_team = True
+                player.is_award_all_nba_second = True
                 player.save()
                 second_team_count += 1
                 
@@ -376,7 +376,7 @@ class PlayerAdmin(admin.ModelAdmin):
         for player_name in static_all_nba_third_team:
             players = Player.objects.filter(name__iexact=static_players._strip_accents(player_name))
             for player in players:
-                player.is_award_all_nba_third_team = True
+                player.is_award_all_nba_third = True
                 player.save()
                 third_team_count += 1
         
@@ -384,7 +384,7 @@ class PlayerAdmin(admin.ModelAdmin):
         for player_name in static_all_nba_rookie_team:
             players = Player.objects.filter(name__iexact=static_players._strip_accents(player_name))
             for player in players:
-                player.is_award_all_nba_rookie_team = True
+                player.is_award_all_rookie = True
                 player.save()
                 rookie_team_count += 1
         
@@ -392,7 +392,7 @@ class PlayerAdmin(admin.ModelAdmin):
         for player_name in static_all_nba_defensive_team:
             players = Player.objects.filter(name__iexact=static_players._strip_accents(player_name))
             for player in players:
-                player.is_award_all_nba_defensive_team = True
+                player.is_award_all_defensive = True
                 player.save()
                 defensive_team_count += 1
         
