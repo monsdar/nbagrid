@@ -285,7 +285,7 @@ def handle_correct_guess(requested_date, cell_key, player, cell_data, game_state
         cell_data['score'] = cell_score
         
         # Check if this is the first time this player has been guessed in this cell
-        is_first_guess = created
+        is_first_guess = result.guess_count == 1
         
         if is_first_guess:
             cell_data['tier'] = 'first'
