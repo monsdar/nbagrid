@@ -1,5 +1,6 @@
 """Admin views for managing grid builder functionality"""
 
+import copy
 from datetime import datetime, timedelta
 from django.contrib import admin
 from django.urls import path
@@ -87,10 +88,12 @@ class GridBuilderAdmin(admin.ModelAdmin):
                         for filter in all_filters:
                             if filter.__class__.__name__ == row_filter_data['class']:
                                 logger.info(f"Found row filter: {filter.__class__.__name__}")
-                                row_filter = gamefilter_from_json(filter, row_filter_data)
+                                row_filter = copy.deepcopy(filter)
+                                row_filter = gamefilter_from_json(row_filter, row_filter_data)
                             if filter.__class__.__name__ == col_filter_data['class']:
                                 logger.info(f"Found col filter: {filter.__class__.__name__}")
-                                col_filter = gamefilter_from_json(filter, col_filter_data)
+                                col_filter = copy.deepcopy(filter)
+                                col_filter = gamefilter_from_json(col_filter, col_filter_data)
                                                 
                         if row_filter and col_filter:
                             # Get players that match both filters
@@ -158,7 +161,8 @@ class GridBuilderAdmin(admin.ModelAdmin):
             for filter in get_static_filters() + get_dynamic_filters():
                 if filter.__class__.__name__ == filter_class_name:
                     logger.info(f"Found filter to adjust: {filter.__class__.__name__}")
-                    filter_instance = gamefilter_from_json(filter, filter_data)
+                    filter_instance = copy.deepcopy(filter)
+                    filter_instance = gamefilter_from_json(filter_instance, filter_data)
                     break
             if filter_instance:
                 if action == 'widen':
@@ -202,7 +206,8 @@ class GridBuilderAdmin(admin.ModelAdmin):
             
             for filter in get_static_filters() + get_dynamic_filters():
                 if filter.__class__.__name__ == filter_class_name:
-                    filter_instance = gamefilter_from_json(filter, filter_data)
+                    filter_instance = copy.deepcopy(filter)
+                    filter_instance = gamefilter_from_json(filter_instance, filter_data)
                     break
             
             if not filter_instance:
