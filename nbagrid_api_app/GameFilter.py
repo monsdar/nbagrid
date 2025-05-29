@@ -489,6 +489,40 @@ def get_static_filters(seed:int=0) -> list[GameFilter]:
         PositionFilter(seed)
     ]
 
+def gamefilter_to_json(filter):
+    """Convert a GameFilter instance to a JSON-serializable dictionary"""
+    config = {}
+    if hasattr(filter, 'config'):
+        config = filter.config
+    if hasattr(filter, 'current_value'):
+        config['current_value'] = filter.current_value
+    if hasattr(filter, 'team_name'):
+        config['team_name'] = filter.team_name
+    if hasattr(filter, 'selected_position'):
+        config['selected_position'] = filter.selected_position
+    if hasattr(filter, 'country_name'):
+        config['country_name'] = filter.country_name
+    
+    return {
+        'class_name': filter.__class__.__name__,
+        'name': filter.get_desc(),
+        'config': config
+    }
+
+def gamefilter_from_json(filter_instance, filter_data):
+    """Update a GameFilter instance with data from a JSON dictionary"""
+    if hasattr(filter_instance, 'config'):
+        filter_instance.config = filter_data['config']
+    if hasattr(filter_instance, 'current_value'):
+        filter_instance.current_value = filter_data['config']['current_value']
+    if hasattr(filter_instance, 'team_name'):
+        filter_instance.team_name = filter_data['config']['team_name']
+    if hasattr(filter_instance, 'selected_position'):
+        filter_instance.selected_position = filter_data['config']['selected_position']
+    if hasattr(filter_instance, 'country_name'):
+        filter_instance.country_name = filter_data['config']['country_name']
+    return filter_instance 
+
 def create_filter_from_db(db_filter):
     """Create a GameFilter object from a database record.
     

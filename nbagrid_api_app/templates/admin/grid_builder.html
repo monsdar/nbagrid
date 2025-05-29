@@ -1,0 +1,423 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+{% load custom_filters %}
+
+{% block extrastyle %}
+<style>
+    .grid-container {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 10px;
+        max-width: 800px;
+        margin: 20px auto;
+    }
+    
+    .grid-cell {
+        border: 1px solid #ccc;
+        padding: 20px;
+        text-align: center;
+        background-color: #000000;
+        min-height: 100px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+    }
+    
+    .filter-cell {
+        cursor: pointer;
+        position: relative;
+    }
+    
+    .filter-cell:hover {
+        background-color: #7e7e7e;
+    }
+    
+    .filter-controls {
+        position: absolute;
+        right: 5px;
+        top: 5px;
+        display: flex;
+        gap: 5px;
+    }
+    
+    .filter-control-button {
+        background: #424242;
+        border: 1px solid #ccc;
+        border-radius: 3px;
+        color: white;
+        cursor: pointer;
+        padding: 2px 5px;
+        font-size: 12px;
+    }
+    
+    .filter-control-button:hover {
+        background: #7e7e7e;
+    }
+    
+    .randomize-button {
+        background: #424242;
+        border: 1px solid #ccc;
+        border-radius: 3px;
+        color: white;
+        cursor: pointer;
+        padding: 2px 5px;
+        font-size: 12px;
+        margin-left: 5px;
+    }
+    
+    .randomize-button:hover {
+        background: #7e7e7e;
+    }
+    
+    .intersection-cell {
+        background-color: #424242;
+        font-weight: bold;
+        font-size: 1.2em;
+    }
+    
+    .filter-modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.5);
+        z-index: 1000;
+    }
+    
+    .filter-modal-content {
+        background-color: #424242;
+        margin: 15% auto;
+        padding: 20px;
+        width: 50%;
+        max-width: 500px;
+        border-radius: 5px;
+    }
+    
+    .filter-list {
+        max-height: 300px;
+        overflow-y: auto;
+    }
+    
+    .filter-item {
+        padding: 10px;
+        border-bottom: 1px solid #ccc;
+        cursor: pointer;
+    }
+    
+    .filter-item:hover {
+        background-color: #7e7e7e;
+    }
+    
+    .stats-panel {
+        margin-top: 20px;
+        padding: 15px;
+        background-color: #424242;
+        border-radius: 5px;
+    }
+    
+    .stats-row {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 10px;
+    }
+    
+    .stats-label {
+        font-weight: bold;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">    
+    <div class="grid-container">
+        <!-- Empty corner cell -->
+        <div class="grid-cell"></div>
+        
+        <!-- Top row filters -->
+        {% for col in "012" %}
+            <div class="grid-cell filter-cell" data-type="col" data-index="{{ col }}" onclick="openFilterModal('col_{{ col }}')">
+                <div class="cell-content">
+                    {% if filters.col|get_item:col %}
+                        {{ filters.col|get_item:col }}
+                    {% else %}
+                        Click to add filter
+                    {% endif %}
+                </div>
+                <div class="filter-controls" style="display: none;">
+                    <button class="filter-control-button" onclick="adjustFilter('narrow', 'col', '{{ col }}')">-</button>
+                    <button class="filter-control-button" onclick="adjustFilter('widen', 'col', '{{ col }}')">+</button>
+                    <button class="randomize-button" onclick="randomizeFilter('col', '{{ col }}')" style="display: none;">🔄</button>
+                </div>
+            </div>
+        {% endfor %}
+        
+        <!-- Left column filters and intersection cells -->
+        {% for row in "012" %}
+            <!-- Left column filter -->
+            <div class="grid-cell filter-cell" data-type="row" data-index="{{ row }}" onclick="openFilterModal('row_{{ row }}')">
+                <div class="cell-content">
+                    {% if filters.row|get_item:row %}
+                        {{ filters.row|get_item:row }}
+                    {% else %}
+                        Click to add filter
+                    {% endif %}
+                </div>
+                <div class="filter-controls" style="display: none;">
+                    <button class="filter-control-button" onclick="adjustFilter('narrow', 'row', '{{ row }}')">-</button>
+                    <button class="filter-control-button" onclick="adjustFilter('widen', 'row', '{{ row }}')">+</button>
+                    <button class="randomize-button" onclick="randomizeFilter('row', '{{ row }}')" style="display: none;">🔄</button>
+                </div>
+            </div>
+            
+            <!-- Intersection cells -->
+            {% for col in "012" %}
+                <div class="grid-cell intersection-cell" data-row="{{ row }}" data-col="{{ col }}">
+                    <div class="cell-content">
+                        {% if intersection_counts|get_item:row|get_item:col %}
+                            {{ intersection_counts|get_item:row|get_item:col }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </div>
+                </div>
+            {% endfor %}
+        {% endfor %}
+    </div>
+    
+    <div class="stats-panel">
+        <h3>Filter Statistics</h3>
+        <div class="stats-row">
+            <span class="stats-label">Total Correct Players:</span>
+            <span id="total-players">-</span>
+        </div>
+        <div class="stats-row">
+            <span class="stats-label">Average Players per Cell:</span>
+            <span id="avg-players">-</span>
+        </div>
+        <button onclick="calculateStats()" class="button">Calculate Statistics</button>
+    </div>
+</div>
+
+<div id="filterModal" class="filter-modal">
+    <div class="filter-modal-content">
+        <h2>Select Filter</h2>
+        <div class="filter-list">
+            {% for filter in available_filters %}
+                <div class="filter-item" onclick="selectFilter('{{ filter.class_name }}', '{{ filter.name }}', {{ filter.config }})">
+                    {{ filter.name }}
+                </div>
+            {% endfor %}
+        </div>
+        <button onclick="closeFilterModal()" class="button">Close</button>
+    </div>
+</div>
+
+<script>
+let currentCell = null;
+let selectedFilters = {
+    row: {},
+    col: {}
+};
+
+function openFilterModal(cellKey) {
+    currentCell = cellKey;
+    document.getElementById('filterModal').style.display = 'block';
+}
+
+function closeFilterModal() {
+    document.getElementById('filterModal').style.display = 'none';
+    currentCell = null;
+}
+
+function selectFilter(filterClass, filterName, filterConfig) {
+    if (currentCell) {
+        const [type, index] = currentCell.split('_');
+        console.log('Selected filter:', { filterClass, filterName, filterConfig }); // Debug log
+        selectedFilters[type][index] = {
+            class: filterClass,
+            name: filterName,
+            config: filterConfig
+        };
+        
+        // Update the cell display
+        const cell = document.querySelector(`[data-type="${type}"][data-index="${index}"]`);
+        cell.querySelector('.cell-content').textContent = filterName;
+        
+        // Show/hide filter controls based on filter type
+        const controls = cell.querySelector('.filter-controls');
+        const filterControlButton = cell.querySelectorAll('.filter-control-button');
+        const randomizeButton = cell.querySelector('.randomize-button');
+        
+        if (filterClass.includes('DynamicGameFilter')) {
+            controls.style.display = 'flex';
+            randomizeButton.style.display = 'none';
+            filterControlButton.forEach(button => button.style.display = 'inline-block');
+        } else if (filterClass === 'TeamFilter' || filterClass === 'PositionFilter') {
+            controls.style.display = 'flex';
+            randomizeButton.style.display = 'inline-block';
+            filterControlButton.forEach(button => button.style.display = 'none');
+        } else {
+            controls.style.display = 'none';
+            randomizeButton.style.display = 'none';
+            filterControlButton.forEach(button => button.style.display = 'none');
+        }
+        
+        closeFilterModal();
+        
+        // Recalculate stats
+        calculateStats();
+    }
+}
+
+function adjustFilter(action, type, index) {
+    // Prevent the cell click event from firing
+    event.stopPropagation();
+    
+    const filter = selectedFilters[type][index];
+    if (!filter) return;
+    
+    // Send the adjustment request to the backend
+    fetch('{% url "admin:nbagrid_api_app_gamegrid_adjust_filter" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            filter: filter,
+            action: action,
+            config: filter.config
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            console.error('Server error:', data.error);
+            return;
+        }
+        
+        // Update the filter name with the new range
+        if (data.new_name) {
+            filter.name = data.new_name;
+            const cell = document.querySelector(`[data-type="${type}"][data-index="${index}"]`);
+            cell.querySelector('.cell-content').textContent = data.new_name;
+        }
+        if (data.new_config) {
+            filter.config = data.new_config;
+        }
+        
+        // Recalculate stats
+        calculateStats();
+    })
+    .catch(error => {
+        console.error('Error:', error);
+    });
+}
+
+function randomizeFilter(type, index) {
+    // Prevent the cell click event from firing
+    event.stopPropagation();
+    
+    const filter = selectedFilters[type][index];
+    if (!filter) return;
+    
+    // Send the randomization request to the backend
+    fetch('{% url "admin:nbagrid_api_app_gamegrid_randomize_filter" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            filter: filter
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            console.error('Server error:', data.error);
+            return;
+        }
+        
+        // Update the filter name with the new value
+        if (data.new_name) {
+            filter.name = data.new_name;
+            const cell = document.querySelector(`[data-type="${type}"][data-index="${index}"]`);
+            cell.querySelector('.cell-content').textContent = data.new_name;
+        }
+        if (data.new_config) {
+            filter.config = data.new_config;
+        }
+        
+        // Recalculate stats
+        calculateStats();
+    })
+    .catch(error => {
+        console.error('Error:', error);
+    });
+}
+
+function calculateStats() {
+    console.log('Sending filters:', selectedFilters); // Debug log
+    // Send the selected filters to the backend
+    fetch('{% url "admin:nbagrid_api_app_gamegrid_calculate_grid_stats" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            filters: selectedFilters
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('Response data:', data); // Debug log
+        
+        if (data.error) {
+            console.error('Server error:', data.error);
+            return;
+        }
+        
+        // Update statistics
+        document.getElementById('total-players').textContent = data.total_players || 0;
+        document.getElementById('avg-players').textContent = (data.avg_players || 0).toFixed(2);
+        
+        // Update intersection cells with player counts
+        if (data.intersection_counts) {
+            for (const [row, cols] of Object.entries(data.intersection_counts)) {
+                for (const [col, count] of Object.entries(cols)) {
+                    const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
+                    if (cell) {
+                        cell.querySelector('.cell-content').textContent = count || '-';
+                    }
+                }
+            }
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        document.getElementById('total-players').textContent = 'Error';
+        document.getElementById('avg-players').textContent = 'Error';
+    });
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+{% endblock %} 

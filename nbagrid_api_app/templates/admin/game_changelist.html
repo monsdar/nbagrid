@@ -1,12 +1,21 @@
-{% extends 'admin/change_list.html' %}
+{% extends "admin/change_list.html" %}
+{% load i18n admin_urls %}
 
-{% block object-tools %}
-    <div>
-        <form action="game_dates/" method="GET">
-            {% csrf_token %}
-                <button type="submit">Manage Games</button>
-        </form>
-    </div>
-    <br />
+{% block object-tools-items %}
     {{ block.super }}
+    <li>
+        <a href="{% url 'admin:nbagrid_api_app_gamegrid_grid_builder' %}" class="addlink">
+            Grid Builder
+        </a>
+    </li>
+    <li>
+        <a href="{% url 'admin:nbagrid_api_app_gamegrid_view_game_dates' %}" class="viewlink">
+            View Game Dates
+        </a>
+    </li>
+    <li>
+        <a href="{% url 'admin:nbagrid_api_app_gamegrid_create_missing_gamegrids' %}" class="addlink">
+            Create Missing GameGrids
+        </a>
+    </li>
 {% endblock %} 

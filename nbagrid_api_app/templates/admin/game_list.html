@@ -100,10 +100,9 @@
 
 {% block content %}
   <div id="content-main">
-    <div class="module" id="changelist">
-      <h1>Game Management</h1>      
-      <div style="margin-bottom: 20px;">
-        <a href="{% url 'admin:create_missing_gamegrids' %}" 
+    <div class="module" id="changelist">    
+      <div style="margin: 20px;">
+        <a href="{% url 'admin:nbagrid_api_app_gamegrid_create_missing_gamegrids' %}" 
            class="create-btn" 
            style="background-color: #2196F3; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; display: inline-block;">
           Create Missing GameGrid Objects
