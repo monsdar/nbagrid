@@ -31,17 +31,6 @@ def is_valid_date(given_date:datetime) -> bool:
         return False
     return True
 
-def is_valid_future_date(given_date:datetime) -> bool:
-    """Validate if a date is valid for generating a future game."""
-    earliest_date = datetime(year=2025, month=4, day=1)
-    
-    # Date must be at least earliest_date
-    if given_date < earliest_date:
-        return False
-        
-    # For future games, we allow dates after now
-    return True
-
 def get_cached_game_for_date(given_date:datetime):
     if not is_valid_date(given_date):
         raise GameDateTooEarlyException
@@ -187,60 +176,6 @@ def update_player(request, stats_id: int, data: PlayerSchema):
         except Exception as e:
             timer_stop(status='error')
             return {"status": "error", "message": str(e)}, 500
-    finally:
-        timer_stop()
-
-@api.put("/game/generate", auth=header_key)
-def generate_game(request, data: GameGridSchema = None):
-    """Generate a new game for the specified date or the next available date"""
-    timer_stop = track_request_latency('generate_game')
-    try:
-        # Determine the target date
-        if data and data.year and data.month and data.day:
-            # If a specific date is provided
-            target_date = datetime(year=data.year, month=data.month, day=data.day)
-            
-            # Validate the date is suitable for future game generation
-            if not is_valid_future_date(target_date):
-                return {"status": "error", "message": "Invalid date - must be on or after April 1, 2025"}, 400
-            
-            # Check if the date is in the past
-            if target_date.date() <= datetime.now().date():
-                return {"status": "error", "message": "Cannot generate games for dates in the past"}, 400
-                
-            # Check if a game already exists for this date
-            if GameFilterDB.objects.filter(date=target_date.date()).exists():
-                return {"status": "error", "message": f"A game already exists for date {target_date.date()}"}, 409
-        else: # Find the next available date that doesn't have a game
-            target_date = get_next_available_date()
-        
-        # Generate the game filters
-        builder = GameBuilder(target_date.timestamp())
-        static_filters, dynamic_filters = builder.get_tuned_filters(target_date)
-        
-        # Record the update timestamp
-        LastUpdated.update_timestamp(
-            data_type="game_generation",
-            updated_by="API game generation",
-            notes=f"Game generated for {target_date.date()}"
-        )
-        
-        # Return success with the date
-        return {
-            "status": "success", 
-            "message": f"Game grid generated for {target_date.date()}",
-            "date": {
-                "year": target_date.year,
-                "month": target_date.month,
-                "day": target_date.day
-            },
-            "filters": {
-                "static": [f.get_desc() for f in static_filters],
-                "dynamic": [f.get_desc() for f in dynamic_filters]
-            }
-        }
-    except Exception as e:
-        return {"status": "error", "message": str(e)}, 500
     finally:
         timer_stop()
 
