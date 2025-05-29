@@ -200,6 +200,10 @@
         <button onclick="calculateStats()" class="button">Calculate Statistics</button>
         <button onclick="exportGrid()" class="button" style="margin-left: 10px;">Export Grid</button>
         <button onclick="submitGame()" class="button" style="margin-left: 10px;">Submit Game</button>
+        <div style="margin-top: 10px;">
+            <input type="file" id="gridFile" accept=".json" style="display: none;" onchange="importGrid(event)">
+            <button onclick="document.getElementById('gridFile').click()" class="button">Import Grid</button>
+        </div>
     </div>
 </div>
 
@@ -489,6 +493,100 @@ function submitGame() {
         console.error('Error submitting game:', error);
         alert(`Error submitting game: ${error.message || 'Unknown error occurred'}`);
     });
+}
+
+function importGrid(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const data = JSON.parse(e.target.result);
+            console.log('Imported data:', data); // Debug log
+            
+            // Handle both direct filters object and wrapped filters object
+            const filters = data.filters || data;
+            if (!filters.row || !filters.col) {
+                throw new Error('Invalid grid configuration format: missing row or column filters');
+            }
+
+            // Clear existing filters
+            selectedFilters = {
+                row: {},
+                col: {}
+            };
+
+            // Apply row filters
+            for (const [index, filterData] of Object.entries(filters.row)) {
+                const [type, idx] = ['row', index];
+                selectedFilters[type][idx] = filterData;
+                
+                // Update the cell display
+                const cell = document.querySelector(`[data-type="${type}"][data-index="${idx}"]`);
+                cell.querySelector('.cell-content').textContent = filterData.name;
+                
+                // Show/hide filter controls based on filter type
+                const controls = cell.querySelector('.filter-controls');
+                const filterControlButton = cell.querySelectorAll('.filter-control-button');
+                const randomizeButton = cell.querySelector('.randomize-button');
+                
+                if (filterData.class.includes('DynamicGameFilter')) {
+                    controls.style.display = 'flex';
+                    randomizeButton.style.display = 'none';
+                    filterControlButton.forEach(button => button.style.display = 'inline-block');
+                } else if (filterData.class === 'TeamFilter' || filterData.class === 'PositionFilter') {
+                    controls.style.display = 'flex';
+                    randomizeButton.style.display = 'inline-block';
+                    filterControlButton.forEach(button => button.style.display = 'none');
+                } else {
+                    controls.style.display = 'none';
+                    randomizeButton.style.display = 'none';
+                    filterControlButton.forEach(button => button.style.display = 'none');
+                }
+            }
+
+            // Apply column filters
+            for (const [index, filterData] of Object.entries(filters.col)) {
+                const [type, idx] = ['col', index];
+                selectedFilters[type][idx] = filterData;
+                
+                // Update the cell display
+                const cell = document.querySelector(`[data-type="${type}"][data-index="${idx}"]`);
+                cell.querySelector('.cell-content').textContent = filterData.name;
+                
+                // Show/hide filter controls based on filter type
+                const controls = cell.querySelector('.filter-controls');
+                const filterControlButton = cell.querySelectorAll('.filter-control-button');
+                const randomizeButton = cell.querySelector('.randomize-button');
+                
+                if (filterData.class.includes('DynamicGameFilter')) {
+                    controls.style.display = 'flex';
+                    randomizeButton.style.display = 'none';
+                    filterControlButton.forEach(button => button.style.display = 'inline-block');
+                } else if (filterData.class === 'TeamFilter' || filterData.class === 'PositionFilter') {
+                    controls.style.display = 'flex';
+                    randomizeButton.style.display = 'inline-block';
+                    filterControlButton.forEach(button => button.style.display = 'none');
+                } else {
+                    controls.style.display = 'none';
+                    randomizeButton.style.display = 'none';
+                    filterControlButton.forEach(button => button.style.display = 'none');
+                }
+            }
+
+            // Recalculate stats
+            calculateStats();
+            
+            // Clear the file input
+            event.target.value = '';
+            
+        } catch (error) {
+            console.error('Error importing grid:', error);
+            alert('Error importing grid: ' + error.message);
+        }
+    };
+    reader.readAsText(file);
 }
 </script>
 {% endblock %} 
