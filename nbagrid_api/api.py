@@ -154,8 +154,8 @@ class PrebuiltGameSchema(Schema):
     year: Optional[int] = None
     month: Optional[int] = None
     day: Optional[int] = None
-    filters: list[GameFilterSchema]  # List of filter configurations
-    
+    filters: dict  # Dictionary with 'row' and 'col' keys containing filter configurations
+
 @api.post("/player/{stats_id}", auth=header_key)
 def update_player(request, stats_id: int, data: PlayerSchema):
     timer_stop = track_request_latency('update_player')
@@ -187,85 +187,6 @@ def update_player(request, stats_id: int, data: PlayerSchema):
         except Exception as e:
             timer_stop(status='error')
             return {"status": "error", "message": str(e)}, 500
-    finally:
-        timer_stop()
-
-
-def get_next_available_date():            # Find the next available date that doesn't have a game
-    target_date = datetime.now().date() + timedelta(days=1)
-    while GameFilterDB.objects.filter(date=target_date).exists():
-        target_date += timedelta(days=1)
-    target_date = datetime.combine(target_date, datetime.min.time())
-    return target_date
-
-@api.put("/game", auth=header_key)
-def submit_prebuilt_game(request, data: PrebuiltGameSchema):
-    """Submit a prebuilt game with custom filters"""
-    timer_stop = track_request_latency('submit_prebuilt_game')
-    try:
-        # Determine the target date
-        if data.year and data.month and data.day:
-            # If a specific date is provided
-            target_date = datetime(year=data.year, month=data.month, day=data.day)
-            
-            # Validate the date is suitable for future game generation
-            if not is_valid_future_date(target_date):
-                return {"status": "error", "message": "Invalid date - must be on or after April 1, 2025"}, 400
-            
-            # Check if the date is in the past
-            if target_date.date() <= datetime.now().date():
-                return {"status": "error", "message": "Cannot generate games for dates in the past"}, 400
-                
-            # Check if a game already exists for this date
-            if GameFilterDB.objects.filter(date=target_date.date()).exists():
-                return {"status": "error", "message": f"A game already exists for date {target_date.date()}"}, 409
-        else: # Find the next available date that doesn't have a game
-            target_date = get_next_available_date()
-        
-        # Validate filter configuration
-        if not data.filters or len(data.filters) == 0:
-            return {"status": "error", "message": "No filters provided"}, 400
-            
-        # Count static and dynamic filters
-        static_filters = [f for f in data.filters if f.filter_type == 'static']
-        dynamic_filters = [f for f in data.filters if f.filter_type == 'dynamic']
-        
-        # For a standard 3x3 grid, we expect 3 static and 3 dynamic filters
-        if len(static_filters) != 3 or len(dynamic_filters) != 3:
-            return {
-                "status": "error", 
-                "message": f"Invalid filter configuration: expected 3 static and 3 dynamic filters, got {len(static_filters)} static and {len(dynamic_filters)} dynamic"
-            }, 400
-        
-        # Create GameFilterDB objects for each filter
-        for filter_config in data.filters:
-            GameFilterDB.objects.create(
-                date=target_date.date(),
-                filter_type=filter_config.filter_type,
-                filter_class=filter_config.filter_class,
-                filter_config=filter_config.filter_config,
-                filter_index=filter_config.filter_index
-            )
-        
-        # Record the update timestamp
-        LastUpdated.update_timestamp(
-            data_type="game_generation",
-            updated_by="API prebuilt game submission",
-            notes=f"Prebuilt game submitted for {target_date.date()}"
-        )
-        
-        # Return success with the date
-        return {
-            "status": "success", 
-            "message": f"Prebuilt game successfully added for {target_date.date()}",
-            "date": {
-                "year": target_date.year,
-                "month": target_date.month,
-                "day": target_date.day
-            }
-        }
-    except Exception as e:
-        return {"status": "error", "message": str(e)}, 500
     finally:
         timer_stop()
 

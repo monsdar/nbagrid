@@ -1,15 +1,16 @@
 """Admin views for managing grid builder functionality"""
 
+from datetime import datetime, timedelta
 from django.contrib import admin
 from django.urls import path
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from django.shortcuts import render
 import json
 import logging
 
-from nbagrid_api_app.models import Player, Team
+from nbagrid_api_app.models import Player, Team, GameFilterDB, LastUpdated
 from nbagrid_api_app.GameFilter import gamefilter_to_json, gamefilter_from_json, get_dynamic_filters, get_static_filters, TeamFilter, PositionFilter
 
 logger = logging.getLogger(__name__)
@@ -24,6 +25,8 @@ class GridBuilderAdmin(admin.ModelAdmin):
             path('calculate_grid_stats/', self.calculate_grid_stats, name='nbagrid_api_app_gamegrid_calculate_grid_stats'),
             path('adjust_filter/', self.adjust_filter, name='nbagrid_api_app_gamegrid_adjust_filter'),
             path('randomize_filter/', self.randomize_filter, name='nbagrid_api_app_gamegrid_randomize_filter'),
+            path('export_grid/', self.export_grid, name='nbagrid_api_app_gamegrid_export_grid'),
+            path('submit_game/', self.submit_game, name='nbagrid_api_app_gamegrid_submit_game'),
         ]
         return my_urls + urls
     
@@ -238,4 +241,118 @@ class GridBuilderAdmin(admin.ModelAdmin):
             logger.error(f"Error randomizing filter: {str(e)}")
             return JsonResponse({
                 'error': str(e)
+            }, status=500)
+
+    @method_decorator(csrf_exempt)
+    def export_grid(self, request):
+        """Export the current grid configuration to a JSON file"""
+        if request.method != 'POST':
+            return JsonResponse({'error': 'Invalid request method'}, status=400)
+        
+        try:
+            data = json.loads(request.body)
+            filters = data.get('filters', {})
+            
+            # Create a response with the JSON data
+            response = HttpResponse(
+                json.dumps(filters, indent=2),
+                content_type='application/json'
+            )
+            response['Content-Disposition'] = 'attachment; filename="grid_config.json"'
+            return response
+            
+        except Exception as e:
+            logger.error(f"Error exporting grid: {str(e)}")
+            return JsonResponse({
+                'error': str(e)
+            }, status=500)
+
+    def get_next_available_date(self):            # Find the next available date that doesn't have a game
+        target_date = datetime.now().date()
+        while GameFilterDB.objects.filter(date=target_date).exists():
+            target_date += timedelta(days=1)
+        target_date = datetime.combine(target_date, datetime.min.time())
+        return target_date
+
+    @method_decorator(csrf_exempt)
+    def submit_game(self, request):
+        """Submit the current grid configuration as a new game"""
+        if request.method != 'POST':
+            return JsonResponse({'error': 'Invalid request method'}, status=400)
+        
+        try:
+            data = json.loads(request.body)
+            filters = data.get('filters', {})
+            logger.info(f"Received filters for submission: {filters}")
+            
+            # Validate filter configuration
+            if not filters or not isinstance(filters, dict):
+                logger.error("Invalid filters format received")
+                return JsonResponse({'error': 'Invalid filters format'}, status=400)
+                
+            # Extract row and column filters
+            row_filters = filters.get('row', {})
+            col_filters = filters.get('col', {})
+            logger.info(f"Row filters: {row_filters}")
+            logger.info(f"Column filters: {col_filters}")
+            
+            # Validate we have the correct number of filters
+            if len(row_filters) != 3 or len(col_filters) != 3:
+                error_msg = f'Invalid filter configuration: expected 3 row and 3 column filters, got {len(row_filters)} row and {len(col_filters)} column'
+                logger.error(error_msg)
+                return JsonResponse({
+                    'error': error_msg
+                }, status=400)
+            
+            # Create GameFilterDB objects for each filter
+            # Get the next available date
+            target_date = self.get_next_available_date()
+            
+            # Process row filters (static filters)
+            for index, filter_data in row_filters.items():
+                GameFilterDB.objects.create(
+                    date=target_date.date(),
+                    filter_type='static',
+                    filter_class=filter_data['class'],
+                    filter_config=filter_data['config'],
+                    filter_index=int(index)
+                )
+            
+            # Process column filters (dynamic filters)
+            for index, filter_data in col_filters.items():
+                GameFilterDB.objects.create(
+                    date=target_date.date(),
+                    filter_type='dynamic',
+                    filter_class=filter_data['class'],
+                    filter_config=filter_data['config'],
+                    filter_index=int(index)
+                )
+            
+            # Create the GameGrid object
+            from nbagrid_api_app.GameBuilder import GameBuilder
+            builder = GameBuilder()
+            builder.get_tuned_filters(target_date)
+            
+            # Record the update timestamp
+            LastUpdated.update_timestamp(
+                data_type="game_data",
+                updated_by="GridBuilder submission",
+                notes=f"Imported prebuilt game for {target_date.date()}"
+            )
+            
+            return JsonResponse({
+                "status": "success",
+                "message": f"Game imported for {target_date.date()}",
+                "date": {
+                    "year": target_date.year,
+                    "month": target_date.month,
+                    "day": target_date.day
+                }
+            })
+            
+        except Exception as e:
+            error_msg = f"Error submitting game: {str(e)}"
+            logger.error(error_msg)
+            return JsonResponse({
+                'error': error_msg
             }, status=500)

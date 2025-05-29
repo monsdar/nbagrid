@@ -198,6 +198,8 @@
             <span id="avg-players">-</span>
         </div>
         <button onclick="calculateStats()" class="button">Calculate Statistics</button>
+        <button onclick="exportGrid()" class="button" style="margin-left: 10px;">Export Grid</button>
+        <button onclick="submitGame()" class="button" style="margin-left: 10px;">Submit Game</button>
     </div>
 </div>
 
@@ -206,7 +208,7 @@
         <h2>Select Filter</h2>
         <div class="filter-list">
             {% for filter in available_filters %}
-                <div class="filter-item" onclick="selectFilter('{{ filter.class_name }}', '{{ filter.name }}', {{ filter.config }})">
+                <div class="filter-item" onclick="selectFilter('{{ filter.class_name }}', '{{ filter.name }}', {{ filter.config|safe }})">
                     {{ filter.name }}
                 </div>
             {% endfor %}
@@ -418,6 +420,75 @@ function getCookie(name) {
         }
     }
     return cookieValue;
+}
+
+function exportGrid() {
+    fetch('{% url "admin:nbagrid_api_app_gamegrid_export_grid" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            filters: selectedFilters
+        })
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        return response.blob();
+    })
+    .then(blob => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'grid_config.json';
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        a.remove();
+    })
+    .catch(error => {
+        console.error('Error exporting grid:', error);
+        alert('Error exporting grid configuration');
+    });
+}
+
+function submitGame() {
+    // First calculate stats to ensure we have valid filters
+    calculateStats();
+    
+    // Send the grid configuration to create a new game
+    fetch('{% url "admin:nbagrid_api_app_gamegrid_submit_game" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            filters: selectedFilters
+        })
+    })
+    .then(response => {
+        if (!response.ok) {
+            return response.json().then(data => {
+                throw new Error(data.error || 'Unknown error occurred');
+            });
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.status === 'success') {
+            alert(`Game successfully submitted for ${data.date.year}-${data.date.month}-${data.date.day}`);
+        } else {
+            alert(`Error submitting game: ${data.error || 'Unknown error occurred'}`);
+        }
+    })
+    .catch(error => {
+        console.error('Error submitting game:', error);
+        alert(`Error submitting game: ${error.message || 'Unknown error occurred'}`);
+    });
 }
 </script>
 {% endblock %} 
