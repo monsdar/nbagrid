@@ -28,6 +28,7 @@ class GridBuilderAdmin(admin.ModelAdmin):
             path('randomize_filter/', self.randomize_filter, name='nbagrid_api_app_gamegrid_randomize_filter'),
             path('export_grid/', self.export_grid, name='nbagrid_api_app_gamegrid_export_grid'),
             path('submit_game/', self.submit_game, name='nbagrid_api_app_gamegrid_submit_game'),
+            path('get_valid_players/', self.get_valid_players, name='nbagrid_api_app_gamegrid_get_valid_players'),
         ]
         return my_urls + urls
     
@@ -360,4 +361,65 @@ class GridBuilderAdmin(admin.ModelAdmin):
             logger.error(error_msg)
             return JsonResponse({
                 'error': error_msg
+            }, status=500)
+
+    @method_decorator(csrf_exempt)
+    def get_valid_players(self, request):
+        """Get the list of valid players for a specific cell"""
+        if request.method != 'POST':
+            return JsonResponse({'error': 'Invalid request method'}, status=400)
+        
+        try:
+            data = json.loads(request.body)
+            filters = data.get('filters', {})
+            row = data.get('row')
+            col = data.get('col')
+            
+            if not filters or not row or not col:
+                return JsonResponse({'error': 'Missing required parameters'}, status=400)
+            
+            # Get the filters for this intersection
+            row_filter_data = filters.get('row', {}).get(row)
+            col_filter_data = filters.get('col', {}).get(col)
+            
+            if not row_filter_data or not col_filter_data:
+                return JsonResponse({'error': 'No filters found for this cell'}, status=400)
+            
+            # Create filter instances
+            row_filter = None
+            col_filter = None
+            all_filters = get_static_filters() + get_dynamic_filters()
+            
+            for filter in all_filters:
+                if filter.__class__.__name__ == row_filter_data['class']:
+                    row_filter = copy.deepcopy(filter)
+                    row_filter = gamefilter_from_json(row_filter, row_filter_data)
+                if filter.__class__.__name__ == col_filter_data['class']:
+                    col_filter = copy.deepcopy(filter)
+                    col_filter = gamefilter_from_json(col_filter, col_filter_data)
+            
+            if not row_filter or not col_filter:
+                return JsonResponse({'error': 'Could not create filter instances'}, status=400)
+            
+            # Get players that match both filters
+            matching_players = Player.objects.all()
+            matching_players = row_filter.apply_filter(matching_players)
+            matching_players = col_filter.apply_filter(matching_players)
+            
+            # Format player data
+            players = []
+            for player in matching_players:
+                players.append({
+                    'name': player.name
+                })
+            
+            return JsonResponse({
+                'players': players,
+                'count': len(players)
+            })
+            
+        except Exception as e:
+            logger.error(f"Error getting valid players: {str(e)}")
+            return JsonResponse({
+                'error': str(e)
             }, status=500)

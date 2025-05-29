@@ -127,6 +127,68 @@
     .stats-label {
         font-weight: bold;
     }
+    
+    .player-modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.5);
+        z-index: 1000;
+    }
+    
+    .player-modal-content {
+        background-color: #424242;
+        margin: 15% auto;
+        padding: 20px;
+        width: 50%;
+        max-width: 500px;
+        border-radius: 5px;
+        max-height: 70vh;
+        overflow-y: auto;
+    }
+    
+    .player-list {
+        margin-top: 15px;
+    }
+    
+    .player-item {
+        padding: 8px;
+        border-bottom: 1px solid #ccc;
+        display: flex;
+        justify-content: space-between;
+    }
+    
+    .player-item:last-child {
+        border-bottom: none;
+    }
+    
+    .player-info {
+        display: flex;
+        gap: 15px;
+    }
+    
+    .player-name {
+        font-weight: bold;
+    }
+    
+    .player-team {
+        color: #aaa;
+    }
+    
+    .player-position {
+        color: #888;
+    }
+    
+    .intersection-cell {
+        cursor: pointer;
+    }
+    
+    .intersection-cell:hover {
+        background-color: #525252;
+    }
 </style>
 {% endblock %}
 
@@ -218,6 +280,15 @@
             {% endfor %}
         </div>
         <button onclick="closeFilterModal()" class="button">Close</button>
+    </div>
+</div>
+
+<div id="playerModal" class="player-modal">
+    <div class="player-modal-content">
+        <h2>Valid Players</h2>
+        <div id="playerCount"></div>
+        <div id="playerList" class="player-list"></div>
+        <button onclick="closePlayerModal()" class="button">Close</button>
     </div>
 </div>
 
@@ -588,5 +659,71 @@ function importGrid(event) {
     };
     reader.readAsText(file);
 }
+
+function showValidPlayers(row, col) {
+    // Show loading state
+    const modal = document.getElementById('playerModal');
+    const playerList = document.getElementById('playerList');
+    const playerCount = document.getElementById('playerCount');
+    playerList.innerHTML = 'Loading...';
+    modal.style.display = 'block';
+    
+    // Get the valid players
+    fetch('{% url "admin:nbagrid_api_app_gamegrid_get_valid_players" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            filters: selectedFilters,
+            row: row,
+            col: col
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            playerList.innerHTML = `Error: ${data.error}`;
+            return;
+        }
+        
+        // Update player count
+        playerCount.textContent = `Found ${data.count} valid players:`;
+        
+        // Display players
+        playerList.innerHTML = '';
+        data.players.forEach(player => {
+            const playerItem = document.createElement('div');
+            playerItem.className = 'player-item';
+            playerItem.innerHTML = `
+                <div class="player-info">
+                    <span class="player-name">${player.name}</span>
+                </div>
+            `;
+            playerList.appendChild(playerItem);
+        });
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        playerList.innerHTML = 'Error loading players';
+    });
+}
+
+function closePlayerModal() {
+    document.getElementById('playerModal').style.display = 'none';
+}
+
+// Update the intersection cell click handler
+document.addEventListener('DOMContentLoaded', function() {
+    const intersectionCells = document.querySelectorAll('.intersection-cell');
+    intersectionCells.forEach(cell => {
+        cell.addEventListener('click', function() {
+            const row = this.getAttribute('data-row');
+            const col = this.getAttribute('data-col');
+            showValidPlayers(row, col);
+        });
+    });
+});
 </script>
 {% endblock %} 
