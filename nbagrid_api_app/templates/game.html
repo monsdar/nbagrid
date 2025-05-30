@@ -1641,19 +1641,35 @@
 
             // Update Today's Game stats
             if (data.completion_count !== undefined) {
-                animateStat(elements.totalCompletions, data.completion_count, data.completion_count - 1);
+                if (data.completion_count >= 1) {
+                    animateStat(elements.totalCompletions, data.completion_count, data.completion_count - 1);
+                } else {
+                    elements.totalCompletions.textContent = data.completion_count;
+                }
             }
             if (data.perfect_games !== undefined) {
-                animateStat(elements.perfectGames, data.perfect_games, data.perfect_games - 1);
+                if (data.perfect_games >= 1) {
+                    animateStat(elements.perfectGames, data.perfect_games, data.perfect_games - 1);
+                } else {
+                    elements.perfectGames.textContent = data.perfect_games;
+                }
             }
 
             // Update Player Stats
             const playerStats = data.player_stats || {};
             if (playerStats.total_completions !== undefined) {
-                animateStat(elements.playerTotalCompletions, playerStats.total_completions, (playerStats.total_completions || 0) - 1);
+                if (playerStats.total_completions >= 1) {
+                    animateStat(elements.playerTotalCompletions, playerStats.total_completions, (playerStats.total_completions || 0) - 1);
+                } else {
+                    elements.playerTotalCompletions.textContent = playerStats.total_completions;
+                }
             }
             if (playerStats.perfect_completions !== undefined) {
-                animateStat(elements.playerPerfectCompletions, playerStats.perfect_completions, (playerStats.perfect_completions || 0) - 1);
+                if (playerStats.perfect_completions >= 1) {
+                    animateStat(elements.playerPerfectCompletions, playerStats.perfect_completions, (playerStats.perfect_completions || 0) - 1);
+                } else {
+                    elements.playerPerfectCompletions.textContent = playerStats.perfect_completions;
+                }
             }
             
             // Format streak display
