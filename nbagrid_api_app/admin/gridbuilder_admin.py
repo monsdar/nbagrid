@@ -39,11 +39,15 @@ class GridBuilderAdmin(admin.ModelAdmin):
         
         # Add static filters
         for filter in get_static_filters():
-            available_filters.append(gamefilter_to_json(filter))
+            filter_json = gamefilter_to_json(filter)
+            filter_json['name'] = filter.get_desc()  # Add display name
+            available_filters.append(filter_json)
         
         # Add dynamic filters
         for filter in get_dynamic_filters():
-            available_filters.append(gamefilter_to_json(filter))
+            filter_json = gamefilter_to_json(filter)
+            filter_json['name'] = filter.get_desc()  # Add display name
+            available_filters.append(filter_json)
         
         context = {
             'title': 'Grid Builder',
@@ -90,11 +94,17 @@ class GridBuilderAdmin(admin.ModelAdmin):
                             if filter.__class__.__name__ == row_filter_data['class']:
                                 logger.info(f"Found row filter: {filter.__class__.__name__}")
                                 row_filter = copy.deepcopy(filter)
-                                row_filter = gamefilter_from_json(row_filter, row_filter_data)
+                                row_filter = gamefilter_from_json(row_filter, {
+                                    'class': row_filter_data['class'],
+                                    'config': row_filter_data['config']
+                                })
                             if filter.__class__.__name__ == col_filter_data['class']:
                                 logger.info(f"Found col filter: {filter.__class__.__name__}")
                                 col_filter = copy.deepcopy(filter)
-                                col_filter = gamefilter_from_json(col_filter, col_filter_data)
+                                col_filter = gamefilter_from_json(col_filter, {
+                                    'class': col_filter_data['class'],
+                                    'config': col_filter_data['config']
+                                })
                                                 
                         if row_filter and col_filter:
                             # Get players that match both filters
@@ -163,7 +173,10 @@ class GridBuilderAdmin(admin.ModelAdmin):
                 if filter.__class__.__name__ == filter_class_name:
                     logger.info(f"Found filter to adjust: {filter.__class__.__name__}")
                     filter_instance = copy.deepcopy(filter)
-                    filter_instance = gamefilter_from_json(filter_instance, filter_data)
+                    filter_instance = gamefilter_from_json(filter_instance, {
+                        'class': filter_data['class'],
+                        'config': filter_data['config']
+                    })
                     break
             if filter_instance:
                 if action == 'widen':
@@ -208,7 +221,10 @@ class GridBuilderAdmin(admin.ModelAdmin):
             for filter in get_static_filters() + get_dynamic_filters():
                 if filter.__class__.__name__ == filter_class_name:
                     filter_instance = copy.deepcopy(filter)
-                    filter_instance = gamefilter_from_json(filter_instance, filter_data)
+                    filter_instance = gamefilter_from_json(filter_instance, {
+                        'class': filter_data['class'],
+                        'config': filter_data['config']
+                    })
                     break
             
             if not filter_instance:
@@ -393,10 +409,16 @@ class GridBuilderAdmin(admin.ModelAdmin):
             for filter in all_filters:
                 if filter.__class__.__name__ == row_filter_data['class']:
                     row_filter = copy.deepcopy(filter)
-                    row_filter = gamefilter_from_json(row_filter, row_filter_data)
+                    row_filter = gamefilter_from_json(row_filter, {
+                        'class': row_filter_data['class'],
+                        'config': row_filter_data['config']
+                    })
                 if filter.__class__.__name__ == col_filter_data['class']:
                     col_filter = copy.deepcopy(filter)
-                    col_filter = gamefilter_from_json(col_filter, col_filter_data)
+                    col_filter = gamefilter_from_json(col_filter, {
+                        'class': col_filter_data['class'],
+                        'config': col_filter_data['config']
+                    })
             
             if not row_filter or not col_filter:
                 return JsonResponse({'error': 'Could not create filter instances'}, status=400)

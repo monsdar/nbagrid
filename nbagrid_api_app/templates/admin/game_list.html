@@ -39,21 +39,7 @@
       background-color: #d32f2f;
     }
     
-    .cell-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      grid-gap: 4px;
-      margin-top: 10px;
-    }
-    
-    .cell {
-      background-color: #333;
-      padding: 8px;
-      border-radius: 4px;
-      text-align: center;
-    }
-    
-    .details-toggle {
+    .gridbuilder-button {
       background-color: #4CAF50;
       color: white;
       padding: 6px 10px;
@@ -61,41 +47,14 @@
       border-radius: 4px;
       cursor: pointer;
       margin-right: 10px;
+      text-decoration: none;
+      display: inline-block;
     }
     
-    .details-toggle:hover {
+    .gridbuilder-button:hover {
       background-color: #45a049;
     }
-    
-    .hidden {
-      display: none;
-    }
-    
-    .game-details {
-      margin-top: 10px;
-      padding: 10px;
-      background-color: #222;
-      border-radius: 4px;
-    }
   </style>
-  <script>
-    document.addEventListener('DOMContentLoaded', function() {
-      // Add click handlers for all toggle buttons
-      document.querySelectorAll('.details-toggle').forEach(function(button) {
-        button.addEventListener('click', function() {
-          var detailsId = this.getAttribute('data-target');
-          var detailsElement = document.getElementById(detailsId);
-          if (detailsElement.classList.contains('hidden')) {
-            detailsElement.classList.remove('hidden');
-            this.textContent = 'Hide Details';
-          } else {
-            detailsElement.classList.add('hidden');
-            this.textContent = 'Show Details';
-          }
-        });
-      });
-    });
-  </script>
 {% endblock %}
 
 {% block content %}
@@ -127,32 +86,13 @@
                 <td>Total Guesses: {{ date_info.total_guesses }}</td>
                 <td>Min: {{ date_info.min_correct_players }}<br/>Max: {{ date_info.max_correct_players }}<br/>Avg: {{ date_info.avg_correct_players|floatformat:1 }}<br/>Total: {{ date_info.total_correct_players }}</td>
                 <td>
-                  <button class="details-toggle" data-target="details-{{ date_info.date|date:'Ymd' }}">Show Details</button>
+                  <a href="{% url 'admin:nbagrid_api_app_gamegrid_open_in_gridbuilder' date_info.date|date:'Y-m-d' %}" class="gridbuilder-button">Open in GridBuilder</a>
                   <form method="POST" action="{{ date_info.delete_link }}" 
                         onsubmit="return confirm('Are you sure you want to delete the game for {{ date_info.date }}? This action cannot be undone.');"
                         style="display: inline-block;">
                     {% csrf_token %}
                     <button type="submit" class="delete-button">Delete</button>
                   </form>
-                </td>
-              </tr>
-              <tr>
-                <td colspan="9">
-                  <div id="details-{{ date_info.date|date:'Ymd' }}" class="game-details hidden">
-                    <h3>Cell Statistics</h3>
-                    <p>Number of correct players for each cell:</p>                    
-                    <div class="cell-grid">
-                      {% for row in "012"|make_list %}
-                        {% for col in "012"|make_list %}
-                          {% with cell_key=row|add:"_"|add:col %}
-                          <div class="cell">
-                            Cell {{ row }},{{ col }}: {{ date_info.cell_stats|get_item:cell_key|default:"0" }} players
-                          </div>
-                          {% endwith %}
-                        {% endfor %}
-                      {% endfor %}
-                    </div>
-                  </div>
                 </td>
               </tr>
             {% endfor %}

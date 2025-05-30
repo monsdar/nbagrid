@@ -4,8 +4,9 @@ from datetime import datetime
 from django.contrib import admin
 from django.urls import path, reverse
 from django.http import HttpResponseRedirect
-
+from django.shortcuts import render
 import logging
+import copy
 
 from nbagrid_api_app.models import GameFilterDB, GameGrid, GameResult, GameCompletion, LastUpdated
 from nbagrid_api_app.admin.gridbuilder_admin import GridBuilderAdmin
@@ -27,6 +28,7 @@ class GameAdmin(GridBuilderAdmin):
             path('view_game_dates/', self.view_game_dates, name='nbagrid_api_app_gamegrid_view_game_dates'),
             path('delete_game/<str:game_date>/', self.delete_game, name='nbagrid_api_app_gamegrid_delete_game'),
             path('create_missing_gamegrids/', self.create_missing_gamegrids, name='nbagrid_api_app_gamegrid_create_missing_gamegrids'),
+            path('open_in_gridbuilder/<str:game_date>/', self.open_in_gridbuilder, name='nbagrid_api_app_gamegrid_open_in_gridbuilder'),
         ]
         return my_urls + urls
                 
@@ -200,6 +202,106 @@ class GameAdmin(GridBuilderAdmin):
         
         # Redirect back to the game_dates view
         return HttpResponseRedirect(reverse('admin:nbagrid_api_app_gamegrid_view_game_dates'))
+
+    def open_in_gridbuilder(self, request, game_date):
+        """Open a specific GameGrid in the GridBuilder"""
+        try:
+            # Parse the date string into a datetime.date object
+            game_date_obj = datetime.strptime(game_date, '%Y-%m-%d').date()
+                        
+            # Get all available filters from GameFilter
+            from nbagrid_api_app.GameFilter import get_static_filters, get_dynamic_filters, gamefilter_to_json, gamefilter_from_json
+            available_filters = []
+            static_filters = get_static_filters()
+            dynamic_filters = get_dynamic_filters()
+            all_filters = static_filters + dynamic_filters
+            
+            # Add filters to available_filters
+            for filter in all_filters:
+                filter_json = gamefilter_to_json(filter)
+                filter_json['name'] = filter.get_desc()  # Add display name
+                available_filters.append(filter_json)
+                        
+            # Get the filters from GameFilterDB and structure them by row and col
+            filters = {
+                'row': {},
+                'col': {}
+            }
+            
+            # Get static filters (rows)
+            static_filters_db = GameFilterDB.objects.filter(
+                date=game_date_obj,
+                filter_type='static'
+            ).order_by('filter_index', 'created_at')
+            
+            # Get dynamic filters (columns)
+            dynamic_filters_db = GameFilterDB.objects.filter(
+                date=game_date_obj,
+                filter_type='dynamic'
+            ).order_by('filter_index', 'created_at')
+            
+            # Process static filters (rows)
+            for filter in static_filters_db:
+                row_index = str(filter.filter_index)
+                if row_index not in filters['row']:
+                    # Find the matching filter class
+                    filter_instance = None
+                    for f in all_filters:
+                        if f.__class__.__name__ == filter.filter_class:
+                            filter_instance = copy.deepcopy(f)
+                            # Initialize the filter with its config
+                            filter_instance = gamefilter_from_json(filter_instance, {
+                                'class': filter.filter_class,
+                                'config': filter.filter_config
+                            })
+                            break
+                    
+                    if filter_instance:
+                        filters['row'][row_index] = {
+                            'class': filter.filter_class,
+                            'config': filter.filter_config,
+                            'name': filter_instance.get_desc()
+                        }
+            
+            # Process dynamic filters (columns)
+            for filter in dynamic_filters_db:
+                col_index = str(filter.filter_index)
+                if col_index not in filters['col']:
+                    # Find the matching filter class
+                    filter_instance = None
+                    for f in all_filters:
+                        if f.__class__.__name__ == filter.filter_class:
+                            filter_instance = copy.deepcopy(f)
+                            # Initialize the filter with its config
+                            filter_instance = gamefilter_from_json(filter_instance, {
+                                'class': filter.filter_class,
+                                'config': filter.filter_config
+                            })
+                            break
+                    
+                    if filter_instance:
+                        filters['col'][col_index] = {
+                            'class': filter.filter_class,
+                            'config': filter.filter_config,
+                            'name': filter_instance.get_desc()
+                        }
+            
+            context = {
+                'title': f'Grid Builder - {game_date}',
+                'available_filters': available_filters,
+                'filters': filters,
+                'opts': self.model._meta,
+                'game_date': game_date,
+            }
+            
+            return render(request, 'admin/grid_builder.html', context)
+            
+        except GameGrid.DoesNotExist:
+            self.message_user(request, f"No game found for date {game_date}", level="error")
+            return HttpResponseRedirect(reverse('admin:nbagrid_api_app_gamegrid_view_game_dates'))
+        except Exception as e:
+            self.message_user(request, f"Error opening game in GridBuilder: {str(e)}", level="error")
+            return HttpResponseRedirect(reverse('admin:nbagrid_api_app_gamegrid_view_game_dates'))
 
 @admin.register(GameFilterDB)
 class GameFilterDBAdmin(admin.ModelAdmin):

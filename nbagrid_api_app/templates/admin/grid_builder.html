@@ -203,7 +203,7 @@
             <div class="grid-cell filter-cell" data-type="col" data-index="{{ col }}" onclick="openFilterModal('col_{{ col }}')">
                 <div class="cell-content">
                     {% if filters.col|get_item:col %}
-                        {{ filters.col|get_item:col }}
+                        {{ filters.col|get_item:col|get_item:'name' }}
                     {% else %}
                         Click to add filter
                     {% endif %}
@@ -222,7 +222,7 @@
             <div class="grid-cell filter-cell" data-type="row" data-index="{{ row }}" onclick="openFilterModal('row_{{ row }}')">
                 <div class="cell-content">
                     {% if filters.row|get_item:row %}
-                        {{ filters.row|get_item:row }}
+                        {{ filters.row|get_item:row|get_item:'name' }}
                     {% else %}
                         Click to add filter
                     {% endif %}
@@ -293,11 +293,16 @@
 </div>
 
 <script>
+// Initialize filters from template data
+const initialFilters = {{ filters|safe }};
 let currentCell = null;
 let selectedFilters = {
     row: {},
     col: {}
 };
+
+// Copy initial filters to selectedFilters
+Object.assign(selectedFilters, initialFilters);
 
 function openFilterModal(cellKey) {
     currentCell = cellKey;
@@ -319,35 +324,48 @@ function selectFilter(filterClass, filterName, filterConfig) {
             config: filterConfig
         };
         
-        // Update the cell display
-        const cell = document.querySelector(`[data-type="${type}"][data-index="${index}"]`);
-        cell.querySelector('.cell-content').textContent = filterName;
-        
-        // Show/hide filter controls based on filter type
-        const controls = cell.querySelector('.filter-controls');
-        const filterControlButton = cell.querySelectorAll('.filter-control-button');
-        const randomizeButton = cell.querySelector('.randomize-button');
-        
-        if (filterClass.includes('DynamicGameFilter')) {
-            controls.style.display = 'flex';
-            randomizeButton.style.display = 'none';
-            filterControlButton.forEach(button => button.style.display = 'inline-block');
-        } else if (filterClass === 'TeamFilter' || filterClass === 'PositionFilter') {
-            controls.style.display = 'flex';
-            randomizeButton.style.display = 'inline-block';
-            filterControlButton.forEach(button => button.style.display = 'none');
-        } else {
-            controls.style.display = 'none';
-            randomizeButton.style.display = 'none';
-            filterControlButton.forEach(button => button.style.display = 'none');
-        }
-        
+        updateCellDisplay(type, index, filterClass, filterName);
         closeFilterModal();
-        
-        // Recalculate stats
         calculateStats();
     }
 }
+
+function updateCellDisplay(type, index, filterClass, filterName) {
+    const cell = document.querySelector(`[data-type="${type}"][data-index="${index}"]`);
+    cell.querySelector('.cell-content').textContent = filterName;
+    
+    // Show/hide filter controls based on filter type
+    const controls = cell.querySelector('.filter-controls');
+    const filterControlButton = cell.querySelectorAll('.filter-control-button');
+    const randomizeButton = cell.querySelector('.randomize-button');
+    
+    if (filterClass.includes('DynamicGameFilter')) {
+        controls.style.display = 'flex';
+        randomizeButton.style.display = 'none';
+        filterControlButton.forEach(button => button.style.display = 'inline-block');
+    } else if (filterClass === 'TeamFilter' || filterClass === 'PositionFilter') {
+        controls.style.display = 'flex';
+        randomizeButton.style.display = 'inline-block';
+        filterControlButton.forEach(button => button.style.display = 'none');
+    } else {
+        controls.style.display = 'none';
+        randomizeButton.style.display = 'none';
+        filterControlButton.forEach(button => button.style.display = 'none');
+    }
+}
+
+// Initialize cell displays on page load
+document.addEventListener('DOMContentLoaded', function() {
+    for (const type of ['row', 'col']) {
+        for (const index of ['0', '1', '2']) {
+            const filter = selectedFilters[type][index];
+            if (filter) {
+                updateCellDisplay(type, index, filter.class, filter.name);
+            }
+        }
+    }
+    calculateStats();
+});
 
 function adjustFilter(action, type, index) {
     // Prevent the cell click event from firing

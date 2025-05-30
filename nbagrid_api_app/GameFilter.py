@@ -305,7 +305,8 @@ def get_dynamic_filters(seed:int=0) -> list[DynamicGameFilter]:
             'widen_step': 5000000,
             'narrow_step': 5000000,
             'unit': 'M USD',
-            'detailed_desc': 'This filter selects players with a base salary of at least the given amount for the 2024/2025 NBA season.'
+            'detailed_desc': 'This filter selects players with a base salary of at least the given amount for the 2024/2025 NBA season. ' \
+                             'Thanks to BBoe for suggesting this filter!'
         }),
         DynamicGameFilter({
             'field': 'career_ppg',
