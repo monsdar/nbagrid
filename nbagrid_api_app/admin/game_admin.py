@@ -8,7 +8,7 @@ from django.shortcuts import render
 import logging
 import copy
 
-from nbagrid_api_app.models import GameFilterDB, GameGrid, GameResult, GameCompletion, LastUpdated
+from nbagrid_api_app.models import GameFilterDB, GameGrid, GameResult, GameCompletion, LastUpdated, GridMetadata
 from nbagrid_api_app.admin.gridbuilder_admin import GridBuilderAdmin
 
 logger = logging.getLogger(__name__)
@@ -105,6 +105,9 @@ class GameAdmin(GridBuilderAdmin):
             
             # Also delete related GameCompletion entries
             GameCompletion.objects.filter(date=game_date_obj).delete()
+            
+            # Also delete related GridMetadata entries
+            GridMetadata.objects.filter(date=game_date_obj).delete()
             
             # Clear session data for this date across all sessions
             from django.contrib.sessions.models import Session
@@ -286,12 +289,20 @@ class GameAdmin(GridBuilderAdmin):
                             'name': filter_instance.get_desc()
                         }
             
+            # Get the game title from GridMetadata if it exists
+            try:
+                game_metadata = GridMetadata.objects.get(date=game_date_obj)
+                game_title = game_metadata.game_title
+            except GridMetadata.DoesNotExist:
+                game_title = ''
+            
             context = {
                 'title': f'Grid Builder - {game_date}',
                 'available_filters': available_filters,
                 'filters': filters,
                 'opts': self.model._meta,
                 'game_date': game_date,
+                'game_title': game_title,
             }
             
             return render(request, 'admin/grid_builder.html', context)

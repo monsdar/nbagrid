@@ -189,11 +189,36 @@
     .intersection-cell:hover {
         background-color: #525252;
     }
+    
+    .title-container {
+        max-width: 800px;
+        margin: 20px auto;
+        padding: 10px;
+    }
+    
+    .title-input {
+        width: 100%;
+        padding: 8px;
+        font-size: 16px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        background-color: #424242;
+        color: white;
+    }
+    
+    .title-input:focus {
+        outline: none;
+        border-color: #7e7e7e;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 <div id="content-main">    
+    <div class="title-container">
+        <input type="text" id="gameTitle" class="title-input" placeholder="Game Title (optional, max 40 characters)" maxlength="40" value="{{ game_title|default:'' }}">
+    </div>
+    
     <div class="grid-container">
         <!-- Empty corner cell -->
         <div class="grid-cell"></div>
@@ -300,6 +325,7 @@ let selectedFilters = {
     row: {},
     col: {}
 };
+let gameTitle = '';
 
 // Copy initial filters to selectedFilters
 Object.assign(selectedFilters, initialFilters);
@@ -523,7 +549,8 @@ function exportGrid() {
             'X-CSRFToken': getCookie('csrftoken')
         },
         body: JSON.stringify({
-            filters: selectedFilters
+            filters: selectedFilters,
+            title: document.getElementById('gameTitle').value
         })
     })
     .then(response => {
@@ -560,7 +587,8 @@ function submitGame() {
             'X-CSRFToken': getCookie('csrftoken')
         },
         body: JSON.stringify({
-            filters: selectedFilters
+            filters: selectedFilters,
+            title: document.getElementById('gameTitle').value
         })
     })
     .then(response => {
@@ -598,6 +626,13 @@ function importGrid(event) {
             const filters = data.filters || data;
             if (!filters.row || !filters.col) {
                 throw new Error('Invalid grid configuration format: missing row or column filters');
+            }
+
+            // Set the game title if it exists
+            if (data.title) {
+                document.getElementById('gameTitle').value = data.title;
+            } else {
+                document.getElementById('gameTitle').value = '';
             }
 
             // Clear existing filters

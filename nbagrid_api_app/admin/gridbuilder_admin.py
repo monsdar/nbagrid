@@ -11,7 +11,7 @@ from django.shortcuts import render
 import json
 import logging
 
-from nbagrid_api_app.models import Player, Team, GameFilterDB, LastUpdated
+from nbagrid_api_app.models import Player, Team, GameFilterDB, LastUpdated, GridMetadata
 from nbagrid_api_app.GameFilter import gamefilter_to_json, gamefilter_from_json, get_dynamic_filters, get_static_filters, TeamFilter, PositionFilter
 
 logger = logging.getLogger(__name__)
@@ -305,7 +305,9 @@ class GridBuilderAdmin(admin.ModelAdmin):
         try:
             data = json.loads(request.body)
             filters = data.get('filters', {})
+            game_title = data.get('title', '').strip()[:40]  # Get title and limit to 40 chars
             logger.info(f"Received filters for submission: {filters}")
+            logger.info(f"Received game title: {game_title}")
             
             # Validate filter configuration
             if not filters or not isinstance(filters, dict):
@@ -354,6 +356,12 @@ class GridBuilderAdmin(admin.ModelAdmin):
             from nbagrid_api_app.GameBuilder import GameBuilder
             builder = GameBuilder()
             builder.get_tuned_filters(target_date)
+            
+            # Create or update GridMetadata with the title
+            GridMetadata.objects.update_or_create(
+                date=target_date.date(),
+                defaults={'game_title': game_title}
+            )
             
             # Record the update timestamp
             LastUpdated.update_timestamp(
