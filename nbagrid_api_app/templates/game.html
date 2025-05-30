@@ -316,6 +316,14 @@
             display: none;
         }
 
+        .game-title {
+            text-align: center;
+            font-size: 20px;
+            color: #888;
+            margin: 10px 0;
+            font-style: italic;
+        }
+
         .date-navigation {
             display: flex;
             justify-content: center;
@@ -586,6 +594,14 @@
 
         .date-selector a:hover {
             background-color: #444;
+        }
+
+        .game-title {
+            text-align: center;
+            font-size: 20px;
+            color: #888;
+            margin: 10px 0;
+            font-style: italic;
         }
 
         /* Footer styles */
@@ -929,6 +945,9 @@
             </div>
             <div class="game-subtitle">Click title to return Home</div>
         </div>
+        {% if game_title %}
+        <div class="game-title">{{ game_title }}</div>
+        {% endif %}
         <div class="grid-container">
             <div class="cell game-title-cell">
                 <div class="game-attempts {% if attempts_remaining <= 3 %}low-attempts{% endif %}">

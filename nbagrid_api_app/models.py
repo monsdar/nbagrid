@@ -621,6 +621,16 @@ class GameGrid(ExportModelOperationsMixin('gamegrid'), models.Model):
     def __str__(self):
         return f"Game Grid for {self.date}"
 
+class GridMetadata(ExportModelOperationsMixin('gridmetadata'), models.Model):
+    """
+    Model to store additional metadata for each game grid.
+    """
+    date = models.DateField(unique=True, primary_key=True)
+    game_title = models.CharField(max_length=40, default="")
+
+    def __str__(self):
+        return f"Grid Metadata for {self.date}"
+
 class LastUpdated(ExportModelOperationsMixin('lastupdated'),    models.Model):
     """
     Model to track when data was last updated

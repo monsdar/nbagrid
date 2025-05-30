@@ -9,7 +9,7 @@ logger.setLevel(logging.DEBUG)
 from datetime import datetime, timedelta
 from nbagrid_api_app.GameFilter import GameFilter
 from nbagrid_api_app.GameBuilder import GameBuilder
-from nbagrid_api_app.models import Player, GameResult, GameCompletion, LastUpdated, UserData
+from nbagrid_api_app.models import Player, GameResult, GameCompletion, LastUpdated, UserData, GridMetadata
 from nbagrid_api_app.GameState import GameState, CellData
 from nbagrid_api_app.metrics import track_request_latency, record_game_completion, update_active_games, increment_active_games, increment_unique_users, record_game_start, update_pythonanywhere_cpu_metrics
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
@@ -372,6 +372,13 @@ def game(request, year, month, day):
                 month=requested_date.month, 
                 day=requested_date.day
             )
+
+        # Get game title from GridMetadata if it exists
+        try:
+            grid_metadata = GridMetadata.objects.get(date=requested_date.date())
+            game_title = grid_metadata.game_title
+        except GridMetadata.DoesNotExist:
+            game_title = None
         
         # Track unique users based on session key
         if not request.session.get('user_counted', False):
@@ -440,6 +447,7 @@ def game(request, year, month, day):
             'month': requested_date.strftime('%B'),
             'month_num': requested_date.month,
             'day': day,
+            'game_title': game_title,
             'static_filters': [f.get_desc() for f in static_filters],
             'dynamic_filters': [f.get_desc() for f in dynamic_filters],
             'static_filters_detailed': [f.get_detailed_desc() for f in static_filters],
