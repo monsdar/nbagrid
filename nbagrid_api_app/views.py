@@ -149,7 +149,11 @@ def get_player_stats(session_key):
         latest_completion = GameCompletion.objects.filter(session_key=session_key).order_by('-date').first()
         if latest_completion:
             current_streak = latest_completion.completion_streak
-            perfect_streak = latest_completion.perfect_streak
+            # Only show perfect streak if the latest completion was perfect
+            if latest_completion.correct_cells == 9:
+                perfect_streak = latest_completion.perfect_streak
+            else:
+                perfect_streak = 0
         
         return {
             'total_completions': total_completions,

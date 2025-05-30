@@ -1667,11 +1667,13 @@
 
             // Format perfect streak display
             let perfectStreakDisplay = "-";
+            let oldPerfectStreakDisplay = "-";
             if (playerStats.perfect_streak > 0) {
                 perfectStreakDisplay = `${playerStats.perfect_streak} days`;
+                oldPerfectStreakDisplay = `${playerStats.perfect_streak-1} days`;
             }
             if (elements.perfectStreak) {
-                elements.perfectStreak.textContent = perfectStreakDisplay;
+                animateStat(elements.perfectStreak, perfectStreakDisplay, oldPerfectStreakDisplay);
             }
             
             // Update ranking
