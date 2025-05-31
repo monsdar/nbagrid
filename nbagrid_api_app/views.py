@@ -293,13 +293,13 @@ def handle_correct_guess(requested_date, cell_key, player, cell_data, game_state
         
         if is_first_guess:
             cell_data['tier'] = 'first'
-        elif cell_score < 0.5:
+        elif cell_score < 0.80:
             cell_data['tier'] = 'common'
-        elif cell_score < 0.9:
+        elif cell_score < 0.95:
             cell_data['tier'] = 'rare'
         else:
             cell_data['tier'] = 'epic'
-            
+
         # Update the cell data in game_state
         game_state.selected_cells[cell_key].append(cell_data)
             

@@ -1500,11 +1500,19 @@
             let result = '🏀 NBAGrid 🏀\n';
             result += '{{ month }} {{ day }}, {{ year }}\n\n';
 
-            // Add the grid results using emojis
+            // Add the grid results using tier-specific emojis
             for (let i = 0; i < grid.length; i++) {
                 const cell = grid[i];
                 if (cell.classList.contains('correct')) {
-                    result += '✅';  // Check mark for correct
+                    if (cell.classList.contains('tier-first')) {
+                        result += '👑';  // Crown for first
+                    } else if (cell.classList.contains('tier-epic')) {
+                        result += '💜';  // Purple heart for epic
+                    } else if (cell.classList.contains('tier-rare')) {
+                        result += '🔵';  // Blue circle for rare
+                    } else {
+                        result += '⚪';  // White circle for common
+                    }
                 } else {
                     result += '❌';  // X mark for incorrect
                 }
