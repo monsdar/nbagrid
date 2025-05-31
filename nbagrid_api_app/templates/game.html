@@ -1505,13 +1505,11 @@
                 const cell = grid[i];
                 if (cell.classList.contains('correct')) {
                     if (cell.classList.contains('tier-first')) {
-                        result += '👑';  // Crown for first
+                        result += '🦄';  // Unicorn for first
                     } else if (cell.classList.contains('tier-epic')) {
-                        result += '💜';  // Purple heart for epic
-                    } else if (cell.classList.contains('tier-rare')) {
-                        result += '🔵';  // Blue circle for rare
+                        result += '👑';  // Crown for epic
                     } else {
-                        result += '⚪';  // White circle for common
+                        result += '✅';  // Check mark for common and rare tiers
                     }
                 } else {
                     result += '❌';  // X mark for incorrect
