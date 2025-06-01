@@ -272,4 +272,36 @@ def record_update(request, data: LastUpdatedSchema):
         return {"status": "error", "message": str(e)}, 500
     finally:
         timer_stop()
+
+@api.post("/player/{stats_id}/team/{team_stats_id}", auth=header_key)
+def add_player_team_relationship(request, stats_id: int, team_stats_id: int):
+    """Add a player-team relationship."""
+    timer_stop = track_request_latency('add_player_team_relationship')
+    try:
+        try:
+            # Get the player and team
+            player = Player.objects.get(stats_id=stats_id)
+            team = Team.objects.get(stats_id=team_stats_id)
+            
+            # Add the relationship
+            player.teams.add(team)
+            
+            # Record the update timestamp
+            LastUpdated.update_timestamp(
+                data_type="player_team_relationship",
+                updated_by=f"API update for player {stats_id} and team {team_stats_id}",
+                notes=f"Added relationship between {player.name} and {team.name}"
+            )
+            
+            return {"status": "success", "message": f"Added relationship between {player.name} and {team.name}"}
+                
+        except Player.DoesNotExist:
+            return {"status": "error", "message": f"Player with stats_id {stats_id} not found"}, 404
+        except Team.DoesNotExist:
+            return {"status": "error", "message": f"Team with stats_id {team_stats_id} not found"}, 404
+        except Exception as e:
+            timer_stop(status='error')
+            return {"status": "error", "message": str(e)}, 500
+    finally:
+        timer_stop()
     
