@@ -73,6 +73,10 @@ MIDDLEWARE = [
     'django_prometheus.middleware.PrometheusAfterMiddleware',
 ]
 
+CSRF_TRUSTED_ORIGINS = [
+    'https://*.railway.app'
+]
+
 STORAGES = {
     "staticfiles": {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
