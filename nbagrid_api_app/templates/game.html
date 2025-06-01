@@ -364,24 +364,17 @@
             margin-top: 3px;
         }
 
-        .game-completion h2 {
-            color: #fff;
-            margin-bottom: 10px;
-            font-size: 24px;
-            display: none;
+        .game-completion .btn {
+            margin: 2px 0;
+            width: 95%;
         }
 
-        .game-completion .score {
-            color: #fff;
-            font-size: 36px;
-            font-weight: bold;
-            margin: 20px 0;
+        .game-completion .btn:first-child {
+            margin-top: 0;
         }
 
-        .game-completion .score-label {
-            color: #fff;
-            font-size: 16px;
-            margin-bottom: 20px;
+        .game-completion .btn:last-child {
+            margin-bottom: 0;
         }
 
         .game-completion.finished h2,
@@ -1036,6 +1029,7 @@
             {% endfor %}
         </div>
         <div class="game-completion {% if is_finished %}finished{% endif %}">
+            <button class="btn btn-primary btn-share" onclick="shareResults()">Share Results</button>
             <button class="btn btn-primary" onclick="openStatsModal()">Stats</button>
             <button class="btn btn-secondary" onclick="openAboutModal()">About</button>
         </div>
@@ -1593,12 +1587,14 @@
             // Copy to clipboard
             navigator.clipboard.writeText(result).then(() => {
                 // Show a brief notification that the results were copied
-                const button = document.querySelector('.btn-share');
-                const originalText = button.textContent;
-                button.textContent = 'Copied!';
-                setTimeout(() => {
-                    button.textContent = originalText;
-                }, 2000);
+                const buttons = document.querySelectorAll('.btn-share');
+                buttons.forEach(button => {
+                    const originalText = button.textContent;
+                    button.textContent = 'Copied!';
+                    setTimeout(() => {
+                        button.textContent = originalText;
+                    }, 2000);
+                });
             }).catch(err => {
                 console.error('Failed to copy results: ', err);
             });
