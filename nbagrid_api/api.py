@@ -1,6 +1,6 @@
 from ninja import NinjaAPI, Schema
 from ninja.security import APIKeyHeader
-from nbagrid_api_app.models import Player, LastUpdated, GameFilterDB
+from nbagrid_api_app.models import Player, LastUpdated, Team
 from nbagrid_api_app.GameBuilder import GameBuilder
 from django.conf import settings
 from nbagrid_api_app.metrics import track_request_latency, api_request_counter
@@ -119,7 +119,44 @@ class PlayerSchema(Schema):
     is_award_olympic_gold_medal: bool = False
     is_award_olympic_silver_medal: bool = False
     is_award_olympic_bronze_medal: bool = False
-    
+
+class TeamSchema(Schema):
+    name: str
+    abbr: str
+
+@api.post("/team/{stats_id}", auth=header_key)
+def update_team(request, stats_id: int, data: TeamSchema):
+    timer_stop = track_request_latency('update_team')
+    try:
+        try:
+            # Try to get existing team or create a new one
+            team, created = Team.objects.get_or_create(
+                stats_id=stats_id,
+                defaults={'name': data.name, 'abbr': data.abbr}
+            )
+            
+            # Update all fields from the schema
+            for field in data.dict():
+                setattr(team, field, getattr(data, field))
+            
+            team.save()
+            
+            # Record the update timestamp
+            LastUpdated.update_timestamp(
+                data_type="team_data",
+                updated_by=f"API update for team {stats_id}",
+                notes=f"{'Created' if created else 'Updated'} team {team.name}"
+            )
+            
+            action = "created" if created else "updated"
+            return {"status": "success", "message": f"Team {team.name} {action} successfully"}
+                
+        except Exception as e:
+            timer_stop(status='error')
+            return {"status": "error", "message": str(e)}, 500
+    finally:
+        timer_stop()
+
 class LastUpdatedSchema(Schema):
     data_type: str
     updated_by: str
