@@ -5,3 +5,4 @@ django-prometheus
 requests
 bs4
 whitenoise[brotli]
+psycopg2
