@@ -1689,7 +1689,8 @@
             }
 
             // Update score if element exists
-            if (elements.score) {
+            const scoreElements = document.querySelectorAll('.score-value');
+            if (scoreElements.length > 0) {
                 const finalScore = (data.total_score * 100).toFixed(0);
                 let currentScore = 0;
                 const duration = 800; // 800ms
@@ -1700,23 +1701,29 @@
                 function updateScore() {
                     if (currentScore < finalScore) {
                         currentScore = Math.min(currentScore + increment, finalScore);
-                        elements.score.textContent = Math.round(currentScore);
+                        scoreElements.forEach(element => {
+                            element.textContent = Math.round(currentScore);
+                        });
                         setTimeout(updateScore, stepDuration);
                     } else {
-                        elements.score.textContent = finalScore;
+                        scoreElements.forEach(element => {
+                            element.textContent = finalScore;
+                        });
                     }
                 }
 
-                // Reset and start the animation
-                elements.score.style.animation = 'none';
-                elements.score.offsetHeight; // Force reflow
-                elements.score.style.animation = null;
-                elements.score.classList.remove('score-animation');
-                void elements.score.offsetWidth; // Force reflow
-                elements.score.classList.add('score-animation');
+                // Reset and start the animation for all score elements
+                scoreElements.forEach(element => {
+                    element.style.animation = 'none';
+                    element.offsetHeight; // Force reflow
+                    element.style.animation = null;
+                    element.classList.remove('score-animation');
+                    void element.offsetWidth; // Force reflow
+                    element.classList.add('score-animation');
+                });
                 updateScore();
             } else {
-                console.error('Score element not found in stats modal');
+                console.error('Score elements not found in stats modal');
             }
 
             // Update Today's Game stats
