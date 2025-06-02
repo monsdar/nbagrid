@@ -10,7 +10,7 @@ class DomainRedirectMiddleware:
         host = request.get_host().split(':')[0]
         
         # Check if the request is coming from the old PythonAnywhere domain
-        if settings.PYTHONANYWHERE_DOMAIN in host:
+        if settings.PYTHONANYWHERE_DOMAIN and (settings.PYTHONANYWHERE_DOMAIN in host):
             # Redirect to the new domain
             return HttpResponsePermanentRedirect(f'https://www.nbagr.id{request.path}')
         
