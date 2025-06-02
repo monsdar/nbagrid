@@ -43,6 +43,9 @@ urlpatterns = [
     path('api/update-display-name/', nbagrid_api_app.views.update_display_name, name='update-display-name'),
     path('api/random-name/', nbagrid_api_app.views.generate_random_name, name='random-name'),
     
+    # Player search endpoint
+    path('search-players/', nbagrid_api_app.views.search_players, name='search-players'),
+    
     # Secure the django-prometheus exports
     path('django_metrics', secured_metrics_view, name='django-metrics'),
     path('prometheus/metrics', secured_metrics_registry_view, name='prometheus-django-metrics'),

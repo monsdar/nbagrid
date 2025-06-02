@@ -1512,7 +1512,7 @@
                 return;
             }
 
-            fetch(`/api/players/${encodeURIComponent(query)}`)
+            fetch(`/search-players/?name=${encodeURIComponent(query)}`)
                 .then(response => response.json())
                 .then(players => {
                     suggestionsDiv.innerHTML = '';

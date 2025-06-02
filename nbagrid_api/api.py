@@ -55,16 +55,6 @@ def get_cached_solutions_for_date(given_date:datetime):
         solutions_cache[given_date] = result_players
     return solutions_cache[given_date]
 
-@api.get("/players/{name}")
-def get_players_by_searchstr(request, name: str, num_players: int=5):
-    timer_stop = track_request_latency('get_players_by_name')
-    try:
-        if len(name) < 3:
-            return []
-        return [{"stats_id": player.stats_id, "name": player.name} for player in Player.objects.filter(name__contains=name)[:num_players]]
-    finally:
-        timer_stop()
-
 class PlayerSchema(Schema):
     name: str = "Player"
     display_name: str = "Player"
