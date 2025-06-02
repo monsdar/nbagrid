@@ -46,6 +46,10 @@ ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
 if 'DJANGO_ALLOWED_HOSTS' in os.environ:
     ALLOWED_HOSTS.extend(os.environ['DJANGO_ALLOWED_HOSTS'].split(','))
 print(f"ALLOWED_HOSTS: {ALLOWED_HOSTS}")
+
+# Add your PythonAnywhere domain to ALLOWED_HOSTS
+PYTHONANYWHERE_DOMAIN = os.environ.get('PYTHONANYWHERE_DOMAIN')
+
 # Application definition
 
 INSTALLED_APPS = [
@@ -71,6 +75,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'django_prometheus.middleware.PrometheusAfterMiddleware',
+    'nbagrid_api.middleware.DomainRedirectMiddleware',
 ]
 
 
