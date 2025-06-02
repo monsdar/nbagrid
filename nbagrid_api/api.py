@@ -294,4 +294,9 @@ def add_player_team_relationship(request, stats_id: int, team_stats_id: int):
             return {"status": "error", "message": str(e)}, 500
     finally:
         timer_stop()
+
+@api.get("/health")
+def health_check(request):
+    """Health check endpoint that returns 200 if the service is up and running"""
+    return {"status": "healthy", "message": "Service is up and running"}
     
