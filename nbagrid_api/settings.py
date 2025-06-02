@@ -73,10 +73,11 @@ MIDDLEWARE = [
     'django_prometheus.middleware.PrometheusAfterMiddleware',
 ]
 
-CSRF_TRUSTED_ORIGINS = [
-    'https://*.railway.app',
-    'https://www.nbagr.id'
-]
+
+CSRF_TRUSTED_ORIGINS = []
+if 'DJANGO_CSRF_TRUSTED_ORIGINS' in os.environ:
+    CSRF_TRUSTED_ORIGINS.extend(os.environ['DJANGO_CSRF_TRUSTED_ORIGINS'].split(','))
+print(f"DJANGO_CSRF_TRUSTED_ORIGINS: {CSRF_TRUSTED_ORIGINS}")
 
 STORAGES = {
     "staticfiles": {
