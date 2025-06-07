@@ -28,7 +28,7 @@ class GameViewTests(TestCase):
     def setUp(self):
         self.client = Client()
         # Use a fixed date for testing
-        self.test_date = datetime(2025, 5, 1)
+        self.test_date = datetime(2025, 4, 1)
         self.url = reverse('game', kwargs={
             'year': self.test_date.year,
             'month': self.test_date.month,

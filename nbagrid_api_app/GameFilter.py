@@ -279,17 +279,28 @@ class TeamCountFilter(DynamicGameFilter):
         # Get the full list of players from the DB again and count their teams
         all_matching_players = Player.objects.filter(stats_id__in=player_ids)
         all_matching_players = all_matching_players.annotate(num_teams=Count('teams', distinct=True))
-        all_matching_players = all_matching_players.filter(num_teams__gte=self.current_value)
+        
+        if 'comparison_type' in self.config and self.config['comparison_type'] == 'lower':
+            all_matching_players = all_matching_players.filter(num_teams__lte=self.current_value)
+        else:
+            all_matching_players = all_matching_players.filter(num_teams__gte=self.current_value)
         
         # Return only the player IDs that match our criteria
         return players.filter(stats_id__in=all_matching_players.values_list('stats_id', flat=True))
     def get_desc(self) -> str:
-        return f"Played for {self.current_value}+ teams"
+        if 'comparison_type' in self.config and self.config['comparison_type'] == 'lower':
+            return f"Played for {self.current_value} or fewer teams"
+        else:
+            return f"Played for {self.current_value}+ teams"
     def get_player_stats_str(self, player: Player) -> str:
         team_abbrs = [team.abbr for team in player.teams.all()]
         return f"Teams: {len(team_abbrs)} ({', '.join(team_abbrs)})"
     def get_detailed_desc(self) -> str:
-        return f"This filter selects players who have played for at least {self.current_value} different NBA teams " \
+        if 'comparison_type' in self.config and self.config['comparison_type'] == 'lower':
+            comparison_str = 'at most'
+        else:
+            comparison_str = 'at least'
+        return f"This filter selects players who have played for {comparison_str} {self.current_value} different NBA teams " \
                f"during their career. This includes all franchises a player has at least one game for."
 
 def get_dynamic_filters(seed:int=0) -> list[DynamicGameFilter]:
@@ -470,6 +481,16 @@ def get_dynamic_filters(seed:int=0) -> list[DynamicGameFilter]:
             'widen_step': 1,
             'narrow_step': 1,
             'detailed_desc': 'This filter selects players who played for at least a certain number of NBA teams. This includes any team where a player played at least one game.'
+        }),
+        TeamCountFilter({
+            'description': 'Teams played for:',
+            'initial_min_value': 1,
+            'initial_max_value': 3,
+            'initial_value_step': 1,
+            'widen_step': 1,
+            'narrow_step': 1,
+            'comparison_type': 'lower',
+            'detailed_desc': 'This filter selects players who played for at most a certain number of NBA teams. This includes any team where a player played at least one game.'
         })
     ]
 
