@@ -38,7 +38,7 @@ class DynamicGameFilter(GameFilter):
     def apply_filter(self, players:Manager[Player]) -> Manager[Player]:
         field = self.config['field']
         if 'comparison_type' in self.config and self.config['comparison_type'] == 'lower':
-            comparison_operator = '__lte'
+            comparison_operator = '__lt'
         else:   
             comparison_operator = '__gte'
         return players.filter(**{f"{field}{comparison_operator}": self.current_value})
