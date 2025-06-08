@@ -365,7 +365,7 @@ function updateCellDisplay(type, index, filterClass, filterName) {
     const filterControlButton = cell.querySelectorAll('.filter-control-button');
     const randomizeButton = cell.querySelector('.randomize-button');
     
-    if (filterClass.includes('DynamicGameFilter')) {
+    if (filterClass.includes('DynamicGameFilter') || filterClass === 'TeamCountFilter') {
         controls.style.display = 'flex';
         randomizeButton.style.display = 'none';
         filterControlButton.forEach(button => button.style.display = 'inline-block');
@@ -655,7 +655,7 @@ function importGrid(event) {
                 const filterControlButton = cell.querySelectorAll('.filter-control-button');
                 const randomizeButton = cell.querySelector('.randomize-button');
                 
-                if (filterData.class.includes('DynamicGameFilter')) {
+                if (filterData.class.includes('DynamicGameFilter') || filterData.class === 'TeamCountFilter') {
                     controls.style.display = 'flex';
                     randomizeButton.style.display = 'none';
                     filterControlButton.forEach(button => button.style.display = 'inline-block');
@@ -684,7 +684,7 @@ function importGrid(event) {
                 const filterControlButton = cell.querySelectorAll('.filter-control-button');
                 const randomizeButton = cell.querySelector('.randomize-button');
                 
-                if (filterData.class.includes('DynamicGameFilter')) {
+                if (filterData.class.includes('DynamicGameFilter') || filterData.class === 'TeamCountFilter') {
                     controls.style.display = 'flex';
                     randomizeButton.style.display = 'none';
                     filterControlButton.forEach(button => button.style.display = 'inline-block');
