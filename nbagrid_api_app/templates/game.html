@@ -1146,6 +1146,7 @@
 
     <div id="filterDetailsModal" class="modal" role="dialog" aria-labelledby="filterDetailsModalTitle" aria-hidden="true">
         <div class="modal-content">
+            <span class="close" onclick="closeFilterDetailsModal()" aria-label="Close filter details modal">&times;</span>
             <h2 id="filterDetailsModalTitle">Filter Details</h2>
             <p id="filterDescription"></p>
             <div class="last-updated">Player data last updated: {{ last_updated_date }}</div>
@@ -1243,7 +1244,7 @@
         // Filter details modal functions
         function showFilterDetails(filterType, index) {
             const modal = document.getElementById('filterDetailsModal');
-            const title = document.getElementById('filterTitle');
+            const title = document.getElementById('filterDetailsModalTitle');
             const description = document.getElementById('filterDescription');
             
             let filterText = '';
