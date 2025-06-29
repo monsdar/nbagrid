@@ -57,6 +57,7 @@ def get_cached_solutions_for_date(given_date:datetime):
 
 class PlayerSchema(Schema):
     name: str = "Player"
+    last_name: str = ""
     display_name: str = "Player"
     draft_year: int = 0
     draft_round: int = 0

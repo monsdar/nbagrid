@@ -1,4 +1,3 @@
-
 from django.test import TestCase
 
 from nbagrid_api_app.models import Player, Team
@@ -17,6 +16,7 @@ from nbagrid_api_app.GameFilter import AllRookieFilter
 from nbagrid_api_app.GameFilter import NbaChampFilter
 from nbagrid_api_app.GameFilter import AllStarFilter
 from nbagrid_api_app.GameFilter import OlympicMedalFilter
+from nbagrid_api_app.GameFilter import LastNameFilter
 
 class DynamicGameFilterTest(TestCase):
     def test_numeric_filter(self):
@@ -425,3 +425,263 @@ class CombinedFilterTest(TestCase):
         player_ids = set(matching_players.values_list('stats_id', flat=True))
         self.assertIn(2, player_ids)
         self.assertIn(4, player_ids)
+
+class LastNameFilterTest(TestCase):
+    def setUp(self):
+        """Set up test data with players having different last names."""
+        # Create players with last names starting with different letters
+        # Letter A
+        for i in range(15):
+            Player.objects.create(stats_id=i, name=f'First Anderson{i}', last_name=f'Anderson{i}')
+        
+        # Letter B
+        for i in range(12):
+            Player.objects.create(stats_id=100+i, name=f'First Brown{i}', last_name=f'Brown{i}')
+        
+        # Letter C
+        for i in range(8):  # Less than 10, should not be considered valid
+            Player.objects.create(stats_id=200+i, name=f'First Carter{i}', last_name=f'Carter{i}')
+        
+        # Letter D
+        for i in range(20):
+            Player.objects.create(stats_id=300+i, name=f'First Davis{i}', last_name=f'Davis{i}')
+        
+        # Letter E
+        for i in range(5):  # Less than 10, should not be considered valid
+            Player.objects.create(stats_id=400+i, name=f'First Evans{i}', last_name=f'Evans{i}')
+        
+        # Letter F
+        for i in range(18):
+            Player.objects.create(stats_id=500+i, name=f'First Fisher{i}', last_name=f'Fisher{i}')
+        
+        # Letter G
+        for i in range(25):
+            Player.objects.create(stats_id=600+i, name=f'First Garcia{i}', last_name=f'Garcia{i}')
+        
+        # Letter H
+        for i in range(11):
+            Player.objects.create(stats_id=700+i, name=f'First Harris{i}', last_name=f'Harris{i}')
+        
+        # Letter I
+        for i in range(3):  # Less than 10, should not be considered valid
+            Player.objects.create(stats_id=800+i, name=f'First Irving{i}', last_name=f'Irving{i}')
+        
+        # Letter J
+        for i in range(16):
+            Player.objects.create(stats_id=900+i, name=f'First Johnson{i}', last_name=f'Johnson{i}')
+        
+        # Letter K
+        for i in range(14):
+            Player.objects.create(stats_id=1000+i, name=f'First King{i}', last_name=f'King{i}')
+        
+        # Letter L
+        for i in range(22):
+            Player.objects.create(stats_id=1100+i, name=f'First Lee{i}', last_name=f'Lee{i}')
+        
+        # Letter M
+        for i in range(19):
+            Player.objects.create(stats_id=1200+i, name=f'First Miller{i}', last_name=f'Miller{i}')
+        
+        # Letter N
+        for i in range(13):
+            Player.objects.create(stats_id=1300+i, name=f'First Nelson{i}', last_name=f'Nelson{i}')
+        
+        # Letter O
+        for i in range(6):  # Less than 10, should not be considered valid
+            Player.objects.create(stats_id=1400+i, name=f'First Owens{i}', last_name=f'Owens{i}')
+        
+        # Letter P
+        for i in range(17):
+            Player.objects.create(stats_id=1500+i, name=f'First Parker{i}', last_name=f'Parker{i}')
+        
+        # Letter Q
+        for i in range(2):  # Less than 10, should not be considered valid
+            Player.objects.create(stats_id=1600+i, name=f'First Quinn{i}', last_name=f'Quinn{i}')
+        
+        # Letter R
+        for i in range(21):
+            Player.objects.create(stats_id=1700+i, name=f'First Roberts{i}', last_name=f'Roberts{i}')
+        
+        # Letter S
+        for i in range(24):
+            Player.objects.create(stats_id=1800+i, name=f'First Smith{i}', last_name=f'Smith{i}')
+        
+        # Letter T
+        for i in range(15):
+            Player.objects.create(stats_id=1900+i, name=f'First Taylor{i}', last_name=f'Taylor{i}')
+        
+        # Letter U
+        for i in range(1):  # Less than 10, should not be considered valid
+            Player.objects.create(stats_id=2000+i, name=f'First Underwood{i}', last_name=f'Underwood{i}')
+        
+        # Letter V
+        for i in range(4):  # Less than 10, should not be considered valid
+            Player.objects.create(stats_id=2100+i, name=f'First Vaughn{i}', last_name=f'Vaughn{i}')
+        
+        # Letter W
+        for i in range(23):
+            Player.objects.create(stats_id=2200+i, name=f'First Wilson{i}', last_name=f'Wilson{i}')
+        
+        # Letter X
+        for i in range(1):  # Less than 10, should not be considered valid
+            Player.objects.create(stats_id=2300+i, name=f'First Xavier{i}', last_name=f'Xavier{i}')
+        
+        # Letter Y
+        for i in range(2):  # Less than 10, should not be considered valid
+            Player.objects.create(stats_id=2400+i, name=f'First Young{i}', last_name=f'Young{i}')
+        
+        # Letter Z
+        for i in range(3):  # Less than 10, should not be considered valid
+            Player.objects.create(stats_id=2500+i, name=f'First Zimmerman{i}', last_name=f'Zimmerman{i}')
+
+    def test_filter_initialization(self):
+        """Test that LastNameFilter initializes correctly with a seed."""
+        # Test with fixed seed for deterministic behavior
+        filter1 = LastNameFilter(seed=42)
+        filter2 = LastNameFilter(seed=42)
+        filter3 = LastNameFilter(seed=123)
+        
+        # Same seed should produce same letter
+        self.assertEqual(filter1.selected_letter, filter2.selected_letter)
+        
+        # Different seed might produce different letter
+        # (though it could be the same by chance)
+        
+        # Selected letter should be one of the valid letters
+        valid_letters = filter1._get_valid_letters()
+        self.assertIn(filter1.selected_letter, valid_letters)
+        self.assertIn(filter2.selected_letter, valid_letters)
+        self.assertIn(filter3.selected_letter, valid_letters)
+
+    def test_get_valid_letters(self):
+        """Test that _get_valid_letters returns only letters with sufficient players."""
+        filter = LastNameFilter(seed=0)
+        valid_letters = filter._get_valid_letters()
+        
+        # Should only include letters with 10+ players
+        expected_valid_letters = ['A', 'B', 'D', 'F', 'G', 'H', 'J', 'K', 'L', 'M', 'N', 'P', 'R', 'S', 'T', 'W']
+        self.assertEqual(set(valid_letters), set(expected_valid_letters))
+        
+        # Should be sorted
+        self.assertEqual(valid_letters, sorted(valid_letters))
+
+    def test_filter_application(self):
+        """Test that the filter correctly filters players by last name."""
+        # Test with letter 'A'
+        filter = LastNameFilter(seed=0)
+        filter.selected_letter = 'A'  # Manually set for testing
+        
+        filtered_players = filter.apply_filter(Player.objects.all())
+        
+        # Should only include players with last names starting with 'A'
+        self.assertEqual(filtered_players.count(), 15)  # All Anderson players
+        for player in filtered_players:
+            self.assertTrue(player.last_name.startswith('A'))
+
+    def test_filter_description(self):
+        """Test that the filter description is correct."""
+        filter = LastNameFilter(seed=0)
+        filter.selected_letter = 'J'
+        
+        desc = filter.get_desc()
+        self.assertEqual(desc, "Last name starts with 'J'")
+
+    def test_player_stats_string(self):
+        """Test that player stats string shows correct information."""
+        filter = LastNameFilter(seed=0)
+        
+        # Test with a player with multiple names
+        player = Player.objects.create(stats_id=9999, name='Michael Jordan Jr', last_name='Jr')
+        stats_str = filter.get_player_stats_str(player)
+        self.assertEqual(stats_str, "Name: Jr")
+        
+        # Test with a player with single name (edge case)
+        player2 = Player.objects.create(stats_id=9998, name='Madonna', last_name='Madonna')
+        stats_str2 = filter.get_player_stats_str(player2)
+        self.assertEqual(stats_str2, "Name: Madonna")
+
+    def test_detailed_description(self):
+        """Test that the detailed description is informative."""
+        filter = LastNameFilter(seed=0)
+        filter.selected_letter = 'S'
+        
+        detailed_desc = filter.get_detailed_desc()
+        self.assertIn("This filter selects players whose last name starts with the letter 'S'", detailed_desc)
+
+    def test_case_insensitive_matching(self):
+        """Test that the filter works case-insensitively."""
+        # Create players with mixed case last names
+        Player.objects.create(stats_id=3000, name='First SMITH', last_name='SMITH')
+        Player.objects.create(stats_id=3001, name='First smith', last_name='smith')
+        Player.objects.create(stats_id=3002, name='First Smith', last_name='Smith')
+        Player.objects.create(stats_id=3003, name='First sMiTh', last_name='sMiTh')
+        
+        filter = LastNameFilter(seed=0)
+        filter.selected_letter = 'S'
+        
+        filtered_players = filter.apply_filter(Player.objects.all())
+        
+        # Should include all Smith variations (case-insensitive)
+        # Only count the specific test players we created (stats_id 3000-3003)
+        smith_players = filtered_players.filter(stats_id__in=[3000, 3001, 3002, 3003])
+        self.assertEqual(smith_players.count(), 4)
+
+    def test_edge_cases(self):
+        """Test edge cases for the filter."""
+        # Test with players who have very long names
+        Player.objects.create(stats_id=4000, name='First Middle Last Jr Sr III', last_name='III')
+        
+        # Test with players who have special characters in names
+        Player.objects.create(stats_id=4001, name='First O\'Connor', last_name='O\'Connor')
+        Player.objects.create(stats_id=4002, name='First Van-Der-Beek', last_name='Van-Der-Beek')
+        
+        filter = LastNameFilter(seed=0)
+        filter.selected_letter = 'I'
+        
+        filtered_players = filter.apply_filter(Player.objects.all())
+        
+        # Should include the player with 'III' as last name
+        iii_players = filtered_players.filter(last_name='III')
+        self.assertEqual(iii_players.count(), 1)
+
+    def test_filter_with_realistic_data(self):
+        """Test the filter with more realistic NBA player names."""
+        # Create some realistic NBA player names
+        realistic_names = [
+            ('LeBron James', 'James'),
+            ('Stephen Curry', 'Curry'),
+            ('Kevin Durant', 'Durant'),
+            ('Giannis Antetokounmpo', 'Antetokounmpo'),
+            ('Nikola Jokic', 'Jokic'),
+            ('Joel Embiid', 'Embiid'),
+            ('Luka Doncic', 'Doncic'),
+            ('Jayson Tatum', 'Tatum'),
+            ('Devin Booker', 'Booker'),
+            ('Damian Lillard', 'Lillard'),
+            ('Jimmy Butler', 'Butler'),
+            ('Kawhi Leonard', 'Leonard'),
+            ('Paul George', 'George'),
+            ('Anthony Davis', 'Davis'),
+            ('Bam Adebayo', 'Adebayo')
+        ]
+        
+        for i, (name, last_name) in enumerate(realistic_names):
+            Player.objects.create(stats_id=5000+i, name=name, last_name=last_name)
+        
+        # Test with letter 'J'
+        filter = LastNameFilter(seed=0)
+        filter.selected_letter = 'J'
+        
+        filtered_players = filter.apply_filter(Player.objects.all())
+        
+        # Should include players with last names starting with 'J'
+        j_players = filtered_players.filter(last_name='James')
+        self.assertEqual(j_players.count(), 1)
+        
+        # Test with letter 'D'
+        filter.selected_letter = 'D'
+        filtered_players = filter.apply_filter(Player.objects.all())
+        
+        # Should include players with last names starting with 'D'
+        d_players = filtered_players.filter(last_name='Durant')
+        self.assertEqual(d_players.count(), 1)

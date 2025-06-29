@@ -62,6 +62,7 @@ class PlayerAdmin(PlayerStaticOlympiansAdmin, PlayerStaticAllNbaAdmin, PlayerSal
                 stats_id=player['id'],
                 defaults={
                     'name': static_players._strip_accents(player['full_name']),
+                    'last_name': static_players._strip_accents(player['last_name']),
                     'display_name': player['full_name'],
                     })
             if has_created:

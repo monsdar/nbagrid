@@ -15,6 +15,7 @@ class Player(ExportModelOperationsMixin('player'), models.Model):
     
     # Player data
     name = models.CharField(max_length=200)
+    last_name = models.CharField(max_length=100, default="")
     display_name = models.CharField(max_length=200, default="")
     teams = models.ManyToManyField('Team')
     draft_year = models.IntegerField(default=0)

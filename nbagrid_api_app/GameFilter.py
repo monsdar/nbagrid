@@ -290,6 +290,38 @@ class OlympicMedalFilter(GameFilter):
                "while representing their country in Olympic basketball. This includes players who competed " \
                "for Team USA as well as players who represented other countries in Olympic competition."
 
+class LastNameFilter(GameFilter):
+    def __init__(self, seed: int = 0):
+        random.seed(seed)
+        # Get valid letters and select a random one
+        valid_letters = self._get_valid_letters()
+        if valid_letters:
+            self.selected_letter = random.choice(valid_letters)
+        else: # This is only the case when running within the context of a test
+            self.selected_letter = 'A'
+    def _get_valid_letters(self):
+        """Helper method to get sorted list of valid letters with sufficient players"""
+        # Count players per starting letter using the last_name field
+        letter_counts = {}
+        for last_name in Player.objects.values_list('last_name', flat=True):
+            if last_name:
+                first_letter = last_name[0].upper()
+                letter_counts[first_letter] = letter_counts.get(first_letter, 0) + 1
+        
+        # Only use letters that have at least 10 players
+        valid_letters = [letter for letter, count in letter_counts.items() if count >= 10]
+        valid_letters.sort()
+        return valid_letters
+    def apply_filter(self, players:Manager[Player]) -> Manager[Player]:
+        # Filter players whose last name starts with the selected letter (case-insensitive)
+        return players.filter(last_name__istartswith=self.selected_letter)
+    def get_desc(self) -> str:
+        return f"Last name starts with '{self.selected_letter}'"
+    def get_player_stats_str(self, player: Player) -> str:
+        return f"Name: {player.last_name}"
+    def get_detailed_desc(self) -> str:
+        return f"This filter selects players whose last name starts with the letter '{self.selected_letter}'. "
+
 class TeamCountFilter(DynamicGameFilter):
     def apply_filter(self, players:Manager[Player]) -> Manager[Player]:
         # Use a subquery to count all teams, not just the ones in the current filtered queryset
@@ -526,7 +558,8 @@ def get_static_filters(seed:int=0) -> list[GameFilter]:
         # CountryFilter(seed), # deprecated, use USAFilter and InternationalFilter instead
         TeamFilter(seed),
         Top10DraftpickFilter(),
-        PositionFilter(seed)
+        PositionFilter(seed),
+        LastNameFilter(seed)
     ]
 
 def gamefilter_to_json(filter):
@@ -542,6 +575,8 @@ def gamefilter_to_json(filter):
         config['selected_position'] = filter.selected_position
     if hasattr(filter, 'country_name'):
         config['country_name'] = filter.country_name
+    if hasattr(filter, 'selected_letter'):
+        config['selected_letter'] = filter.selected_letter
     
     return {
         'class_name': filter.__class__.__name__,
@@ -561,7 +596,9 @@ def gamefilter_from_json(filter_instance, filter_data):
         filter_instance.selected_position = filter_data['config']['selected_position']
     if hasattr(filter_instance, 'country_name'):
         filter_instance.country_name = filter_data['config']['country_name']
-    return filter_instance 
+    if hasattr(filter_instance, 'selected_letter'):
+        filter_instance.selected_letter = filter_data['config']['selected_letter']
+    return filter_instance
 
 def create_filter_from_db(db_filter):
     """Create a GameFilter object from a database record.
@@ -595,6 +632,12 @@ def create_filter_from_db(db_filter):
         filter_obj = filter_class(0)  # Seed doesn't matter for reconstruction
         if position is not None:
             filter_obj.selected_position = position
+        return filter_obj
+    elif filter_class == LastNameFilter:
+        letter = config.pop('selected_letter', None)
+        filter_obj = filter_class(0)  # Seed doesn't matter for reconstruction
+        if letter is not None:
+            filter_obj.selected_letter = letter
         return filter_obj
     elif filter_class == USAFilter:
         return filter_class()
