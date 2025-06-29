@@ -149,6 +149,27 @@ class InternationalFilter(GameFilter):
         return "This filter selects players who were born outside the USA, like Canada, Greenland, Mexico, Panama, etc." \
                "This also includes players born in US territories like Puerto Rico."
 
+class EuropeanUnionFilter(GameFilter):
+    def apply_filter(self, players:Manager[Player]) -> Manager[Player]:
+        # List of European Union member countries as of 2024
+        eu_countries = [
+            'Austria', 'Belgium', 'Bulgaria', 'Croatia', 'Cyprus', 'Czech Republic',
+            'Denmark', 'Estonia', 'Finland', 'France', 'Germany', 'Greece', 'Hungary',
+            'Ireland', 'Italy', 'Latvia', 'Lithuania', 'Luxembourg', 'Malta', 'Netherlands',
+            'Poland', 'Portugal', 'Romania', 'Slovakia', 'Slovenia', 'Spain', 'Sweden'
+        ]
+        return players.filter(country__in=eu_countries)
+    def get_desc(self) -> str:
+        return f"Born in European Union"
+    def get_player_stats_str(self, player: Player) -> str:
+        return f"Birthplace: {player.country}"
+    def get_detailed_desc(self) -> str:
+        return "This filter selects players who were born in European Union member countries. " \
+               "This includes all 27 EU member states as of 2024: Austria, Belgium, Bulgaria, " \
+               "Croatia, Cyprus, Czech Republic, Denmark, Estonia, Finland, France, Germany, " \
+               "Greece, Hungary, Ireland, Italy, Latvia, Lithuania, Luxembourg, Malta, " \
+               "Netherlands, Poland, Portugal, Romania, Slovakia, Slovenia, Spain, and Sweden."
+
 class CountryFilter(GameFilter):
     def __init__(self, seed: int = 0):
         random.seed(seed)
@@ -549,6 +570,7 @@ def get_static_filters(seed:int=0) -> list[GameFilter]:
     return [
         USAFilter(),
         InternationalFilter(),
+        EuropeanUnionFilter(),
         AllNbaFilter(),
         AllDefensiveFilter(),
         AllRookieFilter(),
@@ -642,6 +664,8 @@ def create_filter_from_db(db_filter):
     elif filter_class == USAFilter:
         return filter_class()
     elif filter_class == InternationalFilter:
+        return filter_class()
+    elif filter_class == EuropeanUnionFilter:
         return filter_class()
     elif filter_class == CountryFilter:
         country = config.pop('country_name', None)
