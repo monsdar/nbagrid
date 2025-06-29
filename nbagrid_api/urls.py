@@ -16,6 +16,9 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from django.conf import settings
+from django.conf.urls.static import static
+from django.views.static import serve
 from .api import api
 import nbagrid_api_app.views
 from django_prometheus import exports
@@ -49,4 +52,7 @@ urlpatterns = [
     # Secure the django-prometheus exports
     path('django_metrics', secured_metrics_view, name='django-metrics'),
     path('prometheus/metrics', secured_metrics_registry_view, name='prometheus-django-metrics'),
+    
+    # Serve favicon.ico
+    path('favicon.ico', serve, {'path': 'favicon.ico', 'document_root': settings.STATIC_ROOT}),
 ]
