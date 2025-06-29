@@ -1,10 +1,65 @@
 {% load game_extras %}
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
     <title>NBA Grid - {{ year }} {{ month }} {{ day }}</title>
     <meta name="viewport" content="width=device-width,initial-scale=1">
+    
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="Play NBAGrid - a daily puzzle game where you find NBA players matching specific criteria. Challenge yourself with {{ month }} {{ day }}, {{ year }}'s grid!">
+    <meta name="keywords" content="NBAGrid, basketball game, NBA puzzle, daily game, NBA players, basketball trivia">
+    <meta name="author" content="Nils Brinkmann">
+    <meta name="robots" content="index, follow">
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="{{ request.scheme }}://{{ request.get_host }}{{ request.path }}">
+    <meta property="og:title" content="NBAGrid - {{ year }} {{ month }} {{ day }}">
+    <meta property="og:description" content="Play NBAGrid - a daily puzzle game where you find NBA players matching specific criteria. Challenge yourself with {{ month }} {{ day }}, {{ year }}'s grid!">
+    <!--<meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}/static/images/nbagrid-og.png">-->
+    <meta property="og:site_name" content="NBAGrid">
+    
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="{{ request.scheme }}://{{ request.get_host }}{{ request.path }}">
+    <meta property="twitter:title" content="NBAGrid - {{ year }} {{ month }} {{ day }}">
+    <meta property="twitter:description" content="Play NBAGrid - a daily puzzle game where you find NBA players matching specific criteria. Challenge yourself with {{ month }} {{ day }}, {{ year }}'s grid!">
+    <!--<meta property="twitter:image" content="{{ request.scheme }}://{{ request.get_host }}/static/images/nbagrid-og.png">-->
+    
+    <!-- Additional SEO -->
+    <meta name="theme-color" content="#1d428a">
+    <meta name="msapplication-TileColor" content="#1d428a">
+    <link rel="canonical" href="{{ request.scheme }}://{{ request.get_host }}{{ request.path }}">
+    
+    <!-- Structured Data -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "NBAGrid",
+        "description": "A daily puzzle game where you find NBA players matching specific criteria",
+        "url": "{{ request.scheme }}://{{ request.get_host }}{{ request.path }}",
+        "applicationCategory": "Game",
+        "operatingSystem": "Web Browser",
+        "author": {
+            "@type": "Person",
+            "name": "Nils Brinkmann",
+            "url": "https://nils.brink.men"
+        },
+        "datePublished": "{{ year }}-{{ month_num }}-{{ day }}",
+        "gameServer": {
+            "@type": "GameServer",
+            "serverStatus": "Online"
+        },
+        "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "USD"
+        }
+    }
+    </script>
+    
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
     {% csrf_token %}
     <style>
@@ -303,7 +358,7 @@
             flex-direction: column;
             align-items: center;
             gap: 1rem;
-            padding: 0 20px;
+            padding: 20px 20px;
         }
 
         .game-title-large {
@@ -332,7 +387,7 @@
             justify-content: center;
             align-items: center;
             gap: 20px;
-            margin-bottom: 0;
+            margin-bottom: 0px;
         }
 
         .nav-arrow {
@@ -954,34 +1009,49 @@
             color: white;
             font-weight: bold;
         }
+        
+        /* Screen reader only class */
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
     </style>
 </head>
 
 <body>
-    <div class="game-container {% if is_finished %}game-finished{% endif %}">
-        <div class="game-header">
-            <div class="game-title-large"><a href="{% url 'index' %}" style="color: white; text-decoration: none;">NBAGrid</a></div>
-            <div class="date-navigation">
+    <main class="game-container {% if is_finished %}game-finished{% endif %}">
+        <header class="game-header">
+            <h1 class="game-title-large"><a href="{% url 'index' %}" style="color: white; text-decoration: none;">NBAGrid</a></h1>
+            <nav class="date-navigation" aria-label="Date navigation">
                 {% if show_prev %}
                 <a href="{% url 'game' year=prev_date.year month=prev_date.month day=prev_date.day %}"
-                    class="nav-arrow">←</a>
+                    class="nav-arrow" aria-label="Previous date">←</a>
                 {% else %}
-                <span class="nav-arrow disabled">←</span>
+                <span class="nav-arrow disabled" aria-label="No previous date available">←</span>
                 {% endif %}
-                <div class="current-date">{{ month }} {{ day }}, {{ year }}</div>
+                <time class="current-date" datetime="{{ year }}-{{ month_num }}-{{ day }}">{{ month }} {{ day }}, {{ year }}</time>
                 {% if show_next %}
                 <a href="{% url 'game' year=next_date.year month=next_date.month day=next_date.day %}"
-                    class="nav-arrow">→</a>
+                    class="nav-arrow" aria-label="Next date">→</a>
                 {% else %}
-                <span class="nav-arrow disabled">→</span>
+                <span class="nav-arrow disabled" aria-label="No next date available">→</span>
                 {% endif %}
-            </div>
-            <div class="game-subtitle">Click title to return Home</div>
-        </div>
+            </nav>
+            <p class="game-subtitle">Click title to return Home</p>
+        </header>
+        
         {% if game_title %}
-        <div class="game-title">{{ game_title }}</div>
+        <h2 class="game-title">{{ game_title }}</h2>
         {% endif %}
-        <div class="grid-container">
+        
+        <section class="grid-container" aria-label="NBAGrid puzzle">
             <div class="cell game-title-cell">
                 <div class="game-attempts {% if attempts_remaining <= 3 %}low-attempts{% endif %}">
                     <span class="attempts-label">Guesses:</span>
@@ -990,11 +1060,11 @@
                 <div class="game-score">Score: {{ total_score|multiply:100|floatformat:0 }}</div>
             </div>
             {% for static_filter in static_filters %}
-            <div class="cell header-cell header-col" onclick="showFilterDetails('static', {{ forloop.counter0 }})">{{ static_filter }}</div>
+            <div class="cell header-cell header-col" onclick="showFilterDetails('static', {{ forloop.counter0 }})" role="button" tabindex="0" aria-label="Filter details for {{ static_filter }}">{{ static_filter }}</div>
             {% endfor %}
 
             {% for dynamic_filter in dynamic_filters %}
-            <div class="cell header-cell header-row" onclick="showFilterDetails('dynamic', {{ forloop.counter0 }})">{{ dynamic_filter }}</div>
+            <div class="cell header-cell header-row" onclick="showFilterDetails('dynamic', {{ forloop.counter0 }})" role="button" tabindex="0" aria-label="Filter details for {{ dynamic_filter }}">{{ dynamic_filter }}</div>
             {% for static_filter in static_filters %}
             {% with row=forloop.parentloop.counter0 col=forloop.counter0 %}
             {% with row_str=row|stringformat:"s" %}
@@ -1005,11 +1075,13 @@
             <div class="cell {% if cell_data and cell_data.is_correct %}correct tier-{{ cell_data.tier }}{% endif %} {% if is_finished and not cell_data.is_correct %}exhausted{% endif %}"
                 onclick="{% if is_finished %}showCorrectPlayers(this){% elif not cell_data.is_correct %}openModal(this){% endif %}"
                 data-row="{{ row }}" data-col="{{ col }}" {% if is_finished %}
-                data-cell-key="{{ cell_key }}" {% endif %}>
+                data-cell-key="{{ cell_key }}" {% endif %}
+                role="button" tabindex="0" 
+                aria-label="{% if cell_data and cell_data.is_correct %}Correct answer: {{ cell_data.player_name }}{% elif is_finished %}No correct answer found{% else %}Select player for {{ dynamic_filter }} and {{ static_filter }}{% endif %}">
                 {% if cell_data_list %}
                 {% with incorrect_guesses=cell_data_list|filter_incorrect|length %}
                 {% if incorrect_guesses > 0 %}
-                <span class="wrong-guesses">{{ incorrect_guesses }} X</span>
+                <span class="wrong-guesses" aria-label="{{ incorrect_guesses }} incorrect guesses">{{ incorrect_guesses }} X</span>
                 {% endif %}
                 {% endwith %}
                 {% endif %}
@@ -1028,61 +1100,63 @@
             {% endwith %}
             {% endfor %}
             {% endfor %}
-        </div>
-        <div class="game-completion {% if is_finished %}finished{% endif %}">
+        </section>
+        
+        <footer class="game-completion {% if is_finished %}finished{% endif %}">
             <button class="btn btn-primary btn-share" onclick="shareResults()">Share Results</button>
             <button class="btn btn-primary" onclick="openStatsModal()">Stats</button>
             <button class="btn btn-secondary" onclick="openAboutModal()">About</button>
-        </div>
-    </div>
+        </footer>
+    </main>
 
-    <div id="playerModal" class="modal">
+    <div id="playerModal" class="modal" role="dialog" aria-labelledby="playerModalTitle" aria-hidden="true">
         <div class="modal-content">
-            <input type="text" id="player-search" placeholder="Search for a player...">
-            <div id="player-suggestions"></div>
+            <h2 id="playerModalTitle" class="sr-only">Select Player</h2>
+            <input type="text" id="player-search" placeholder="Search for a player..." aria-label="Search for a player">
+            <div id="player-suggestions" role="listbox" aria-label="Player suggestions"></div>
         </div>
     </div>
 
-    <div id="correctPlayersModal" class="correct-players-modal">
+    <div id="correctPlayersModal" class="correct-players-modal" role="dialog" aria-labelledby="correctPlayersModalTitle" aria-hidden="true">
         <div class="correct-players-content">
-            <h2>Correct Players</h2>
+            <h2 id="correctPlayersModalTitle">Correct Players</h2>
             <div id="correct-players-list"></div>
         </div>
     </div>
 
-    <div id="aboutModal" class="about-modal">
+    <div id="aboutModal" class="about-modal" role="dialog" aria-labelledby="aboutModalTitle" aria-hidden="true">
         <div class="about-content">
-            <h2>About NBAGrid</h2>
+            <h2 id="aboutModalTitle">About NBAGrid</h2>
             <p>NBAGrid is a daily puzzle game where you try to find NBA players that match specific criteria. Each day
                 presents a new grid with different combinations of player attributes to guess.</p>
-            <p>Created by <a href="https://nils.brink.men" target="_blank">Nils Brinkmann</a>, this game is inspired by
-                popular grid-based puzzle game <a href="https://www.geogridgame.com" target="_blank">GeoGrid</a>.</p>
+            <p>Created by <a href="https://nils.brink.men" target="_blank" rel="noopener">Nils Brinkmann</a>, this game is inspired by
+                popular grid-based puzzle game <a href="https://www.geogridgame.com" target="_blank" rel="noopener">GeoGrid</a>.</p>
             <p>The code for this game is open source and available on <a href="https://github.com/monsdar/nbagrid"
-                    target="_blank">GitHub</a>.</p>
+                    target="_blank" rel="noopener">GitHub</a>.</p>
             <div class="support-section">
                 <h3>Support This Project</h3>
                 <p>While hosting this service isn't extremely expensive, it's not free either. If you enjoy playing
                     NBAGrid and would like to support its development and maintenance, consider buying me a coffee!</p>
                 <p>Feedback is always welcome! Feel free to suggest filters, grids,
-                    or general ideas within your coffee-message or use the <a href="https://github.com/monsdar/nbagrid/issues" target="_blank">GitHub issue tracker</a>.</p>
-                <a href="https://buymeacoffee.com/monsdar" target="_blank" class="btn btn-primary" style="color: white;">☕ Buy Me a Coffee ☕</a>
+                    or general ideas within your coffee-message or use the <a href="https://github.com/monsdar/nbagrid/issues" target="_blank" rel="noopener">GitHub issue tracker</a>.</p>
+                <a href="https://buymeacoffee.com/monsdar" target="_blank" rel="noopener" class="btn btn-primary" style="color: white;">☕ Buy Me a Coffee ☕</a>
             </div>
         </div>
     </div>
 
-    <div id="filterDetailsModal" class="modal">
+    <div id="filterDetailsModal" class="modal" role="dialog" aria-labelledby="filterDetailsModalTitle" aria-hidden="true">
         <div class="modal-content">
-            <h2 id="filterTitle">Filter Details</h2>
+            <h2 id="filterDetailsModalTitle">Filter Details</h2>
             <p id="filterDescription"></p>
             <div class="last-updated">Player data last updated: {{ last_updated_date }}</div>
         </div>
     </div>
 
-    <div id="statsModal" class="modal">
+    <div id="statsModal" class="modal" role="dialog" aria-labelledby="statsModalTitle" aria-hidden="true">
         <div class="modal-content">
-            <span class="close" onclick="closeStatsModal()">&times;</span>
+            <span class="close" onclick="closeStatsModal()" aria-label="Close stats modal">&times;</span>
             <div class="game-summary-header">
-                <h2>Game Summary</h2>
+                <h2 id="statsModalTitle">Game Summary</h2>
                 <div class="score-display">
                     <span class="stat-label">Score:</span>
                     <span class="stat-value score-value">{{ total_score|multiply:100|floatformat:0 }}</span>
