@@ -12,7 +12,7 @@ import json
 import logging
 
 from nbagrid_api_app.models import Player, Team, GameFilterDB, LastUpdated, GridMetadata
-from nbagrid_api_app.GameFilter import gamefilter_to_json, gamefilter_from_json, get_dynamic_filters, get_static_filters, TeamFilter, PositionFilter
+from nbagrid_api_app.GameFilter import gamefilter_to_json, gamefilter_from_json, get_dynamic_filters, get_static_filters, TeamFilter, PositionFilter, LastNameFilter
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +40,7 @@ class GridBuilderAdmin(admin.ModelAdmin):
         # Add static filters
         for filter in get_static_filters():
             filter_json = gamefilter_to_json(filter)
-            filter_json['name'] = filter.get_desc()  # Add display name
+            filter_json['name'] = filter.get_desc().replace("'", "")  # Add display name
             available_filters.append(filter_json)
         
         # Add dynamic filters
@@ -251,11 +251,19 @@ class GridBuilderAdmin(admin.ModelAdmin):
                         break
                 filter_instance.selected_position = positions[next_index]
                 filter_data['config']['selected_position'] = filter_instance.selected_position
+            elif isinstance(filter_instance, LastNameFilter):
+                # Get valid letters and cycle to the next one
+                valid_letters = filter_instance._get_valid_letters()
+                if valid_letters:
+                    current_index = valid_letters.index(filter_instance.selected_letter)
+                    next_index = (current_index + 1) % len(valid_letters)
+                    filter_instance.selected_letter = valid_letters[next_index]
+                    filter_data['config']['selected_letter'] = filter_instance.selected_letter
             else:
                 return JsonResponse({'error': 'Filter type does not support randomization'}, status=400)
             
             return JsonResponse({
-                'new_name': filter_instance.get_desc(),
+                'new_name': filter_instance.get_desc().replace("'", ""),
                 'new_config': filter_data['config']
             })
             

@@ -369,7 +369,7 @@ function updateCellDisplay(type, index, filterClass, filterName) {
         controls.style.display = 'flex';
         randomizeButton.style.display = 'none';
         filterControlButton.forEach(button => button.style.display = 'inline-block');
-    } else if (filterClass === 'TeamFilter' || filterClass === 'PositionFilter') {
+    } else if (filterClass === 'TeamFilter' || filterClass === 'PositionFilter' || filterClass === 'LastNameFilter') {
         controls.style.display = 'flex';
         randomizeButton.style.display = 'inline-block';
         filterControlButton.forEach(button => button.style.display = 'none');
@@ -659,7 +659,7 @@ function importGrid(event) {
                     controls.style.display = 'flex';
                     randomizeButton.style.display = 'none';
                     filterControlButton.forEach(button => button.style.display = 'inline-block');
-                } else if (filterData.class === 'TeamFilter' || filterData.class === 'PositionFilter') {
+                } else if (filterData.class === 'TeamFilter' || filterData.class === 'PositionFilter' || filterData.class === 'LastNameFilter') {
                     controls.style.display = 'flex';
                     randomizeButton.style.display = 'inline-block';
                     filterControlButton.forEach(button => button.style.display = 'none');
@@ -688,7 +688,7 @@ function importGrid(event) {
                     controls.style.display = 'flex';
                     randomizeButton.style.display = 'none';
                     filterControlButton.forEach(button => button.style.display = 'inline-block');
-                } else if (filterData.class === 'TeamFilter' || filterData.class === 'PositionFilter') {
+                } else if (filterData.class === 'TeamFilter' || filterData.class === 'PositionFilter' || filterData.class === 'LastNameFilter') {
                     controls.style.display = 'flex';
                     randomizeButton.style.display = 'inline-block';
                     filterControlButton.forEach(button => button.style.display = 'none');
