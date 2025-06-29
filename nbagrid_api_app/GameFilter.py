@@ -6,6 +6,13 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+def cm_to_feet_inches(cm):
+    """Convert centimeters to feet and inches format."""
+    total_inches = cm / 2.54
+    feet = int(total_inches // 12)
+    inches = int(total_inches % 12)
+    return (feet, inches)
+
 class GameFilter(object):
     @abstractmethod
     def apply_filter(self, players:Manager[Player]) -> Manager[Player]:
@@ -50,6 +57,12 @@ class DynamicGameFilter(GameFilter):
         if stat_value > 1000000:
             stat_value = f"{stat_value / 1000000:.1f}"
         unit = f" {self.config['unit']}" if 'unit' in self.config else ''
+        
+        # Special handling for height filters to show both metric and American units
+        if field == 'height_cm':
+            feet, inches = cm_to_feet_inches(stat_value)
+            return f"{description} {stat_value}{unit} ({feet}′{inches}″)"
+        
         return f"{description} {stat_value}{unit}"
     
     def get_desc(self) -> str:
@@ -61,6 +74,12 @@ class DynamicGameFilter(GameFilter):
         display_value = self.current_value
         if self.current_value > 1000000:
             display_value = f"{self.current_value / 1000000:.1f}"
+        
+        # Special handling for height filters to show both metric and American units
+        if self.config['field'] == 'height_cm':
+            feet, inches = cm_to_feet_inches(self.current_value)
+            return f"{description} {display_value}{desc_operator}{unit} ({feet}′{inches}″)"
+        
         return f"{description} {display_value}{desc_operator}{unit}"
     
     def get_detailed_desc(self) -> str:
