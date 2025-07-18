@@ -1,5 +1,6 @@
 from django.test import TestCase
 from django.db.models import F
+from unittest import skip
 
 from nbagrid_api_app.GameBuilder import GameBuilder
 from nbagrid_api_app.models import Player, Team, GameResult, GameFilterDB
@@ -124,6 +125,7 @@ class PlayerTest(TestCase):
         player = Player.objects.create(stats_id=1, name='Lebron James')
         self.assertFalse(player.has_played_for_team('CLE'))
         
+    @skip("Requires access to stats.nba.com")
     def test_load_player_data(self):
         #player = Player.objects.create(stats_id=202681, name='Kyrie Irving')
         #player = Player.objects.create(stats_id=2544, name='LeBron James')
