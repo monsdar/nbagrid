@@ -300,12 +300,12 @@ def handle_correct_guess(requested_date, cell_key, player, cell_data, game_state
         else:
             cell_data['tier'] = 'epic'
 
-
-        # cell_data was already appended in handle_player_guess. We only update
-        # its fields here, so avoid adding a duplicate entry.
-
-            
-        logger.info(f"Player {player.name} in cell {cell_key} - First guess: {is_first_guess}, Score: {cell_score}, Tier: {cell_data['tier']}")
+        # cell_data was appended in handle_player_guess; only update its fields here
+        # to avoid adding a duplicate entry.
+        logger.info(
+            f"Player {player.name} in cell {cell_key} - First guess: {is_first_guess}, "
+            f"Score: {cell_score}, Tier: {cell_data['tier']}"
+        )
     except Exception as e:
         logger.error(f"Failed to store game result: {e}")
 
