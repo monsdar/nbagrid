@@ -1383,11 +1383,15 @@
         
         function closeFilterDetailsModal() {
             document.getElementById('filterDetailsModal').style.display = 'none';
+            // Ensure input is cleared when filter details modal is closed
+            clearPlayerSearchInput();
         }
 
         function openModal(cell) {
             if (cell.classList.contains('correct') || cell.classList.contains('exhausted')) return;
             currentCell = cell;
+            // Clear the input field when opening the modal
+            clearPlayerSearchInput();
             modal.style.display = 'block';
             searchInput.focus();
         }
@@ -1397,6 +1401,16 @@
             currentCell = null;
             searchInput.value = '';
             suggestionsDiv.innerHTML = '';
+        }
+
+        // Additional function to ensure input is cleared in all scenarios
+        function clearPlayerSearchInput() {
+            if (searchInput) {
+                searchInput.value = '';
+            }
+            if (suggestionsDiv) {
+                suggestionsDiv.innerHTML = '';
+            }
         }
 
         function showCorrectPlayers(cell) {
@@ -1453,6 +1467,8 @@
 
         function closeCorrectPlayersModal() {
             document.getElementById('correctPlayersModal').style.display = 'none';
+            // Ensure input is cleared when correct players modal is closed
+            clearPlayerSearchInput();
         }
 
         function updateAttemptsCounter(attempts) {
@@ -1646,6 +1662,9 @@
                         // Close the player selection modal if it's open
                         closeModal();
                         
+                        // Ensure input is cleared
+                        clearPlayerSearchInput();
+                        
                         // Show stats dialog with the updated data
                         openStatsModal();
 
@@ -1796,6 +1815,8 @@
 
         function closeAboutModal() {
             document.getElementById('aboutModal').style.display = 'none';
+            // Ensure input is cleared when about modal is closed
+            clearPlayerSearchInput();
         }
 
         function openStatsModal() {
@@ -1809,6 +1830,8 @@
 
         function closeStatsModal() {
             document.getElementById('statsModal').style.display = 'none';
+            // Ensure input is cleared when stats modal is closed
+            clearPlayerSearchInput();
         }
 
         function refreshStats() {
@@ -2010,6 +2033,9 @@
 
         // Add click handlers to date navigation arrows
         document.addEventListener('DOMContentLoaded', function() {
+            // Ensure player search input is cleared on page load
+            clearPlayerSearchInput();
+            
             const prevArrow = document.querySelector('.nav-arrow:not(.disabled)');
             const nextArrow = document.querySelector('.nav-arrow:not(.disabled)');
             
@@ -2118,6 +2144,8 @@
             document.getElementById('helpModal').style.display = 'none';
             // Mark that the user has seen the help modal
             localStorage.setItem('nbagrid_help_seen', 'true');
+            // Ensure input is cleared when help modal is closed
+            clearPlayerSearchInput();
         }
     </script>
 </body>
