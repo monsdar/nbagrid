@@ -359,6 +359,85 @@
             align-items: center;
             gap: 1rem;
             padding: 20px 20px;
+            position: relative;
+        }
+
+        .help-button {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background-color: #1d428a;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            font-size: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.3s;
+            z-index: 10;
+        }
+
+        .help-button:hover {
+            background-color: #2a4d6e;
+        }
+
+        .help-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+        }
+
+        .help-content {
+            background-color: #2a2a2a;
+            width: 90%;
+            max-width: 600px;
+            color: #FFF;
+            margin: 5% auto;
+            padding: 30px;
+            position: relative;
+            max-height: 90vh;
+            overflow-y: auto;
+            border-radius: 10px;
+        }
+
+        .help-content h2 {
+            color: white;
+            margin-top: 0;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .help-content p {
+            margin-bottom: 15px;
+            line-height: 1.6;
+            font-size: 16px;
+        }
+
+        .help-content ul {
+            margin-bottom: 20px;
+            padding-left: 20px;
+        }
+
+        .help-content li {
+            margin-bottom: 10px;
+            line-height: 1.5;
+        }
+
+        .help-content .btn {
+            width: 100%;
+            margin-top: 20px;
+            padding: 15px;
+            font-size: 18px;
+            font-weight: bold;
         }
 
         .game-title-large {
@@ -588,6 +667,20 @@
             .nav-arrow,
             .completion-message {
                 font-size: 18px;
+            }
+
+            .help-button {
+                width: 35px;
+                height: 35px;
+                font-size: 16px;
+                top: 15px;
+                right: 15px;
+            }
+
+            .help-content {
+                width: 95%;
+                padding: 20px;
+                margin: 10% auto;
             }
         }
 
@@ -1041,6 +1134,7 @@
                 {% endif %}
             </nav>
             <p class="game-subtitle">Click title to return Home</p>
+            <button class="help-button" onclick="openHelpModal()" aria-label="Help">?</button>
         </header>
         
         {% if game_title %}
@@ -1223,6 +1317,27 @@
             </div>
             
             <button class="btn btn-secondary btn-mt" onclick="closeStatsModal()">Close</button>
+        </div>
+    </div>
+
+    <div id="helpModal" class="help-modal" role="dialog" aria-labelledby="helpModalTitle" aria-hidden="true">
+        <div class="help-content">
+            <h2 id="helpModalTitle">Welcome to NBAGrid!</h2>
+            <p>NBAGrid is a daily puzzle game where you try to find NBA players that match specific criteria. Each day
+                presents a new grid with different combinations of player attributes to guess.</p>
+            <h2 id="helpModalTitle">How to Play</h2>
+            <p>The goal is to guess as many cells as possible. The more cells you guess correctly, and the rarer the players you pick, the higher your score!</p>
+            <p>The grid presents a number of categories that apply to a number of NBA players. You need to find the players that match both categories that apply to the empty cell.</p>
+            <p>Categories include:</p>
+            <ul>
+                <li>Position (Guard, Forward, Center)</li>
+                <li>Awards like NBA Champions, All-Stars All-NBA teams, ...</li>
+                <li>Team (e.g., Lakers, Warriors, Bulls)</li>
+                <li>Number of seasons played</li>
+                <li>Average and Career High stats</li>
+            </ul>
+            <p>Click on a category to get help what is searched for in that category.</p>
+            <button class="btn btn-primary" onclick="closeHelpModal()">Let's Go!</button>
         </div>
     </div>
 
@@ -1563,6 +1678,9 @@
             }
             if (event.target == document.getElementById('statsModal')) {
                 closeStatsModal();
+            }
+            if (event.target == document.getElementById('helpModal')) {
+                closeHelpModal();
             }
         }
 
@@ -1976,6 +2094,14 @@
                 console.error('Error updating display name:', error);
                 alert('Failed to update name. Please try again.');
             });
+        }
+
+        function openHelpModal() {
+            document.getElementById('helpModal').style.display = 'block';
+        }
+
+        function closeHelpModal() {
+            document.getElementById('helpModal').style.display = 'none';
         }
     </script>
 </body>
