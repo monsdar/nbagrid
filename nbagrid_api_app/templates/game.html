@@ -2037,6 +2037,15 @@
             const isSpecificDate = window.location.pathname.match(/\/\d+\/\d+\/\d+\/$/);
             console.log('Initial subtitle state:', isSpecificDate);
             toggleSubtitle(isSpecificDate);
+
+            // Show help modal for first-time users
+            const hasSeenHelp = localStorage.getItem('nbagrid_help_seen');
+            if (!hasSeenHelp) {
+                // Small delay to ensure the page is fully loaded
+                setTimeout(() => {
+                    openHelpModal();
+                }, 500);
+            }
         });
 
         function generateRandomName() {
@@ -2100,8 +2109,15 @@
             document.getElementById('helpModal').style.display = 'block';
         }
 
+        function resetHelpModal() {
+            localStorage.removeItem('nbagrid_help_seen');
+            openHelpModal();
+        }
+
         function closeHelpModal() {
             document.getElementById('helpModal').style.display = 'none';
+            // Mark that the user has seen the help modal
+            localStorage.setItem('nbagrid_help_seen', 'true');
         }
     </script>
 </body>
