@@ -197,11 +197,12 @@
             width: 90%;
             max-width: 500px;
             color: #FFF;
-            margin: 5% auto;
-            padding: 15px;
+            margin: 2vh auto;
+            padding: 30px;
             position: relative;
             max-height: 90vh;
             overflow-y: auto;
+            border-radius: 10px;
         }
 
         .player-suggestion {
@@ -399,7 +400,7 @@
         .help-content {
             background-color: #2a2a2a;
             width: 90%;
-            max-width: 600px;
+            max-width: 500px;
             color: #FFF;
             margin: 5% auto;
             padding: 30px;
@@ -632,11 +633,18 @@
             .modal-content {
                 width: 100%;
                 max-width: 100%;
-                margin: 20% auto;
-                padding: 10px;
-                max-height: 80vh;
+                margin: 2vh auto;
+                padding: 20px;
+                max-height: 90vh;
                 overflow-y: auto;
                 box-sizing: border-box;
+                border-radius: 10px;
+            }
+
+            .close {
+                top: 10px;
+                right: 15px;
+                font-size: 24px;
             }
 
             .player-suggestion {
@@ -678,9 +686,11 @@
             }
 
             .help-content {
-                width: 95%;
+                width: 100%;
+                max-width: 100%;
                 padding: 20px;
-                margin: 10% auto;
+                margin: 2vh auto;
+                box-sizing: border-box;
             }
         }
 
@@ -820,6 +830,10 @@
             font-weight: bold;
             cursor: pointer;
             line-height: 1;
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            z-index: 1;
         }
         
         .close:hover {
@@ -1322,6 +1336,7 @@
 
     <div id="helpModal" class="help-modal" role="dialog" aria-labelledby="helpModalTitle" aria-hidden="true">
         <div class="help-content">
+            <span class="close" onclick="closeHelpModal()" aria-label="Close help modal">&times;</span>
             <h2 id="helpModalTitle">Welcome to NBAGrid!</h2>
             <p>NBAGrid is a daily puzzle game where you try to find NBA players that match specific criteria. Each day
                 presents a new grid with different combinations of player attributes to guess.</p>
