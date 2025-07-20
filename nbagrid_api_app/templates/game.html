@@ -1050,6 +1050,16 @@
             background-color: #444;
         }
 
+        .btn-secondary:disabled {
+            background-color: #555;
+            color: #888;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary:disabled:hover {
+            background-color: #555;
+        }
+
         /* Button spacing */
         .btn-mt {
             margin-top: 20px;
@@ -1209,6 +1219,11 @@
         <footer class="game-completion {% if is_finished %}finished{% endif %}">
             <button class="btn btn-primary btn-share" onclick="shareResults()">Share Results</button>
             <button class="btn btn-primary" onclick="openStatsModal()">Stats</button>
+            {% if unplayed_game_data.has_unplayed_games %}
+            <button class="btn btn-secondary" onclick="playOlderGrid()">Play older Grid</button>
+            {% else %}
+            <button class="btn btn-secondary" disabled>All Grids Played...</button>
+            {% endif %}
             <button class="btn btn-secondary" onclick="openAboutModal()">About</button>
         </footer>
     </main>
@@ -1673,6 +1688,11 @@
                             // Set onclick handler for all cells
                             cell.onclick = function () { showCorrectPlayers(this); };
                         });
+
+                        // Update the "Play older Grid" button with new unplayed game data
+                        if (data.unplayed_game_data) {
+                            updatePlayOlderGridButton(data.unplayed_game_data);
+                        }
 
                         // Close the player selection modal if it's open
                         closeModal();
@@ -2161,6 +2181,51 @@
             localStorage.setItem('nbagrid_help_seen', 'true');
             // Ensure input is cleared when help modal is closed
             clearPlayerSearchInput();
+        }
+
+        function playOlderGrid() {
+            {% if unplayed_game_data.has_unplayed_games %}
+            const unplayedDate = '{{ unplayed_game_data.unplayed_date_str }}';
+            if (unplayedDate) {
+                const [year, month, day] = unplayedDate.split('-');
+                window.location.href = `/${year}/${month}/${day}/`;
+            }
+            {% endif %}
+        }
+
+        function updatePlayOlderGridButton(unplayedGameData) {
+            // Find the "Play older Grid" button in the footer
+            const footer = document.querySelector('.game-completion');
+            if (!footer) return;
+            
+            // Find the button (it should be the third button in the footer)
+            const buttons = footer.querySelectorAll('.btn');
+            let playOlderButton = null;
+            
+            // Look for the "Play older Grid" button
+            for (let button of buttons) {
+                if (button.textContent.includes('Play older Grid') || button.textContent.includes('All Grids Played')) {
+                    playOlderButton = button;
+                    break;
+                }
+            }
+            
+            if (playOlderButton) {
+                if (unplayedGameData.has_unplayed_games) {
+                    // Update button to be enabled and point to the new unplayed game
+                    playOlderButton.textContent = 'Play older Grid';
+                    playOlderButton.disabled = false;
+                    playOlderButton.onclick = function() {
+                        const [year, month, day] = unplayedGameData.unplayed_date_str.split('-');
+                        window.location.href = `/${year}/${month}/${day}/`;
+                    };
+                } else {
+                    // Update button to show "All Grids Played..."
+                    playOlderButton.textContent = 'All Grids Played...';
+                    playOlderButton.disabled = true;
+                    playOlderButton.onclick = null;
+                }
+            }
         }
     </script>
 </body>

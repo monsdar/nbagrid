@@ -170,6 +170,34 @@ def get_player_stats(session_key):
             'perfect_streak': 0
         }
 
+def get_unplayed_game_data(session_key, current_date=None):
+    """Get data about the first unplayed game for a user."""
+    try:
+        unplayed_date, has_unplayed_games = GameCompletion.get_first_unplayed_game(session_key, current_date)
+        
+        if has_unplayed_games and unplayed_date:
+            return {
+                'has_unplayed_games': True,
+                'unplayed_date': unplayed_date,
+                'unplayed_date_str': unplayed_date.strftime('%Y-%m-%d'),
+                'unplayed_date_display': unplayed_date.strftime('%B %d, %Y')
+            }
+        else:
+            return {
+                'has_unplayed_games': False,
+                'unplayed_date': None,
+                'unplayed_date_str': None,
+                'unplayed_date_display': None
+            }
+    except Exception as e:
+        logger.error(f"Error getting unplayed game data: {e}")
+        return {
+            'has_unplayed_games': False,
+            'unplayed_date': None,
+            'unplayed_date_str': None,
+            'unplayed_date_display': None
+        }
+
 def handle_player_guess(request, game_grid, game_state: GameState, requested_date: datetime):
     """Handle a player's guess."""
     if game_state.is_finished or game_state.attempts_remaining <= 0:
@@ -249,6 +277,11 @@ def handle_player_guess(request, game_grid, game_state: GameState, requested_dat
         # Get player stats
         player_stats = get_player_stats(request.session.session_key)
         
+        # Get updated unplayed game data if game is finished
+        unplayed_game_data = None
+        if game_state.is_finished:
+            unplayed_game_data = get_unplayed_game_data(request.session.session_key, requested_date.date())
+        
         return JsonResponse({
             'is_correct': is_correct,
             'player_name': player.name,
@@ -265,7 +298,8 @@ def handle_player_guess(request, game_grid, game_state: GameState, requested_dat
             'streak_rank': streak_rank,
             'selected_cells': {k: [cd for cd in v] for k, v in game_state.selected_cells.items()},
             'ranking_data': ranking_data,
-            'player_stats': player_stats
+            'player_stats': player_stats,
+            'unplayed_game_data': unplayed_game_data
         })
     except Exception as e:
         logger.error(f"Error handling guess: {e}")
@@ -446,6 +480,9 @@ def game(request, year, month, day):
         # Get player stats
         player_stats = get_player_stats(request.session.session_key)
         
+        # Get unplayed game data
+        unplayed_game_data = get_unplayed_game_data(request.session.session_key, requested_date.date())
+        
         return render(request, 'game.html', {
             'year': year,
             'month': requested_date.strftime('%B'),
@@ -476,7 +513,8 @@ def game(request, year, month, day):
             'last_updated_date': last_updated_str,
             'ranking_data': ranking_data,
             'user_data': user_data,
-            'player_stats': player_stats
+            'player_stats': player_stats,
+            'unplayed_game_data': unplayed_game_data
         })
     finally:
         timer_stop()

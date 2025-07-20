@@ -551,6 +551,32 @@ class GameCompletion(ExportModelOperationsMixin('gamecompletion'), models.Model)
         # Return the slice of ranking that includes the current user and their neighbors
         return ranking[start_idx:end_idx]
     
+    @classmethod
+    def get_first_unplayed_game(cls, session_key, current_date=None):
+        """Find the first unplayed game for a user, going backwards from the current date.
+        Returns a tuple of (date, has_unplayed_games) where date is the first unplayed game date,
+        or None if all games have been played."""
+        from datetime import datetime, timedelta
+        
+        if current_date is None:
+            current_date = datetime.now().date()
+        elif hasattr(current_date, 'date'):
+            # Convert datetime to date if needed
+            current_date = current_date.date()
+        
+        # Start from the current date and go backwards
+        check_date = current_date
+        earliest_date = datetime(2025, 4, 1).date()  # Earliest possible game date
+        
+        while check_date >= earliest_date:
+            # Check if this user has completed this game
+            if not cls.objects.filter(session_key=session_key, date=check_date).exists():
+                return (check_date, True)
+            check_date -= timedelta(days=1)
+        
+        # If we've checked all dates and found no unplayed games
+        return (None, False)
+    
     def __str__(self):
         return f"{self.date} - {self.session_key} - Score: {self.final_score} ({self.correct_cells}/9 cells)"
 
