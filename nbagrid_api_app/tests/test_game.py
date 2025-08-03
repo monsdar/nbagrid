@@ -1,5 +1,7 @@
-from django.test import TestCase
+from django.test import TestCase, tag
 from django.db.models import F
+from unittest import skipUnless
+import sys
 
 from nbagrid_api_app.GameBuilder import GameBuilder
 from nbagrid_api_app.models import Player, Team, GameResult, GameFilterDB
@@ -124,6 +126,8 @@ class PlayerTest(TestCase):
         player = Player.objects.create(stats_id=1, name='Lebron James')
         self.assertFalse(player.has_played_for_team('CLE'))
         
+    @tag('nba_api_access')
+    @skipUnless('--tag=nba_api_access' in sys.argv or 'nba_api_access' in sys.argv, 'NBA API access required - run with --tag=nba_api_access')
     def test_load_player_data(self):
         #player = Player.objects.create(stats_id=202681, name='Kyrie Irving')
         #player = Player.objects.create(stats_id=2544, name='LeBron James')
