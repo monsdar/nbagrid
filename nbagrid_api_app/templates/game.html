@@ -1060,17 +1060,38 @@
             background-color: #555;
         }
 
-        /* Admin link - tinted down styling */
-        .btn-admin {
-            background-color: #2a2a2a;
+        /* Admin footer - always visible and toned down */
+        .admin-footer {
+            text-align: center;
+            padding: 15px 20px;
+            background-color: #1a1a1a;
+        }
+        
+        .admin-separator {
+            border: none;
+            height: 1px;
+            background-color: #666;
+            margin: 0 0 15px 0;
+        }
+        
+        .admin-link {
             color: #666;
+            text-decoration: none;
             font-size: 14px;
             opacity: 0.7;
+            transition: opacity 0.2s ease;
         }
-        .btn-admin:hover {
-            background-color: #333;
+        
+        .admin-link:hover {
             color: #888;
             opacity: 0.9;
+            text-decoration: underline;
+        }
+        
+        .admin-separator-dot {
+            color: #666;
+            margin: 0 8px;
+            opacity: 0.5;
         }
 
         /* Button spacing */
@@ -1237,8 +1258,16 @@
             {% else %}
             <button class="btn btn-secondary" disabled>All Grids Played...</button>
             {% endif %}
-            <button class="btn btn-secondary" onclick="openAboutModal()">About</button>
-            <a href="/admin/" class="btn btn-admin">Admin</a>
+        </footer>
+        
+        <!-- Admin footer - always visible -->
+        <footer class="admin-footer">
+            <hr class="admin-separator">
+            <a href="https://github.com/monsdar/nbagrid" target="_blank" rel="noopener noreferrer" class="admin-link">GitHub</a>
+            <span class="admin-separator-dot">•</span>
+            <a href="#" onclick="openAboutModal(); return false;" class="admin-link">About</a>
+            <span class="admin-separator-dot">•</span>
+            <a href="/admin/" class="admin-link">Admin</a>
         </footer>
     </main>
 
