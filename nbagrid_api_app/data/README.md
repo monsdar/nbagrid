@@ -50,3 +50,36 @@ Each archetype includes:
 - Awards: All-Star, MVP, championships, etc.
 
 The import process creates 50 variations of each archetype (500 total players) with ±10% statistical variation to create diversity while maintaining realistic player profiles.
+
+## Loading Real NBA Data
+
+For development and testing purposes, you can also load real NBA player data from the NBA API:
+
+### Loading Individual Players
+
+```bash
+# Load data for existing players
+python manage.py load_nba_player 1628378 2544 201142
+
+# Create and load data for new players
+python manage.py load_nba_player 1628378 --create --name "Donovan Mitchell"
+```
+
+### Using the Model Methods
+
+You can also use the Player model methods directly in your code:
+
+```python
+from nbagrid_api_app.models import Player
+
+# Create a player and load all data from NBA API
+player = Player.objects.create(stats_id=1628378, name="Donovan Mitchell")
+player.load_from_nba_api()  # Loads basic info, stats, and awards
+
+# Or load data separately
+player.update_player_data_from_nba_stats()    # Basic info (position, draft, etc.)
+player.update_player_stats_from_nba_stats()   # Career statistics
+player.update_player_awards_from_nba_stats()  # Awards and achievements
+```
+
+**Note**: Loading real NBA data requires internet access and may be subject to NBA API rate limits and availability.
