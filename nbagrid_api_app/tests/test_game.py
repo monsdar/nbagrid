@@ -1,24 +1,29 @@
-from django.test import TestCase
+import random
+import sys
+from datetime import date, timedelta
+from unittest import skipUnless
+
+from nba_api.stats.endpoints import commonplayerinfo, playerawards, playercareerstats
+
 from django.db.models import F
+from django.test import TestCase, tag
 
 from nbagrid_api_app.GameBuilder import GameBuilder
-from nbagrid_api_app.models import Player, Team, GameResult, GameFilterDB
 from nbagrid_api_app.GameFilter import create_filter_from_db
-from nba_api.stats.endpoints import commonplayerinfo, playercareerstats, playerawards
-from datetime import date, timedelta
+from nbagrid_api_app.models import GameFilterDB, GameResult, Player, Team
 
-import random
 
-def populate_teams(num_teams:int=30):
+def populate_teams(num_teams: int = 30):
     random.seed(0)
     for index in range(num_teams):
-        team = Team.objects.create(stats_id=index, name=f"Team {index}", abbr=f"ABBR{index}")
-        
-def populate_players(num_players:int=100):
+        Team.objects.create(stats_id=index, name=f"Team {index}", abbr=f"ABBR{index}")
+
+
+def populate_players(num_players: int = 100):
     random.seed(0)
     for index in range(num_players):
         player = Player.objects.create(stats_id=index, name=f"Player {index}")
-        player.teams.set(random.sample(list(Team.objects.all()), random.randint(1,5)))
+        player.teams.set(random.sample(list(Team.objects.all()), random.randint(1, 5)))
         player.career_gp = random.gauss(400, 300)
         player.num_seasons = random.gauss(10, 5)
         player.height_cm = random.gauss(200, 10)
@@ -45,146 +50,135 @@ def populate_players(num_players:int=100):
         player.career_high_3p = random.gauss(5, 2)
         player.career_high_ft = random.gauss(5, 2)
         player.draft_year = random.gauss(2015, 10)
-        player.draft_round = random.randint(1,2)
-        player.draft_number = random.randint(1,60)
-        player.position = random.choice(['Guard', 'Forward', 'Center'])
-        player.is_undrafted = random.choices(population=[True, False],
-                                             weights=[0.25, 0.75],
-                                             k=1)[0]
-        player.country = random.choices(population=['USA', 'Germany', 'Brazil', 'Serbia', 'United Kingdom', 'Puerto Rico', 'Ghana'],
-                                        weights=   [ 0.7,      0.05,     0.05,     0.05,             0.05,          0.05,    0.05],
-                                        k=1)[0]
-        player.is_greatest_75 = random.choices(population=[True, False],
-                                               weights=   [ 0.1, 0.9],
-                                               k=1)[0]
-        player.is_award_all_nba_first = random.choices(population=[True, False],
-                                               weights=   [ 0.1, 0.9],
-                                               k=1)[0]
-        player.is_award_all_nba_second = random.choices(population=[True, False],
-                                               weights=   [ 0.1, 0.9],
-                                               k=1)[0]  
-        player.is_award_all_nba_third = random.choices(population=[True, False],
-                                               weights=   [ 0.1, 0.9],
-                                               k=1)[0]
-        player.is_award_all_rookie = random.choices(population=[True, False],
-                                               weights=   [ 0.1, 0.9],
-                                               k=1)[0]  
-        player.is_award_all_defensive = random.choices(population=[True, False],
-                                               weights=   [ 0.1, 0.9],
-                                               k=1)[0]  
-        player.is_award_all_star = random.choices(population=[True, False],
-                                               weights=   [ 0.1, 0.9],
-                                               k=1)[0]  
-        player.is_award_all_star_mvp = random.choices(population=[True, False],
-                                               weights=   [ 0.1, 0.9],
-                                               k=1)[0]  
-        player.is_award_rookie_of_the_year = random.choices(population=[True, False],
-                                               weights=   [ 0.1, 0.9],
-                                               k=1)[0]    
-        player.is_award_mvp = random.choices(population=[True, False],
-                                               weights=   [ 0.1, 0.9],
-                                               k=1)[0]  
-        player.is_award_finals_mvp = random.choices(population=[True, False],
-                                               weights=   [ 0.1, 0.9],
-                                               k=1)[0]  
-        player.is_award_olympic_gold_medal = random.choices(population=[True, False],
-                                               weights=   [ 0.1, 0.9],
-                                               k=1)[0]  
-        player.is_award_olympic_silver_medal = random.choices(population=[True, False],
-                                               weights=   [ 0.1, 0.9],
-                                               k=1)[0]  
-        player.is_award_olympic_bronze_medal = random.choices(population=[True, False],
-                                               weights=   [ 0.1, 0.9],
-                                               k=1)[0]
+        player.draft_round = random.randint(1, 2)
+        player.draft_number = random.randint(1, 60)
+        player.position = random.choice(["Guard", "Forward", "Center"])
+        player.is_undrafted = random.choices(population=[True, False], weights=[0.25, 0.75], k=1)[0]
+        player.country = random.choices(
+            population=["USA", "Germany", "Brazil", "Serbia", "United Kingdom", "Puerto Rico", "Ghana"],
+            weights=[0.7, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05],
+            k=1,
+        )[0]
+        player.is_greatest_75 = random.choices(population=[True, False], weights=[0.1, 0.9], k=1)[0]
+        player.is_award_all_nba_first = random.choices(population=[True, False], weights=[0.1, 0.9], k=1)[0]
+        player.is_award_all_nba_second = random.choices(population=[True, False], weights=[0.1, 0.9], k=1)[0]
+        player.is_award_all_nba_third = random.choices(population=[True, False], weights=[0.1, 0.9], k=1)[0]
+        player.is_award_all_rookie = random.choices(population=[True, False], weights=[0.1, 0.9], k=1)[0]
+        player.is_award_all_defensive = random.choices(population=[True, False], weights=[0.1, 0.9], k=1)[0]
+        player.is_award_all_star = random.choices(population=[True, False], weights=[0.1, 0.9], k=1)[0]
+        player.is_award_all_star_mvp = random.choices(population=[True, False], weights=[0.1, 0.9], k=1)[0]
+        player.is_award_rookie_of_the_year = random.choices(population=[True, False], weights=[0.1, 0.9], k=1)[0]
+        player.is_award_mvp = random.choices(population=[True, False], weights=[0.1, 0.9], k=1)[0]
+        player.is_award_finals_mvp = random.choices(population=[True, False], weights=[0.1, 0.9], k=1)[0]
+        player.is_award_olympic_gold_medal = random.choices(population=[True, False], weights=[0.1, 0.9], k=1)[0]
+        player.is_award_olympic_silver_medal = random.choices(population=[True, False], weights=[0.1, 0.9], k=1)[0]
+        player.is_award_olympic_bronze_medal = random.choices(population=[True, False], weights=[0.1, 0.9], k=1)[0]
         player.save()
-        
+
+
 class GameBuilderTest(TestCase):
     def test_build_filter_pairs(self):
         # Clean up any existing records
         GameFilterDB.objects.all().delete()
         GameResult.objects.all().delete()
-        
+
         populate_teams(30)
         populate_players(600)
-        
+
         for index in range(10):
             builder = GameBuilder(index)
             (static_filters, dynamic_filters) = builder.get_tuned_filters(date.today())
             self.assertEqual(len(static_filters), 3)
             self.assertEqual(len(dynamic_filters), 3)
-        
+
+
 class PlayerTest(TestCase):
     def test_has_played_for_team(self):
-        player = Player.objects.create(stats_id=1, name='Lebron James')
-        team = Team.objects.create(stats_id=1, name='Cavaliers', abbr='CLE')
+        player = Player.objects.create(stats_id=1, name="Lebron James")
+        team = Team.objects.create(stats_id=1, name="Cavaliers", abbr="CLE")
         player.teams.add(team)
-        self.assertTrue(player.has_played_for_team('CLE'))
-        
+        self.assertTrue(player.has_played_for_team("CLE"))
+
     def test_has_not_played_for_team(self):
-        player = Player.objects.create(stats_id=1, name='Lebron James')
-        self.assertFalse(player.has_played_for_team('CLE'))
-        
+        player = Player.objects.create(stats_id=1, name="Lebron James")
+        self.assertFalse(player.has_played_for_team("CLE"))
+
+    @tag("nba_api_access")
+    @skipUnless(
+        "--tag=nba_api_access" in sys.argv or "nba_api_access" in sys.argv,
+        "NBA API access required - run with --tag=nba_api_access",
+    )
     def test_load_player_data(self):
-        #player = Player.objects.create(stats_id=202681, name='Kyrie Irving')
-        #player = Player.objects.create(stats_id=2544, name='LeBron James')
-        player = Player.objects.create(stats_id=1628378, name='Donovan Mitchell')
-        #player = Player.objects.create(stats_id=201142, name='Kevin Durant')
-        #player = Player.objects.create(stats_id=201566, name='Russell Westbrook')
-        #player = Player.objects.create(stats_id=203999, name='Nikola Jokic')
-        #player = Player.objects.create(stats_id=203507, name='Giannis Antetokounmpo')
-        #player = Player.objects.create(stats_id=1629029, name='Luka Doncic')
-        
+        # player = Player.objects.create(stats_id=202681, name='Kyrie Irving')
+        # player = Player.objects.create(stats_id=2544, name='LeBron James')
+        player = Player.objects.create(stats_id=1628378, name="Donovan Mitchell")
+        # player = Player.objects.create(stats_id=201142, name='Kevin Durant')
+        # player = Player.objects.create(stats_id=201566, name='Russell Westbrook')
+        # player = Player.objects.create(stats_id=203999, name='Nikola Jokic')
+        # player = Player.objects.create(stats_id=203507, name='Giannis Antetokounmpo')
+        # player = Player.objects.create(stats_id=1629029, name='Luka Doncic')
+
         player_info = commonplayerinfo.CommonPlayerInfo(player_id=player.stats_id).get_normalized_dict()
-        player.draft_year = player_info['CommonPlayerInfo'][0]['DRAFT_YEAR']
-        player.draft_round = player_info['CommonPlayerInfo'][0]['DRAFT_ROUND']
-        player.draft_number = player_info['CommonPlayerInfo'][0]['DRAFT_NUMBER']
-        player.is_greatest_75 = True if (player_info['CommonPlayerInfo'][0]['GREATEST_75_FLAG'] == 'Y') else False
-        player.num_seasons = player_info['CommonPlayerInfo'][0]['SEASON_EXP']
-        player.country = player_info['CommonPlayerInfo'][0]['COUNTRY']
-        player.position = player_info['CommonPlayerInfo'][0]['POSITION']
-        
-        player_stats = playercareerstats.PlayerCareerStats(player_id=player.stats_id, per_mode36='PerGame', league_id_nullable='00').get_normalized_dict()
-        
-        career_totals = player_stats['CareerTotalsRegularSeason'][0]
-        player.career_gp = career_totals['GP']
-        player.career_gs = career_totals['GS']
-        player.career_min = career_totals['MIN']
-        player.career_apg = career_totals['AST']
-        player.career_ppg = career_totals['PTS']
-        player.career_rpg = career_totals['REB']
-        player.career_bpg = career_totals['BLK']
-        player.career_spg = career_totals['STL']
-        player.career_tpg = career_totals['TOV']
-        player.career_fgp = career_totals['FG_PCT']
-        player.career_3gp = career_totals['FG3_PCT']
-        player.career_ftp = career_totals['FT_PCT']
-        player.career_fga = career_totals['FGA']
-        player.career_3pa = career_totals['FG3A']
-        player.career_fta = career_totals['FTA']
-        
-        career_highs = player_stats['CareerHighs']
+        player.draft_year = player_info["CommonPlayerInfo"][0]["DRAFT_YEAR"]
+        player.draft_round = player_info["CommonPlayerInfo"][0]["DRAFT_ROUND"]
+        player.draft_number = player_info["CommonPlayerInfo"][0]["DRAFT_NUMBER"]
+        player.is_greatest_75 = True if (player_info["CommonPlayerInfo"][0]["GREATEST_75_FLAG"] == "Y") else False
+        player.num_seasons = player_info["CommonPlayerInfo"][0]["SEASON_EXP"]
+        player.country = player_info["CommonPlayerInfo"][0]["COUNTRY"]
+        player.position = player_info["CommonPlayerInfo"][0]["POSITION"]
+
+        player_stats = playercareerstats.PlayerCareerStats(
+            player_id=player.stats_id, per_mode36="PerGame", league_id_nullable="00"
+        ).get_normalized_dict()
+
+        career_totals = player_stats["CareerTotalsRegularSeason"][0]
+        player.career_gp = career_totals["GP"]
+        player.career_gs = career_totals["GS"]
+        player.career_min = career_totals["MIN"]
+        player.career_apg = career_totals["AST"]
+        player.career_ppg = career_totals["PTS"]
+        player.career_rpg = career_totals["REB"]
+        player.career_bpg = career_totals["BLK"]
+        player.career_spg = career_totals["STL"]
+        player.career_tpg = career_totals["TOV"]
+        player.career_fgp = career_totals["FG_PCT"]
+        player.career_3gp = career_totals["FG3_PCT"]
+        player.career_ftp = career_totals["FT_PCT"]
+        player.career_fga = career_totals["FGA"]
+        player.career_3pa = career_totals["FG3A"]
+        player.career_fta = career_totals["FTA"]
+
+        career_highs = player_stats["CareerHighs"]
         for high in career_highs:
-            if high['STAT'] == 'PTS': player.career_high_pts = high['STAT_VALUE']
-            elif high['STAT'] == 'AST': player.career_high_ast = high['STAT_VALUE']
-            elif high['STAT'] == 'REB': player.career_high_reb = high['STAT_VALUE']
-            elif high['STAT'] == 'STL': player.career_high_stl = high['STAT_VALUE']
-            elif high['STAT'] == 'BLK': player.career_high_blk = high['STAT_VALUE']
-            elif high['STAT'] == 'TOV': player.career_high_to = high['STAT_VALUE']
-            elif high['STAT'] == 'FGM': player.career_high_fg = high['STAT_VALUE']
-            elif high['STAT'] == 'FG3M': player.career_high_3p = high['STAT_VALUE']
-            elif high['STAT'] == 'FTA': player.career_high_ft = high['STAT_VALUE']
-            
-            
-        player_ids = [1628378] #, 2544, 201142, 201566, 203999, 203507, 1629029]
+            if high["STAT"] == "PTS":
+                player.career_high_pts = high["STAT_VALUE"]
+            elif high["STAT"] == "AST":
+                player.career_high_ast = high["STAT_VALUE"]
+            elif high["STAT"] == "REB":
+                player.career_high_reb = high["STAT_VALUE"]
+            elif high["STAT"] == "STL":
+                player.career_high_stl = high["STAT_VALUE"]
+            elif high["STAT"] == "BLK":
+                player.career_high_blk = high["STAT_VALUE"]
+            elif high["STAT"] == "TOV":
+                player.career_high_to = high["STAT_VALUE"]
+            elif high["STAT"] == "FGM":
+                player.career_high_fg = high["STAT_VALUE"]
+            elif high["STAT"] == "FG3M":
+                player.career_high_3p = high["STAT_VALUE"]
+            elif high["STAT"] == "FTA":
+                player.career_high_ft = high["STAT_VALUE"]
+
+        player_ids = [1628378]  # , 2544, 201142, 201566, 203999, 203507, 1629029]
         all_awards = set()
         for player_id in player_ids:
             awards = playerawards.PlayerAwards(player_id=player_id).get_normalized_dict()
-            for award in awards['PlayerAwards']:
-                all_awards.add(award['DESCRIPTION'])
+            for award in awards["PlayerAwards"]:
+                all_awards.add(award["DESCRIPTION"])
         for award in all_awards:
             print(award)
-          
-        # Some of the Values:  
+
+        # Some of the Values:
         # NBA Most Improved Player
         # NBA In-Season Tournament Most Valuable Player
         # NBA In-Season Tournament All-Tournament
@@ -206,14 +200,15 @@ class PlayerTest(TestCase):
         # Olympic Gold Medal
         # Olympic Silver Medal
         # Olympic Bronze Medal
-                        
+
         player.save()
+
 
 class GameResultTests(TestCase):
     def setUp(self):
         # Clean up any existing records
         GameResult.objects.all().delete()
-        
+
         # Create test teams
         self.team1 = Team.objects.create(stats_id=1, name="Team 1", abbr="T1")
         self.team2 = Team.objects.create(stats_id=2, name="Team 2", abbr="T2")
@@ -287,103 +282,99 @@ class GameResultTests(TestCase):
 
     def test_guess_count_increment(self):
         # Test that guess count increments correctly
-        result = GameResult.objects.create(
-            date=date.today(),
-            cell_key="0_0",
-            player=self.player1,
-            guess_count=1
-        )
-        result.guess_count = F('guess_count') + 1
+        result = GameResult.objects.create(date=date.today(), cell_key="0_0", player=self.player1, guess_count=1)
+        result.guess_count = F("guess_count") + 1
         result.save()
         result.refresh_from_db()
         self.assertEqual(result.guess_count, 2)
+
 
 class GameFilterTests(TestCase):
     def setUp(self):
         # Clean up any existing records
         GameFilterDB.objects.all().delete()
         GameResult.objects.all().delete()
-        
+
         # Create test teams and players
         populate_teams(30)
         populate_players(100)
-        
+
         # Set test date
         self.test_date = date.today()
-        
+
     def test_filter_persistence(self):
         # Create a game builder and generate filters
         builder = GameBuilder(0)
         static_filters, dynamic_filters = builder.get_tuned_filters(date.today())
-        
+
         # Verify filters were saved to database
         db_filters = GameFilterDB.objects.filter(date=self.test_date)
         self.assertEqual(db_filters.count(), 6)  # 3 static + 3 dynamic filters
-        
+
         # Verify filter types and counts
-        static_count = db_filters.filter(filter_type='static').count()
-        dynamic_count = db_filters.filter(filter_type='dynamic').count()
+        static_count = db_filters.filter(filter_type="static").count()
+        dynamic_count = db_filters.filter(filter_type="dynamic").count()
         self.assertEqual(static_count, 3)
         self.assertEqual(dynamic_count, 3)
-        
+
         # Verify filter indices
         for i in range(3):
-            self.assertTrue(db_filters.filter(filter_type='static', filter_index=i).exists())
-            self.assertTrue(db_filters.filter(filter_type='dynamic', filter_index=i).exists())
-            
+            self.assertTrue(db_filters.filter(filter_type="static", filter_index=i).exists())
+            self.assertTrue(db_filters.filter(filter_type="dynamic", filter_index=i).exists())
+
     def test_filter_reconstruction(self):
         # First create and save filters
         builder1 = GameBuilder(0)
         static_filters1, dynamic_filters1 = builder1.get_tuned_filters(date.today())
-        
+
         # Create a new builder and get filters - should reconstruct from database
         builder2 = GameBuilder(1)  # Different seed shouldn't matter
         static_filters2, dynamic_filters2 = builder2.get_tuned_filters(date.today())
-        
+
         # Verify the filters are the same
         self.assertEqual(len(static_filters1), len(static_filters2))
         self.assertEqual(len(dynamic_filters1), len(dynamic_filters2))
-        
+
         # Verify filter descriptions match
         for i in range(3):
             self.assertEqual(static_filters1[i].get_desc(), static_filters2[i].get_desc())
             self.assertEqual(dynamic_filters1[i].get_desc(), dynamic_filters2[i].get_desc())
-            
+
     def test_filter_config_storage(self):
         # Create and save filters
         builder = GameBuilder(0)
         static_filters, dynamic_filters = builder.get_tuned_filters(date.today())
-        
+
         # Get filters from database
         db_filters = GameFilterDB.objects.filter(date=self.test_date)
-        
+
         # Verify filter configurations are stored correctly
         for db_filter in db_filters:
             filter_obj = create_filter_from_db(db_filter)
-            
+
             # Verify the filter can be reconstructed and works
             players = Player.objects.all()
             filtered_players = filter_obj.apply_filter(players)
             self.assertGreater(len(filtered_players), 0)
-            
+
     def test_filter_uniqueness(self):
         # Create filters for today
         builder1 = GameBuilder(0)
         builder1.get_tuned_filters(date.today())
-        
+
         # Try to create filters for the same date with a different seed
         builder2 = GameBuilder(1)
         static_filters2, dynamic_filters2 = builder2.get_tuned_filters(date.today())
-        
+
         # Verify we got the same filters back (from database) instead of new ones
         db_filters = GameFilterDB.objects.filter(date=self.test_date)
         self.assertEqual(db_filters.count(), 6)  # Still only 6 filters
-        
+
         # Verify the filters are the same as what we got back
         for db_filter in db_filters:
             filter_obj = create_filter_from_db(db_filter)
-            
-            if db_filter.filter_type == 'static':
+
+            if db_filter.filter_type == "static":
                 self.assertTrue(any(f.get_desc() == filter_obj.get_desc() for f in static_filters2))
             else:
                 self.assertTrue(any(f.get_desc() == filter_obj.get_desc() for f in dynamic_filters2))

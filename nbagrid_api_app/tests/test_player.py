@@ -1,28 +1,26 @@
 from django.test import TestCase
+
 from ..models import Player
+
 
 class PlayerModelTests(TestCase):
     def setUp(self):
         # Create test players with a mix of short and long names
         test_players = [
-            "LeBron James",      # Short name
+            "LeBron James",  # Short name
             "Giannis Antetokounmpo",  # Long name
-            "Stephen Curry",     # Short name
-            "Kevin Durant",      # Short name
-            "Nikola Jokic",      # Short name
-            "Joel Embiid",       # Short name
-            "Luka Doncic",       # Short name
-            "Jayson Tatum",      # Short name
-            "Devin Booker",      # Short name
+            "Stephen Curry",  # Short name
+            "Kevin Durant",  # Short name
+            "Nikola Jokic",  # Short name
+            "Joel Embiid",  # Short name
+            "Luka Doncic",  # Short name
+            "Jayson Tatum",  # Short name
+            "Devin Booker",  # Short name
             "Donovan Mitchell",  # Long name
         ]
-        
+
         for i, name in enumerate(test_players):
-            Player.objects.create(
-                stats_id=i + 1,
-                name=name,
-                display_name=name
-            )
+            Player.objects.create(stats_id=i + 1, name=name, display_name=name)
 
     def test_generate_random_name_consistency(self):
         """Test that the same seed always generates the same name"""
@@ -57,9 +55,9 @@ class PlayerModelTests(TestCase):
         Player.objects.create(
             stats_id=999,
             name="Supercalifragilisticexpialidocious Basketballplayer",
-            display_name="Supercalifragilisticexpialidocious Basketballplayer"
+            display_name="Supercalifragilisticexpialidocious Basketballplayer",
         )
-        
+
         # Use a seed that will likely pick the long name
         name = Player.generate_random_name("long_name_seed")
         self.assertLessEqual(len(name), 14, "Long name should be truncated to 14 characters")
