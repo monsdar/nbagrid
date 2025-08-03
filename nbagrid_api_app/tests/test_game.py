@@ -3,8 +3,6 @@ import sys
 from datetime import date, timedelta
 from unittest import skipUnless
 
-from nba_api.stats.endpoints import commonplayerinfo, playerawards, playercareerstats
-
 from django.db.models import F
 from django.test import TestCase, tag
 
@@ -109,6 +107,8 @@ class PlayerTest(TestCase):
         "NBA API access required - run with --tag=nba_api_access",
     )
     def test_load_player_data(self):
+        """Test loading real NBA player data from the NBA API using the model's load_from_nba_api method."""
+        # Test with Donovan Mitchell - you can uncomment other players to test with them
         # player = Player.objects.create(stats_id=202681, name='Kyrie Irving')
         # player = Player.objects.create(stats_id=2544, name='LeBron James')
         player = Player.objects.create(stats_id=1628378, name="Donovan Mitchell")
@@ -118,90 +118,25 @@ class PlayerTest(TestCase):
         # player = Player.objects.create(stats_id=203507, name='Giannis Antetokounmpo')
         # player = Player.objects.create(stats_id=1629029, name='Luka Doncic')
 
-        player_info = commonplayerinfo.CommonPlayerInfo(player_id=player.stats_id).get_normalized_dict()
-        player.draft_year = player_info["CommonPlayerInfo"][0]["DRAFT_YEAR"]
-        player.draft_round = player_info["CommonPlayerInfo"][0]["DRAFT_ROUND"]
-        player.draft_number = player_info["CommonPlayerInfo"][0]["DRAFT_NUMBER"]
-        player.is_greatest_75 = True if (player_info["CommonPlayerInfo"][0]["GREATEST_75_FLAG"] == "Y") else False
-        player.num_seasons = player_info["CommonPlayerInfo"][0]["SEASON_EXP"]
-        player.country = player_info["CommonPlayerInfo"][0]["COUNTRY"]
-        player.position = player_info["CommonPlayerInfo"][0]["POSITION"]
-
-        player_stats = playercareerstats.PlayerCareerStats(
-            player_id=player.stats_id, per_mode36="PerGame", league_id_nullable="00"
-        ).get_normalized_dict()
-
-        career_totals = player_stats["CareerTotalsRegularSeason"][0]
-        player.career_gp = career_totals["GP"]
-        player.career_gs = career_totals["GS"]
-        player.career_min = career_totals["MIN"]
-        player.career_apg = career_totals["AST"]
-        player.career_ppg = career_totals["PTS"]
-        player.career_rpg = career_totals["REB"]
-        player.career_bpg = career_totals["BLK"]
-        player.career_spg = career_totals["STL"]
-        player.career_tpg = career_totals["TOV"]
-        player.career_fgp = career_totals["FG_PCT"]
-        player.career_3gp = career_totals["FG3_PCT"]
-        player.career_ftp = career_totals["FT_PCT"]
-        player.career_fga = career_totals["FGA"]
-        player.career_3pa = career_totals["FG3A"]
-        player.career_fta = career_totals["FTA"]
-
-        career_highs = player_stats["CareerHighs"]
-        for high in career_highs:
-            if high["STAT"] == "PTS":
-                player.career_high_pts = high["STAT_VALUE"]
-            elif high["STAT"] == "AST":
-                player.career_high_ast = high["STAT_VALUE"]
-            elif high["STAT"] == "REB":
-                player.career_high_reb = high["STAT_VALUE"]
-            elif high["STAT"] == "STL":
-                player.career_high_stl = high["STAT_VALUE"]
-            elif high["STAT"] == "BLK":
-                player.career_high_blk = high["STAT_VALUE"]
-            elif high["STAT"] == "TOV":
-                player.career_high_to = high["STAT_VALUE"]
-            elif high["STAT"] == "FGM":
-                player.career_high_fg = high["STAT_VALUE"]
-            elif high["STAT"] == "FG3M":
-                player.career_high_3p = high["STAT_VALUE"]
-            elif high["STAT"] == "FTA":
-                player.career_high_ft = high["STAT_VALUE"]
-
-        player_ids = [1628378]  # , 2544, 201142, 201566, 203999, 203507, 1629029]
-        all_awards = set()
-        for player_id in player_ids:
-            awards = playerawards.PlayerAwards(player_id=player_id).get_normalized_dict()
-            for award in awards["PlayerAwards"]:
-                all_awards.add(award["DESCRIPTION"])
-        for award in all_awards:
-            print(award)
-
-        # Some of the Values:
-        # NBA Most Improved Player
-        # NBA In-Season Tournament Most Valuable Player
-        # NBA In-Season Tournament All-Tournament
-        # NBA Champion
-        # NBA Defensive Player of the Year
-        # All-NBA
-        # All-Rookie Team
-        # All-Defensive Team
-        # NBA All-Star
-        # NBA All-Star Most Valuable Player
-        # NBA Rookie of the Year
-        # NBA Player of the Week
-        # NBA Rookie of the Month
-        # NBA Most Valuable Player
-        # NBA Sporting News Most Valuable Player of the Year
-        # NBA Sporting News Rookie of the Year
-        # NBA Player of the Month
-        # NBA Finals Most Valuable Player
-        # Olympic Gold Medal
-        # Olympic Silver Medal
-        # Olympic Bronze Medal
-
-        player.save()
+        # Use the model's consolidated method to load all data from NBA API
+        player.load_from_nba_api()
+        
+        # Verify that data was loaded correctly
+        self.assertGreater(player.career_ppg, 0)
+        self.assertGreater(player.career_gp, 0)
+        self.assertNotEqual(player.position, "")
+        self.assertNotEqual(player.country, "")
+        
+        # Print some loaded data for verification
+        print(f"Loaded data for {player.name}:")
+        print(f"  Position: {player.position}")
+        print(f"  Country: {player.country}")
+        print(f"  Career PPG: {player.career_ppg}")
+        print(f"  Career APG: {player.career_apg}")
+        print(f"  Career RPG: {player.career_rpg}")
+        print(f"  Draft Year: {player.draft_year}")
+        print(f"  All-Star: {player.is_award_all_star}")
+        print(f"  MVP: {player.is_award_mvp}")
 
 
 class GameResultTests(TestCase):

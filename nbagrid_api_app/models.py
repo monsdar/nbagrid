@@ -249,6 +249,20 @@ class Player(ExportModelOperationsMixin("player"), models.Model):
 
         self.save()
 
+    def load_from_nba_api(self):
+        """
+        Load complete player data from NBA API including basic info, stats, and awards.
+        This is a convenience method that calls all the individual update methods.
+        """
+        try:
+            self.update_player_data_from_nba_stats()
+            self.update_player_stats_from_nba_stats()
+            self.update_player_awards_from_nba_stats()
+            logger.info(f"Successfully loaded NBA API data for player {self.name}")
+        except Exception as e:
+            logger.error(f"Failed to load NBA API data for player {self.name}: {e}")
+            raise
+
     def convert_lbs_to_kg(self, weight_lbs: int) -> int:
         return weight_lbs * 0.453592
 
