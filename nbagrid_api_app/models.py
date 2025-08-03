@@ -1,23 +1,23 @@
-from django.db import models
-from django_prometheus.models import ExportModelOperationsMixin
-
-from nba_api.stats.endpoints import commonplayerinfo, playercareerstats, playerawards
-
 import logging
 from datetime import timedelta
 
+from django_prometheus.models import ExportModelOperationsMixin
+from nba_api.stats.endpoints import commonplayerinfo, playerawards, playercareerstats
+
+from django.db import models
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-class Player(ExportModelOperationsMixin('player'), models.Model):
+
+class Player(ExportModelOperationsMixin("player"), models.Model):
     stats_id = models.IntegerField()
-    
+
     # Player data
     name = models.CharField(max_length=200)
     last_name = models.CharField(max_length=100, default="")
     display_name = models.CharField(max_length=200, default="")
-    teams = models.ManyToManyField('Team')
+    teams = models.ManyToManyField("Team")
     draft_year = models.IntegerField(default=0)
     draft_round = models.IntegerField(default=0)
     draft_number = models.IntegerField(default=0)
@@ -29,12 +29,12 @@ class Player(ExportModelOperationsMixin('player'), models.Model):
     country = models.CharField(max_length=100, default="")
     position = models.CharField(max_length=20, default="")
     base_salary = models.IntegerField(default=0)  # Base salary in USD
-    
+
     # Player Stats
     career_gp = models.IntegerField(default=0)
     career_gs = models.IntegerField(default=0)
     career_min = models.IntegerField(default=0)
-    
+
     # Career Highs
     career_high_ast = models.IntegerField(default=0)
     career_high_reb = models.IntegerField(default=0)
@@ -45,7 +45,7 @@ class Player(ExportModelOperationsMixin('player'), models.Model):
     career_high_fg = models.IntegerField(default=0)
     career_high_3p = models.IntegerField(default=0)
     career_high_ft = models.IntegerField(default=0)
-    
+
     # Career Averages per game
     career_apg = models.FloatField(default=0.0)
     career_ppg = models.FloatField(default=0.0)
@@ -59,25 +59,25 @@ class Player(ExportModelOperationsMixin('player'), models.Model):
     career_fga = models.FloatField(default=0.0)
     career_3pa = models.FloatField(default=0.0)
     career_fta = models.FloatField(default=0.0)
-    
+
     # Awards
-    is_award_mip                  = models.BooleanField(default=False)    # NBA Most Improved Player
-    is_award_champ                = models.BooleanField(default=False)    # NBA Champion
-    is_award_dpoy                 = models.BooleanField(default=False)    # NBA Defensive Player of the Year
-    is_award_all_nba_first        = models.BooleanField(default=False)    # All-NBA
-    is_award_all_nba_second       = models.BooleanField(default=False)    # All-NBA
-    is_award_all_nba_third        = models.BooleanField(default=False)    # All-NBA
-    is_award_all_rookie           = models.BooleanField(default=False)    # All-Rookie Team
-    is_award_all_defensive        = models.BooleanField(default=False)    # All-Defensive Team
-    is_award_all_star             = models.BooleanField(default=False)    # NBA All-Star
-    is_award_all_star_mvp         = models.BooleanField(default=False)    # NBA All-Star Most Valuable Player
-    is_award_rookie_of_the_year   = models.BooleanField(default=False)    # NBA Rookie of the Year
-    is_award_mvp                  = models.BooleanField(default=False)    # NBA Most Valuable Player
-    is_award_finals_mvp           = models.BooleanField(default=False)    # NBA Finals Most Valuable Player
-    is_award_olympic_gold_medal   = models.BooleanField(default=False)    # Olympic Gold Medal
-    is_award_olympic_silver_medal = models.BooleanField(default=False)    # Olympic Silver Medal
-    is_award_olympic_bronze_medal = models.BooleanField(default=False)    # Olympic Bronze Medal
-    
+    is_award_mip = models.BooleanField(default=False)  # NBA Most Improved Player
+    is_award_champ = models.BooleanField(default=False)  # NBA Champion
+    is_award_dpoy = models.BooleanField(default=False)  # NBA Defensive Player of the Year
+    is_award_all_nba_first = models.BooleanField(default=False)  # All-NBA
+    is_award_all_nba_second = models.BooleanField(default=False)  # All-NBA
+    is_award_all_nba_third = models.BooleanField(default=False)  # All-NBA
+    is_award_all_rookie = models.BooleanField(default=False)  # All-Rookie Team
+    is_award_all_defensive = models.BooleanField(default=False)  # All-Defensive Team
+    is_award_all_star = models.BooleanField(default=False)  # NBA All-Star
+    is_award_all_star_mvp = models.BooleanField(default=False)  # NBA All-Star Most Valuable Player
+    is_award_rookie_of_the_year = models.BooleanField(default=False)  # NBA Rookie of the Year
+    is_award_mvp = models.BooleanField(default=False)  # NBA Most Valuable Player
+    is_award_finals_mvp = models.BooleanField(default=False)  # NBA Finals Most Valuable Player
+    is_award_olympic_gold_medal = models.BooleanField(default=False)  # Olympic Gold Medal
+    is_award_olympic_silver_medal = models.BooleanField(default=False)  # Olympic Silver Medal
+    is_award_olympic_bronze_medal = models.BooleanField(default=False)  # Olympic Bronze Medal
+
     def __str__(self):
         return self.name
 
@@ -86,206 +86,215 @@ class Player(ExportModelOperationsMixin('player'), models.Model):
         """
         Generate a random player name by combining first and last names from existing players.
         Uses the seed_string to ensure consistent results for the same input.
-        
+
         Args:
             seed_string: String to use as seed for random name generation
-            
+
         Returns:
             A string containing a random player name (max 14 chars)
         """
         import hashlib
         import random
-        
+
         # Use the seed string to generate a deterministic random seed
         seed_hash = int(hashlib.md5(seed_string.encode()).hexdigest(), 16)
         random.seed(seed_hash)
-        
+
         # Get all unique first and last names from players
-        all_names = cls.objects.values_list('name', flat=True)
+        all_names = cls.objects.values_list("name", flat=True)
         first_names = set()
         last_names = set()
-        
+
         for name in all_names:
             parts = name.split()
             if len(parts) >= 2:
                 first_names.add(parts[0])
                 last_names.add(parts[-1])
-        
+
         # Generate combinations until we find one that fits
         max_attempts = 10
         for _ in range(max_attempts):
             first = random.choice(list(first_names))
             last = random.choice(list(last_names))
             combined = f"{first} {last}"
-            
+
             if len(combined) <= 14:
                 return combined
-        
+
         # If we couldn't find a short enough combination, truncate the last one
         return combined[:14]
 
     def has_played_for_team(self, abbr):
         return self.teams.filter(abbr=abbr).exists()
-    
+
     def update_player_awards_from_nba_stats(self):
         awards = playerawards.PlayerAwards(player_id=self.stats_id).get_normalized_dict()
-        for award in awards['PlayerAwards']:
-            award_name = award['DESCRIPTION']
-            if award_name == 'NBA Most Improved Player':
+        for award in awards["PlayerAwards"]:
+            award_name = award["DESCRIPTION"]
+            if award_name == "NBA Most Improved Player":
                 self.is_award_mip = True
-            elif award_name == 'NBA Champion':
+            elif award_name == "NBA Champion":
                 self.is_award_champ = True
-            elif award_name == 'NBA Defensive Player of the Year':
+            elif award_name == "NBA Defensive Player of the Year":
                 self.is_award_dpoy = True
-            elif award_name == 'All-NBA':
-                if award['ALL_NBA_TEAM_NUMBER'] == '1':
+            elif award_name == "All-NBA":
+                if award["ALL_NBA_TEAM_NUMBER"] == "1":
                     self.is_award_all_nba_first = True
-                elif award['ALL_NBA_TEAM_NUMBER'] == '2':
+                elif award["ALL_NBA_TEAM_NUMBER"] == "2":
                     self.is_award_all_nba_second = True
-                elif award['ALL_NBA_TEAM_NUMBER'] == '3':
+                elif award["ALL_NBA_TEAM_NUMBER"] == "3":
                     self.is_award_all_nba_third = True
-            elif award_name == 'All-Rookie Team':
+            elif award_name == "All-Rookie Team":
                 self.is_award_all_rookie = True
-            elif award_name == 'All-Defensive Team':
+            elif award_name == "All-Defensive Team":
                 self.is_award_all_defensive = True
-            elif award_name == 'NBA All-Star':
+            elif award_name == "NBA All-Star":
                 self.is_award_all_star = True
-            elif award_name == 'NBA All-Star Most Valuable Player':
+            elif award_name == "NBA All-Star Most Valuable Player":
                 self.is_award_all_star_mvp = True
-            elif award_name == 'NBA Rookie of the Year':
+            elif award_name == "NBA Rookie of the Year":
                 self.is_award_rookie_of_the_year = True
-            elif award_name == 'NBA Most Valuable Player':
+            elif award_name == "NBA Most Valuable Player":
                 self.is_award_mvp = True
-            elif award_name == 'NBA Finals Most Valuable Player':
+            elif award_name == "NBA Finals Most Valuable Player":
                 self.is_award_finals_mvp = True
-            elif award_name == 'Olympic Gold Medal':
+            elif award_name == "Olympic Gold Medal":
                 self.is_award_olympic_gold_medal = True
-            elif award_name == 'Olympic Silver Medal':
+            elif award_name == "Olympic Silver Medal":
                 self.is_award_olympic_silver_medal = True
-            elif award_name == 'Olympic Bronze Medal':
+            elif award_name == "Olympic Bronze Medal":
                 self.is_award_olympic_bronze_medal = True
         self.save()
-    
+
     def update_player_data_from_nba_stats(self):
         player_info = commonplayerinfo.CommonPlayerInfo(player_id=self.stats_id).get_normalized_dict()
-        draft_year = player_info['CommonPlayerInfo'][0]['DRAFT_YEAR']
-        draft_year = 0 if (draft_year == 'Undrafted') else int(draft_year)
-        draft_round = player_info['CommonPlayerInfo'][0]['DRAFT_ROUND']
-        draft_round = 0 if ((not draft_round) or (draft_round == 'Undrafted')) else int(draft_round)
-        draft_number = player_info['CommonPlayerInfo'][0]['DRAFT_NUMBER']
-        draft_number = 0 if ((not draft_number) or draft_number == 'Undrafted') else int(draft_number)
+        draft_year = player_info["CommonPlayerInfo"][0]["DRAFT_YEAR"]
+        draft_year = 0 if (draft_year == "Undrafted") else int(draft_year)
+        draft_round = player_info["CommonPlayerInfo"][0]["DRAFT_ROUND"]
+        draft_round = 0 if ((not draft_round) or (draft_round == "Undrafted")) else int(draft_round)
+        draft_number = player_info["CommonPlayerInfo"][0]["DRAFT_NUMBER"]
+        draft_number = 0 if ((not draft_number) or draft_number == "Undrafted") else int(draft_number)
         self.draft_year = draft_year
         self.draft_round = draft_round
         self.draft_number = draft_number
         self.is_undrafted = True if (draft_round + draft_number == 0) else False
-        self.is_greatest_75 = True if (player_info['CommonPlayerInfo'][0]['GREATEST_75_FLAG'] == 'Y') else False
-        self.num_seasons = player_info['CommonPlayerInfo'][0]['SEASON_EXP']
-        weight = player_info['CommonPlayerInfo'][0]['WEIGHT']
-        weight = 0 if not weight else int(weight) # some players have '' as their weight
+        self.is_greatest_75 = True if (player_info["CommonPlayerInfo"][0]["GREATEST_75_FLAG"] == "Y") else False
+        self.num_seasons = player_info["CommonPlayerInfo"][0]["SEASON_EXP"]
+        weight = player_info["CommonPlayerInfo"][0]["WEIGHT"]
+        weight = 0 if not weight else int(weight)  # some players have '' as their weight
         if weight == 0:
             logger.info(f"Player {self.name} has no weight!!")
         self.weight_kg = self.convert_lbs_to_kg(weight)
-        self.height_cm = self.convert_height_to_cm(player_info['CommonPlayerInfo'][0]['HEIGHT'])
-        self.country = player_info['CommonPlayerInfo'][0]['COUNTRY']
-        self.position = player_info['CommonPlayerInfo'][0]['POSITION']
+        self.height_cm = self.convert_height_to_cm(player_info["CommonPlayerInfo"][0]["HEIGHT"])
+        self.country = player_info["CommonPlayerInfo"][0]["COUNTRY"]
+        self.position = player_info["CommonPlayerInfo"][0]["POSITION"]
         self.save()
-    
+
     def update_player_stats_from_nba_stats(self):
-        player_stats = playercareerstats.PlayerCareerStats(player_id=self.stats_id, per_mode36='PerGame', league_id_nullable='00').get_normalized_dict()
-        for season in player_stats['SeasonTotalsRegularSeason']:
-            season_team_id = season['TEAM_ID']
+        player_stats = playercareerstats.PlayerCareerStats(
+            player_id=self.stats_id, per_mode36="PerGame", league_id_nullable="00"
+        ).get_normalized_dict()
+        for season in player_stats["SeasonTotalsRegularSeason"]:
+            season_team_id = season["TEAM_ID"]
             if Team.objects.filter(stats_id=season_team_id).exists():
                 self.teams.add(Team.objects.get(stats_id=season_team_id))
-        
-        if player_stats['CareerTotalsRegularSeason']:
-            career_totals = player_stats['CareerTotalsRegularSeason'][0]
-            self.career_gp = career_totals['GP']
-            self.career_gs = career_totals['GS']
-            self.career_min = career_totals['MIN']
-            self.career_apg = career_totals['AST']
-            self.career_ppg = career_totals['PTS']
-            self.career_rpg = career_totals['REB']
-            self.career_bpg = career_totals['BLK']
-            self.career_spg = career_totals['STL']
-            self.career_tpg = career_totals['TOV']
-            self.career_fgp = career_totals['FG_PCT']
-            self.career_3gp = career_totals['FG3_PCT']
-            self.career_ftp = career_totals['FT_PCT']
-            self.career_fga = career_totals['FGA']
-            self.career_3pa = career_totals['FG3A']
-            self.career_fta = career_totals['FTA']
+
+        if player_stats["CareerTotalsRegularSeason"]:
+            career_totals = player_stats["CareerTotalsRegularSeason"][0]
+            self.career_gp = career_totals["GP"]
+            self.career_gs = career_totals["GS"]
+            self.career_min = career_totals["MIN"]
+            self.career_apg = career_totals["AST"]
+            self.career_ppg = career_totals["PTS"]
+            self.career_rpg = career_totals["REB"]
+            self.career_bpg = career_totals["BLK"]
+            self.career_spg = career_totals["STL"]
+            self.career_tpg = career_totals["TOV"]
+            self.career_fgp = career_totals["FG_PCT"]
+            self.career_3gp = career_totals["FG3_PCT"]
+            self.career_ftp = career_totals["FT_PCT"]
+            self.career_fga = career_totals["FGA"]
+            self.career_3pa = career_totals["FG3A"]
+            self.career_fta = career_totals["FTA"]
         else:
             logger.info(f"Player {self.name} has no stats, probably a GLeague player...")
-        
-        if 'CareerHighs' in player_stats:
-            career_highs = player_stats['CareerHighs']
+
+        if "CareerHighs" in player_stats:
+            career_highs = player_stats["CareerHighs"]
             for high in career_highs:
-                if not 'STAT_VALUE' in high:
+                if "STAT_VALUE" not in high:
                     logger.info(f"Player {self.name} has invalid career high record, skipping...")
                     continue
-                stat_value = high['STAT_VALUE']
-                if high['STAT'] == 'PTS' and stat_value > self.career_high_pts: self.career_high_pts = stat_value
-                elif high['STAT'] == 'AST' and stat_value > self.career_high_ast: self.career_high_ast = stat_value
-                elif high['STAT'] == 'REB' and stat_value > self.career_high_reb: self.career_high_reb = stat_value
-                elif high['STAT'] == 'STL' and stat_value > self.career_high_stl: self.career_high_stl = stat_value
-                elif high['STAT'] == 'BLK' and stat_value > self.career_high_blk: self.career_high_blk = stat_value
-                elif high['STAT'] == 'TOV' and stat_value > self.career_high_to: self.career_high_to = stat_value
-                elif high['STAT'] == 'FGM' and stat_value > self.career_high_fg: self.career_high_fg = stat_value
-                elif high['STAT'] == 'FG3M' and stat_value > self.career_high_3p: self.career_high_3p = stat_value
-                elif high['STAT'] == 'FTA' and stat_value > self.career_high_ft: self.career_high_ft = stat_value
+                stat_value = high["STAT_VALUE"]
+                if high["STAT"] == "PTS" and stat_value > self.career_high_pts:
+                    self.career_high_pts = stat_value
+                elif high["STAT"] == "AST" and stat_value > self.career_high_ast:
+                    self.career_high_ast = stat_value
+                elif high["STAT"] == "REB" and stat_value > self.career_high_reb:
+                    self.career_high_reb = stat_value
+                elif high["STAT"] == "STL" and stat_value > self.career_high_stl:
+                    self.career_high_stl = stat_value
+                elif high["STAT"] == "BLK" and stat_value > self.career_high_blk:
+                    self.career_high_blk = stat_value
+                elif high["STAT"] == "TOV" and stat_value > self.career_high_to:
+                    self.career_high_to = stat_value
+                elif high["STAT"] == "FGM" and stat_value > self.career_high_fg:
+                    self.career_high_fg = stat_value
+                elif high["STAT"] == "FG3M" and stat_value > self.career_high_3p:
+                    self.career_high_3p = stat_value
+                elif high["STAT"] == "FTA" and stat_value > self.career_high_ft:
+                    self.career_high_ft = stat_value
         else:
             logger.info(f"Player {self.name} has no recorded career highs...")
-            
+
         self.save()
-        
+
     def convert_lbs_to_kg(self, weight_lbs: int) -> int:
         return weight_lbs * 0.453592
-    
+
     def convert_height_to_cm(self, height_str: str) -> int:
-        feet = int(height_str.split('-')[0])
-        inches = int(height_str.split('-')[1])
+        feet = int(height_str.split("-")[0])
+        inches = int(height_str.split("-")[1])
         return (feet * 12 + inches) * 2.54
-    
-class Team(ExportModelOperationsMixin('team'), models.Model):
+
+
+class Team(ExportModelOperationsMixin("team"), models.Model):
     stats_id = models.IntegerField()
     name = models.CharField(max_length=200)
     abbr = models.CharField(max_length=3)
-    
+
     def __str__(self):
         return f"{self.abbr} {self.name}" if self.abbr else self.name
-    
-class GameResult(ExportModelOperationsMixin('gameresult'), models.Model):
+
+
+class GameResult(ExportModelOperationsMixin("gameresult"), models.Model):
     date = models.DateField()
     cell_key = models.CharField(max_length=10)  # e.g., "0_1" for row 0, col 1
     player = models.ForeignKey(Player, on_delete=models.CASCADE)
     guess_count = models.IntegerField(default=1)  # Number of times this player was correctly guessed for this cell
 
     class Meta:
-        unique_together = ['date', 'cell_key', 'player']  # Ensure we can track multiple correct players per cell
-        
+        unique_together = ["date", "cell_key", "player"]  # Ensure we can track multiple correct players per cell
+
     @classmethod
     def get_cell_stats(cls, date, cell_key):
         """Get all correct players and their guess counts for a specific cell on a specific date."""
-        return cls.objects.filter(date=date, cell_key=cell_key).select_related('player')
+        return cls.objects.filter(date=date, cell_key=cell_key).select_related("player")
 
     @classmethod
     def get_most_common_players(cls, date, cell_key, limit=5):
         """Get the most commonly guessed players for a specific cell on a specific date."""
-        return cls.objects.filter(date=date, cell_key=cell_key)\
-            .select_related('player')\
-            .order_by('-guess_count')[:limit]
+        return cls.objects.filter(date=date, cell_key=cell_key).select_related("player").order_by("-guess_count")[:limit]
 
     @classmethod
     def get_rarest_players(cls, date, cell_key, limit=5):
         """Get the rarest correct guesses for a specific cell on a specific date."""
-        return cls.objects.filter(date=date, cell_key=cell_key)\
-            .select_related('player')\
-            .order_by('guess_count')[:limit]
+        return cls.objects.filter(date=date, cell_key=cell_key).select_related("player").order_by("guess_count")[:limit]
 
     @classmethod
     def get_total_guesses(cls, date):
         """Get the total number of correct guesses for a specific date."""
-        return cls.objects.filter(date=date).aggregate(total=models.Sum('guess_count'))['total'] or 0
+        return cls.objects.filter(date=date).aggregate(total=models.Sum("guess_count"))["total"] or 0
 
     @classmethod
     def get_player_rarity_score(cls, date, cell_key, player):
@@ -299,9 +308,9 @@ class GameResult(ExportModelOperationsMixin('gameresult'), models.Model):
             if result.guess_count == 1:
                 return 1.0
             # Get total guesses for this cell on this date
-            total_guesses = cls.objects.filter(date=date, cell_key=cell_key).aggregate(
-                total=models.Sum('guess_count')
-            )['total'] or 1
+            total_guesses = (
+                cls.objects.filter(date=date, cell_key=cell_key).aggregate(total=models.Sum("guess_count"))["total"] or 1
+            )
             return 1 - (result.guess_count / total_guesses)
         except cls.DoesNotExist:
             return 1.0  # Player hasn't been guessed yet for this cell on this date
@@ -316,7 +325,7 @@ class GameResult(ExportModelOperationsMixin('gameresult'), models.Model):
         4. Initialize guess_count based on rank (multiplied by game_factor)
         5. Set guess_count to 0 for players that haven't been picked in the past
         6. Set guess_count to 0 for bottom third of players
-        
+
         Args:
             date: The date to initialize scores for
             cell_key: The cell key to initialize scores for
@@ -325,37 +334,31 @@ class GameResult(ExportModelOperationsMixin('gameresult'), models.Model):
             filters: List of filters to apply to possible players
         """
         logger.debug(f"Initializing scores for date {date}, cell {cell_key}")
-        
+
         # Get all possible players for this cell
         possible_players = Player.objects.all()
-        
+
         # Apply any filters
         if filters:
             logger.debug(f"Applying {len(filters)} filters to possible players")
             for f in filters:
                 logger.debug(f"Applying filter '{f.get_desc()}'")
                 possible_players = f.apply_filter(possible_players)
-        
+
         # Get historical pick counts for each player
         player_counts = {}
         for player in possible_players:
             # Count total picks for this player across all cells and dates
-            count = cls.objects.filter(player=player).aggregate(
-                total=models.Sum('guess_count')
-            )['total'] or 0
+            count = cls.objects.filter(player=player).aggregate(total=models.Sum("guess_count"))["total"] or 0
             player_counts[player] = count
-        
+
         # Sort players by count (decreasing)
-        sorted_players = sorted(
-            player_counts.items(),
-            key=lambda x: x[1],
-            reverse=True
-        )
-        
+        sorted_players = sorted(player_counts.items(), key=lambda x: x[1], reverse=True)
+
         # Calculate cutoff for bottom third
         total_players = len(sorted_players)
         bottom_third_cutoff = total_players // 3
-        
+
         # Initialize scores based on rank
         for rank, (player, _) in enumerate(sorted_players, 1):
             # Calculate guess_count based on rank
@@ -365,36 +368,32 @@ class GameResult(ExportModelOperationsMixin('gameresult'), models.Model):
                 guess_count = (total_players - rank + 1) * game_factor
             else:
                 guess_count = 0
-                
+
             logger.debug(f"Setting player {player.name} count to {guess_count} (rank {rank})")
-            
+
             # Create or update GameResult entry
-            cls.objects.update_or_create(
-                date=date,
-                cell_key=cell_key,
-                player=player,
-                defaults={'guess_count': guess_count}
-            )
+            cls.objects.update_or_create(date=date, cell_key=cell_key, player=player, defaults={"guess_count": guess_count})
 
     def __str__(self):
         return f"{self.date} - {self.cell_key} - {self.player.name} ({self.guess_count} guesses)"
-    
-class GameCompletion(ExportModelOperationsMixin('gamecompletion'), models.Model):
+
+
+class GameCompletion(ExportModelOperationsMixin("gamecompletion"), models.Model):
     date = models.DateField()
     session_key = models.CharField(max_length=40)  # Django session key
     completed_at = models.DateTimeField(auto_now_add=True)
     correct_cells = models.IntegerField(default=0)  # Number of correctly filled cells
-    final_score = models.FloatField(default=0.0)    # Final score achieved Optional additional data
+    final_score = models.FloatField(default=0.0)  # Final score achieved Optional additional data
     completion_streak = models.IntegerField(default=1)  # Consecutive days of completion
     perfect_streak = models.IntegerField(default=1)  # Consecutive days of perfect completion
 
     class Meta:
-        unique_together = ['date', 'session_key']  # Each session can only complete a game once
+        unique_together = ["date", "session_key"]  # Each session can only complete a game once
         indexes = [
-            models.Index(fields=['date']),
-            models.Index(fields=['final_score']),  # Index for leaderboard queries
-            models.Index(fields=['completion_streak']),  # Index for streak queries
-            models.Index(fields=['perfect_streak']),  # Index for perfect streak queries
+            models.Index(fields=["date"]),
+            models.Index(fields=["final_score"]),  # Index for leaderboard queries
+            models.Index(fields=["completion_streak"]),  # Index for streak queries
+            models.Index(fields=["perfect_streak"]),  # Index for perfect streak queries
         ]
 
     def save(self, *args, **kwargs):
@@ -403,13 +402,10 @@ class GameCompletion(ExportModelOperationsMixin('gamecompletion'), models.Model)
             # Check for previous day's completion
             prev_date = self.date - timedelta(days=1)
             try:
-                prev_completion = GameCompletion.objects.get(
-                    session_key=self.session_key,
-                    date=prev_date
-                )
+                prev_completion = GameCompletion.objects.get(session_key=self.session_key, date=prev_date)
                 # If previous day exists, increment completion streak
                 self.completion_streak = prev_completion.completion_streak + 1
-                
+
                 # For perfect streak, check if previous day was perfect
                 if self.correct_cells == 9:
                     if prev_completion.correct_cells == 9:
@@ -428,24 +424,24 @@ class GameCompletion(ExportModelOperationsMixin('gamecompletion'), models.Model)
     def get_completion_count(cls, date):
         """Get the number of unique sessions that have completed this game."""
         return cls.objects.filter(date=date).count()
-    
+
     @classmethod
     def get_average_score(cls, date):
         """Get the average score for a specific date."""
-        result = cls.objects.filter(date=date).aggregate(avg_score=models.Avg('final_score'))
-        return result['avg_score'] or 0
-    
+        result = cls.objects.filter(date=date).aggregate(avg_score=models.Avg("final_score"))
+        return result["avg_score"] or 0
+
     @classmethod
     def get_average_correct_cells(cls, date):
         """Get the average number of correct cells for a specific date."""
-        result = cls.objects.filter(date=date).aggregate(avg_cells=models.Avg('correct_cells'))
-        return result['avg_cells'] or 0
-    
+        result = cls.objects.filter(date=date).aggregate(avg_cells=models.Avg("correct_cells"))
+        return result["avg_cells"] or 0
+
     @classmethod
     def get_perfect_games(cls, date):
         """Get the number of games where all cells were correctly filled."""
         return cls.objects.filter(date=date, correct_cells=9).count()
-    
+
     @classmethod
     def get_current_streak(cls, session_key, current_date):
         """Get the current streak for a user.
@@ -453,40 +449,34 @@ class GameCompletion(ExportModelOperationsMixin('gamecompletion'), models.Model)
         among all users' active streaks."""
         try:
             # Get the user's current completion
-            completion = cls.objects.get(
-                session_key=session_key,
-                date=current_date
-            )
+            completion = cls.objects.get(session_key=session_key, date=current_date)
             streak = completion.completion_streak
-            
+
             # Get all completions for this date that are part of an active streak
             # A completion is part of an active streak if it's the most recent completion for that session
             active_completions = []
-            all_sessions = cls.objects.values('session_key').distinct()
-            
+            all_sessions = cls.objects.values("session_key").distinct()
+
             for session in all_sessions:
                 try:
                     # Get the most recent completion for this session
-                    latest_completion = cls.objects.filter(
-                        session_key=session['session_key'],
-                        date=current_date
-                    ).first()
-                    
+                    latest_completion = cls.objects.filter(session_key=session["session_key"], date=current_date).first()
+
                     # Only include if it's from today and has a streak
                     if latest_completion and latest_completion.completion_streak > 0:
                         active_completions.append(latest_completion.completion_streak)
                 except cls.DoesNotExist:
                     continue
-            
+
             total_completions = len(active_completions)
-            
+
             # If there's only one player with a streak, they're rank 1 of 1
             if total_completions == 1:
                 return (streak, 1, 1)
-            
+
             # Sort streaks in descending order
             active_completions.sort(reverse=True)
-            
+
             # Find the rank of the current user's streak
             streak_rank = 1
             for rank in active_completions:
@@ -495,93 +485,95 @@ class GameCompletion(ExportModelOperationsMixin('gamecompletion'), models.Model)
                 if rank == streak:
                     return (streak, streak_rank, total_completions)
                 streak_rank += 1
-                
+
             return (streak, streak_rank, total_completions)
-            
+
         except cls.DoesNotExist:
             return (0, 0, 0)
-    
+
     @classmethod
     def get_top_scores(cls, date, limit=10):
         """Get the top scores for a specific date."""
-        return cls.objects.filter(date=date).order_by('-final_score')[:limit]
-    
+        return cls.objects.filter(date=date).order_by("-final_score")[:limit]
+
     @classmethod
     def get_ranking_with_neighbors(cls, date, session_key):
         """Get a ranking that includes the current user and their 4 nearest neighbors.
         Returns a list of tuples (rank, display_name, score) where rank is 1-based."""
         # Get all completions ordered by score
-        completions = cls.objects.filter(date=date).order_by('-final_score')
+        completions = cls.objects.filter(date=date).order_by("-final_score")
         total_completions = completions.count()
-        
+
         if total_completions == 0:
             return []
-            
+
         # Get all completions with their user data
         ranking = []
         current_user_rank = None
-        
+
         for rank, completion in enumerate(completions, 1):
             try:
                 display_name = UserData.get_display_name(completion.session_key)
                 ranking.append((rank, display_name, completion.final_score))
-                
+
                 if completion.session_key == session_key:
                     current_user_rank = rank
             except Exception as e:
                 logger.error(f"Error getting display name for session {completion.session_key}: {e}")
                 continue
-        
+
         if current_user_rank is None:
             return ranking[:5]  # Just return top 5 if current user not found
-            
+
         # Calculate start and end indices to show 5 entries
         # Try to show 2 entries before and 2 entries after the current user
         start_idx = max(0, current_user_rank - 3)  # Show 2 entries before current user
         end_idx = min(len(ranking), start_idx + 5)  # Show 5 entries total
-        
+
         # If we're near the end, adjust start_idx to show 5 entries
         if end_idx - start_idx < 5:
             start_idx = max(0, end_idx - 5)
-            
+
         # If we're near the start, adjust end_idx to show 5 entries
         if start_idx == 0 and len(ranking) >= 5:
             end_idx = 5
-            
+
         # Return the slice of ranking that includes the current user and their neighbors
         return ranking[start_idx:end_idx]
-    
+
     @classmethod
     def get_first_unplayed_game(cls, session_key, current_date=None):
         """Find the first unplayed game for a user, going backwards from the current date.
         Returns a tuple of (date, has_unplayed_games) where date is the first unplayed game date,
         or None if all games have been played."""
         from datetime import datetime, timedelta
-        
+
         if current_date is None:
             current_date = datetime.now().date()
-        elif hasattr(current_date, 'date'):
+        elif hasattr(current_date, "date"):
             # Convert datetime to date if needed
             current_date = current_date.date()
-        
+
         # Start from the current date and go backwards
         check_date = current_date
         earliest_date = datetime(2025, 4, 1).date()  # Earliest possible game date
-        
+
         while check_date >= earliest_date:
             # Check if this user has completed this game
             if not cls.objects.filter(session_key=session_key, date=check_date).exists():
                 return (check_date, True)
             check_date -= timedelta(days=1)
-        
+
         # If we've checked all dates and found no unplayed games
         return (None, False)
-    
+
     def __str__(self):
         return f"{self.date} - {self.session_key} - Score: {self.final_score} ({self.correct_cells}/9 cells)"
 
-class GameFilterDB(ExportModelOperationsMixin('gamefilterdb'), models.Model):
+
+class GameFilterDB(ExportModelOperationsMixin("gamefilterdb"), models.Model):
     """Stores the configuration of game filters for a specific date."""
+
     date = models.DateField()
     filter_type = models.CharField(max_length=10)  # 'static' or 'dynamic'
     filter_class = models.CharField(max_length=50)  # Name of the filter class, e.g., 'PositionFilter', 'DynamicGameFilter'
@@ -590,32 +582,34 @@ class GameFilterDB(ExportModelOperationsMixin('gamefilterdb'), models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = ('date', 'filter_type', 'filter_index')
+        unique_together = ("date", "filter_type", "filter_index")
         indexes = [
-            models.Index(fields=['date']),
+            models.Index(fields=["date"]),
         ]
 
     def __str__(self):
         return f"{self.date} - {self.filter_type} - {self.filter_class} ({self.filter_index})"
 
-class GameGrid(ExportModelOperationsMixin('gamegrid'), models.Model):
+
+class GameGrid(ExportModelOperationsMixin("gamegrid"), models.Model):
     """
     Central model that stores information about a specific game grid.
     Contains metadata about the grid and references to related models.
     """
+
     date = models.DateField(unique=True, primary_key=True)
     grid_size = models.IntegerField(default=3)  # Size of the grid (e.g., 3 for 3x3)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
+
     # Store the correct players count for each cell
     cell_correct_players = models.JSONField(default=dict)  # Format: {'0_0': 5, '0_1': 3, ...}
-    
+
     @property
     def completion_count(self):
         """Get the completion count on the fly"""
         return GameCompletion.get_completion_count(self.date)
-    
+
     @property
     def total_correct_players(self):
         """Get the total number of unique correct players across all cells"""
@@ -623,45 +617,47 @@ class GameGrid(ExportModelOperationsMixin('gamegrid'), models.Model):
         for _, count in self.cell_correct_players.items():
             total_correct_players += count
         return total_correct_players
-            
+
     @property
     def total_guesses(self):
         """Get the total guess count on the fly by summing all GameResult.guess_count values for this date"""
-        return GameResult.objects.filter(date=self.date).aggregate(
-            total=models.Sum('guess_count')
-        )['total'] or 0
-    
+        return GameResult.objects.filter(date=self.date).aggregate(total=models.Sum("guess_count"))["total"] or 0
+
     @property
     def average_score(self):
         """Get the average score for completions of this grid"""
         return GameCompletion.get_average_score(self.date)
-    
+
     @property
     def average_correct_cells(self):
         """Get the average number of correct cells for completions of this grid"""
         return GameCompletion.get_average_correct_cells(self.date)
-    
+
     def get_top_scores(self, limit=10):
         """Get the top scores for this grid"""
         return GameCompletion.get_top_scores(self.date, limit)
-    
+
     def __str__(self):
         return f"Game Grid for {self.date}"
 
-class GridMetadata(ExportModelOperationsMixin('gridmetadata'), models.Model):
+
+class GridMetadata(ExportModelOperationsMixin("gridmetadata"), models.Model):
     """
     Model to store additional metadata for each game grid.
     """
+
     date = models.DateField(unique=True, primary_key=True)
     game_title = models.CharField(max_length=40, default="")
 
     def __str__(self):
         return f"Grid Metadata for {self.date}"
 
-class LastUpdated(ExportModelOperationsMixin('lastupdated'),    models.Model):
+
+class LastUpdated(ExportModelOperationsMixin("lastupdated"), models.Model):
     """
     Model to track when data was last updated
     """
+
     data_type = models.CharField(max_length=50, unique=True, help_text="Type of data that was updated (e.g., 'player_data')")
     last_updated = models.DateTimeField(auto_now=True, help_text="When this data was last updated")
     updated_by = models.CharField(max_length=100, blank=True, null=True, help_text="Who or what performed the update")
@@ -674,32 +670,26 @@ class LastUpdated(ExportModelOperationsMixin('lastupdated'),    models.Model):
     def update_timestamp(cls, data_type, updated_by=None, notes=None):
         """
         Update or create a timestamp entry for the given data type
-        
+
         Args:
             data_type: The type of data being updated
             updated_by: Who or what performed the update
             notes: Additional notes about the update
-            
+
         Returns:
             The LastUpdated instance
         """
-        obj, created = cls.objects.update_or_create(
-            data_type=data_type,
-            defaults={
-                'updated_by': updated_by,
-                'notes': notes
-            }
-        )
+        obj, created = cls.objects.update_or_create(data_type=data_type, defaults={"updated_by": updated_by, "notes": notes})
         return obj
 
     @classmethod
     def get_last_updated(cls, data_type):
         """
         Get the last update timestamp for the given data type
-        
+
         Args:
             data_type: The type of data to check
-            
+
         Returns:
             The timestamp or None if not found
         """
@@ -708,11 +698,13 @@ class LastUpdated(ExportModelOperationsMixin('lastupdated'),    models.Model):
         except cls.DoesNotExist:
             return None
 
-class UserData(ExportModelOperationsMixin('userdata'), models.Model):
+
+class UserData(ExportModelOperationsMixin("userdata"), models.Model):
     """
     Model to store user-related data based on their session ID.
     This model can be extended with additional fields as needed.
     """
+
     session_key = models.CharField(max_length=40, primary_key=True, help_text="Django session key as primary identifier")
     display_name = models.CharField(max_length=14, help_text="Generated display name for the user")
     created_at = models.DateTimeField(auto_now_add=True, help_text="When this user data was created")
@@ -727,10 +719,10 @@ class UserData(ExportModelOperationsMixin('userdata'), models.Model):
         Get or create user data for a given session key.
         If user data already exists for this session, return it.
         Otherwise, generate new data and store it.
-        
+
         Args:
             session_key: The session key to get/create user data for
-            
+
         Returns:
             The UserData instance
         """
@@ -742,22 +734,18 @@ class UserData(ExportModelOperationsMixin('userdata'), models.Model):
         except cls.DoesNotExist:
             # Generate new display name and create user data
             display_name = Player.generate_random_name(session_key)
-            return cls.objects.create(
-                session_key=session_key,
-                display_name=display_name
-            )
+            return cls.objects.create(session_key=session_key, display_name=display_name)
 
     @classmethod
     def get_display_name(cls, session_key):
         """
         Get the display name for a given session key.
         If no user data exists, creates it first.
-        
+
         Args:
             session_key: The session key to get the display name for
-            
+
         Returns:
             The display name string
         """
         return cls.get_or_create_user(session_key).display_name
-    
