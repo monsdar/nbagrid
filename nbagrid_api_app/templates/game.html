@@ -1060,6 +1060,19 @@
             background-color: #555;
         }
 
+        /* Admin link - tinted down styling */
+        .btn-admin {
+            background-color: #2a2a2a;
+            color: #666;
+            font-size: 14px;
+            opacity: 0.7;
+        }
+        .btn-admin:hover {
+            background-color: #333;
+            color: #888;
+            opacity: 0.9;
+        }
+
         /* Button spacing */
         .btn-mt {
             margin-top: 20px;
@@ -1225,6 +1238,7 @@
             <button class="btn btn-secondary" disabled>All Grids Played...</button>
             {% endif %}
             <button class="btn btn-secondary" onclick="openAboutModal()">About</button>
+            <a href="/admin/" class="btn btn-admin">Admin</a>
         </footer>
     </main>
 
