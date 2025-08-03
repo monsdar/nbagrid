@@ -103,5 +103,5 @@ The project uses GitHub Actions for automated testing and code quality checks:
 - **NBA API Tests**: Only run on manual workflow dispatch
 
 Tests run automatically on:
-- Push to `main` or `develop` branches
-- Pull requests to `main` or `develop` branches
+- Push to `main`, `develop`, or `staging` branches
+- Pull requests to `main`, `develop`, or `staging` branches
