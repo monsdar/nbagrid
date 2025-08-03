@@ -1,0 +1,18 @@
+# Include base requirements
+-r requirements.txt
+
+# Testing and development tools
+pytest
+pytest-django
+pytest-cov
+coverage
+
+# Code quality tools
+black
+isort
+flake8
+pylint
+
+# Development utilities
+django-debug-toolbar
+django-extensions

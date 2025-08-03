@@ -89,3 +89,18 @@ local_settings.py
 **/db.sqlite3
 staticfiles/*
 !staticfiles/favicon.ico
+
+# Testing and Coverage
+.coverage
+htmlcov/
+coverage.xml
+.pytest_cache/
+.tox/
+
+# Code Quality Tools
+.mypy_cache/
+.pylint.d/
+
+# IDE
+.vscode/settings.json
+.idea/
