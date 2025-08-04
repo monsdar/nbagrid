@@ -346,21 +346,15 @@ class GameAdmin(GridBuilderAdmin):
         # Base queryset for the time period
         filters_queryset = GameFilterDB.objects.filter(date__gte=cutoff_date)
         
-        # Overall filter usage statistics
-        filter_usage = self.get_filter_usage_stats(filters_queryset)
+        # Overall filter usage statistics with detailed descriptions
+        filter_usage = self.get_detailed_filter_usage_stats(filters_queryset)
         
-        # Filter usage by type (static vs dynamic)
-        static_usage = self.get_filter_usage_stats(filters_queryset.filter(filter_type='static'))
-        dynamic_usage = self.get_filter_usage_stats(filters_queryset.filter(filter_type='dynamic'))
+        # Filter usage by type (static vs dynamic) with detailed descriptions
+        static_usage = self.get_detailed_filter_usage_stats(filters_queryset.filter(filter_type='static'))
+        dynamic_usage = self.get_detailed_filter_usage_stats(filters_queryset.filter(filter_type='dynamic'))
         
         # Recent trends (last 7 days vs previous period)
-        recent_trends = self.get_recent_trends(days)
-        
-        # Filter position analysis
-        position_analysis = self.get_position_analysis(filters_queryset)
-        
-        # Daily usage patterns
-        daily_patterns = self.get_daily_patterns(filters_queryset)
+        recent_trends = self.get_detailed_recent_trends(days)
         
         context = {
             'title': 'GameBuilder Filter Analytics',
@@ -370,8 +364,6 @@ class GameAdmin(GridBuilderAdmin):
             'static_usage': static_usage,
             'dynamic_usage': dynamic_usage,
             'recent_trends': recent_trends,
-            'position_analysis': position_analysis,
-            'daily_patterns': daily_patterns,
             'opts': self.model._meta,
             'cl': self,  # For admin template compatibility
             'has_add_permission': False,
@@ -381,47 +373,98 @@ class GameAdmin(GridBuilderAdmin):
         
         return context
     
-    def get_filter_usage_stats(self, queryset):
-        """Calculate filter usage statistics"""
-        usage_stats = queryset.values('filter_class').annotate(
+    def get_detailed_filter_usage_stats(self, queryset):
+        """Calculate filter usage statistics with detailed descriptions"""
+        from nbagrid_api_app.GameFilter import create_filter_from_db
+        
+        # Group by filter_class and filter_config to get unique filter configurations
+        usage_data = queryset.values('filter_class', 'filter_config').annotate(
             count=Count('id')
         ).order_by('-count')
         
-        total_count = sum(stat['count'] for stat in usage_stats)
+        total_count = sum(stat['count'] for stat in usage_data)
         
-        # Add percentage calculations
-        for stat in usage_stats:
-            stat['percentage'] = round((stat['count'] / total_count * 100), 1) if total_count > 0 else 0
+        # Create detailed descriptions for each unique filter configuration
+        detailed_stats = []
+        for stat in usage_data:
+            # Create a temporary GameFilterDB object to reconstruct the filter
+            temp_filter_db = type('TempFilter', (), {
+                'filter_class': stat['filter_class'],
+                'filter_config': stat['filter_config'],
+                'filter_type': 'dynamic'  # We'll handle both types
+            })()
+            
+            try:
+                # Reconstruct the filter to get its description
+                filter_obj = create_filter_from_db(temp_filter_db)
+                if hasattr(filter_obj, 'get_desc'):
+                    description = filter_obj.get_desc()
+                else:
+                    description = stat['filter_class']
+            except:
+                # Fallback to class name if reconstruction fails
+                description = stat['filter_class']
+            
+            detailed_stats.append({
+                'filter_class': stat['filter_class'],
+                'description': description,
+                'count': stat['count'],
+                'percentage': round((stat['count'] / total_count * 100), 1) if total_count > 0 else 0
+            })
         
-        return usage_stats
+        return detailed_stats
     
-    def get_recent_trends(self, total_days):
-        """Compare recent usage (last 7 days) with previous period"""
+    def get_detailed_recent_trends(self, total_days):
+        """Compare recent usage (last 7 days) with previous period using detailed descriptions"""
+        from nbagrid_api_app.GameFilter import create_filter_from_db
+        
         recent_cutoff = datetime.now().date() - timedelta(days=7)
         previous_cutoff = datetime.now().date() - timedelta(days=total_days)
         
-        # Recent usage (last 7 days)
+        # Recent usage (last 7 days) - group by class and config
         recent_usage = GameFilterDB.objects.filter(
             date__gte=recent_cutoff
-        ).values('filter_class').annotate(count=Count('id'))
+        ).values('filter_class', 'filter_config').annotate(count=Count('id'))
         
-        # Previous period usage
+        # Previous period usage - group by class and config
         previous_usage = GameFilterDB.objects.filter(
             date__gte=previous_cutoff,
             date__lt=recent_cutoff
-        ).values('filter_class').annotate(count=Count('id'))
+        ).values('filter_class', 'filter_config').annotate(count=Count('id'))
         
-        # Convert to dictionaries for easier comparison
-        recent_dict = {item['filter_class']: item['count'] for item in recent_usage}
-        previous_dict = {item['filter_class']: item['count'] for item in previous_usage}
+        # Create dictionaries with unique keys based on class + config
+        def create_filter_key(item):
+            return f"{item['filter_class']}_{hash(str(item['filter_config']))}"
+        
+        recent_dict = {create_filter_key(item): item for item in recent_usage}
+        previous_dict = {create_filter_key(item): item for item in previous_usage}
         
         # Calculate trends
         trends = []
-        all_filters = set(recent_dict.keys()) | set(previous_dict.keys())
+        all_filter_keys = set(recent_dict.keys()) | set(previous_dict.keys())
         
-        for filter_class in all_filters:
-            recent_count = recent_dict.get(filter_class, 0)
-            previous_count = previous_dict.get(filter_class, 0)
+        for filter_key in all_filter_keys:
+            recent_item = recent_dict.get(filter_key)
+            previous_item = previous_dict.get(filter_key)
+            
+            recent_count = recent_item['count'] if recent_item else 0
+            previous_count = previous_item['count'] if previous_item else 0
+            
+            # Get the filter info from whichever period has data
+            filter_info = recent_item or previous_item
+            
+            # Get detailed description
+            temp_filter_db = type('TempFilter', (), {
+                'filter_class': filter_info['filter_class'],
+                'filter_config': filter_info['filter_config'],
+                'filter_type': 'dynamic'
+            })()
+            
+            try:
+                filter_obj = create_filter_from_db(temp_filter_db)
+                description = filter_obj.get_desc() if hasattr(filter_obj, 'get_desc') else filter_info['filter_class']
+            except:
+                description = filter_info['filter_class']
             
             if previous_count > 0:
                 change_percent = round(((recent_count - previous_count) / previous_count * 100), 1)
@@ -431,7 +474,8 @@ class GameAdmin(GridBuilderAdmin):
                 change_percent = 0
             
             trends.append({
-                'filter_class': filter_class,
+                'filter_class': filter_info['filter_class'],
+                'description': description,
                 'recent_count': recent_count,
                 'previous_count': previous_count,
                 'change_percent': change_percent,
@@ -439,49 +483,6 @@ class GameAdmin(GridBuilderAdmin):
             })
         
         return sorted(trends, key=lambda x: abs(x['change_percent']), reverse=True)
-    
-    def get_position_analysis(self, queryset):
-        """Analyze filter usage by position in grid"""
-        position_stats = queryset.values('filter_class', 'filter_index').annotate(
-            count=Count('id')
-        ).order_by('filter_class', 'filter_index')
-        
-        # Group by filter class
-        position_data = defaultdict(lambda: defaultdict(int))
-        for stat in position_stats:
-            position_data[stat['filter_class']][stat['filter_index']] = stat['count']
-        
-        # Convert to list format for template
-        position_analysis = []
-        for filter_class, positions in position_data.items():
-            total = sum(positions.values())
-            position_breakdown = []
-            for pos in range(3):  # Assuming 3x3 grid
-                count = positions.get(pos, 0)
-                percentage = round((count / total * 100), 1) if total > 0 else 0
-                position_breakdown.append({
-                    'position': pos,
-                    'count': count,
-                    'percentage': percentage
-                })
-            
-            position_analysis.append({
-                'filter_class': filter_class,
-                'total_usage': total,
-                'positions': position_breakdown
-            })
-        
-        return sorted(position_analysis, key=lambda x: x['total_usage'], reverse=True)
-    
-    def get_daily_patterns(self, queryset):
-        """Analyze daily usage patterns"""
-        daily_stats = queryset.values('date').annotate(
-            total_filters=Count('id'),
-            static_count=Count('id', filter=Q(filter_type='static')),
-            dynamic_count=Count('id', filter=Q(filter_type='dynamic'))
-        ).order_by('-date')[:14]  # Last 14 days
-        
-        return daily_stats
 
 
 @admin.register(GameFilterDB)

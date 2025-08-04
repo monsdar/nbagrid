@@ -218,10 +218,11 @@
     
     <div class="section">
         <h2>Overall Filter Usage</h2>
-        <p>Which filters are being selected most frequently across all games</p>
+        <p>Which specific filter configurations are being selected most frequently across all games</p>
         <table class="filter-usage-table">
             <thead>
                 <tr>
+                    <th>Filter Description</th>
                     <th>Filter Class</th>
                     <th>Usage Count</th>
                     <th>Percentage</th>
@@ -231,7 +232,8 @@
             <tbody>
                 {% for filter in filter_usage %}
                 <tr>
-                    <td><strong>{{ filter.filter_class }}</strong></td>
+                    <td><strong>{{ filter.description }}</strong></td>
+                    <td><em>{{ filter.filter_class }}</em></td>
                     <td>{{ filter.count }}</td>
                     <td>{{ filter.percentage }}%</td>
                     <td>
@@ -253,7 +255,7 @@
                 <table class="filter-usage-table">
                     <thead>
                         <tr>
-                            <th>Filter</th>
+                            <th>Filter Description</th>
                             <th>Count</th>
                             <th>%</th>
                         </tr>
@@ -261,7 +263,7 @@
                     <tbody>
                         {% for filter in static_usage %}
                         <tr>
-                            <td>{{ filter.filter_class }}</td>
+                            <td><strong>{{ filter.description }}</strong><br><em>{{ filter.filter_class }}</em></td>
                             <td>{{ filter.count }}</td>
                             <td>{{ filter.percentage }}%</td>
                         </tr>
@@ -274,7 +276,7 @@
                 <table class="filter-usage-table">
                     <thead>
                         <tr>
-                            <th>Filter</th>
+                            <th>Filter Description</th>
                             <th>Count</th>
                             <th>%</th>
                         </tr>
@@ -282,7 +284,7 @@
                     <tbody>
                         {% for filter in dynamic_usage %}
                         <tr>
-                            <td>{{ filter.filter_class }}</td>
+                            <td><strong>{{ filter.description }}</strong><br><em>{{ filter.filter_class }}</em></td>
                             <td>{{ filter.count }}</td>
                             <td>{{ filter.percentage }}%</td>
                         </tr>
@@ -299,7 +301,7 @@
         <table class="filter-usage-table">
             <thead>
                 <tr>
-                    <th>Filter Class</th>
+                    <th>Filter Description</th>
                     <th>Recent (7 days)</th>
                     <th>Previous Period</th>
                     <th>Change</th>
@@ -309,7 +311,7 @@
             <tbody>
                 {% for trend in recent_trends %}
                 <tr>
-                    <td><strong>{{ trend.filter_class }}</strong></td>
+                    <td><strong>{{ trend.description }}</strong><br><em>{{ trend.filter_class }}</em></td>
                     <td>{{ trend.recent_count }}</td>
                     <td>{{ trend.previous_count }}</td>
                     <td class="trend-{{ trend.trend }}">
@@ -328,40 +330,6 @@
                 {% endfor %}
             </tbody>
         </table>
-    </div>
-    
-    <div class="section">
-        <h2>Position Analysis</h2>
-        <p>How often each filter appears in different grid positions</p>
-        {% for analysis in position_analysis %}
-        <div style="margin-bottom: 25px; padding: 15px; background: #f8f9fa; border-radius: 6px;">
-            <h4>{{ analysis.filter_class }} ({{ analysis.total_usage }} total uses)</h4>
-            <div class="position-grid">
-                {% for pos in analysis.positions %}
-                <div class="position-cell {% if pos.count > 0 %}active{% endif %}">
-                    <div>Position {{ pos.position }}</div>
-                    <div><strong>{{ pos.count }}</strong> ({{ pos.percentage }}%)</div>
-                </div>
-                {% endfor %}
-            </div>
-        </div>
-        {% endfor %}
-    </div>
-    
-    <div class="section">
-        <h2>Daily Patterns</h2>
-        <p>Filter usage over the last 14 days</p>
-        <div class="daily-pattern">
-            {% for day in daily_patterns %}
-            <div class="daily-item">
-                <div class="date">{{ day.date|date:"M j" }}</div>
-                <div class="count">{{ day.total_filters }}</div>
-                <div style="font-size: 12px; color: #666; margin-top: 5px;">
-                    S: {{ day.static_count }} | D: {{ day.dynamic_count }}
-                </div>
-            </div>
-            {% endfor %}
-        </div>
     </div>
 </div>
 
