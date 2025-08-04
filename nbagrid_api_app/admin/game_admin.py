@@ -374,97 +374,159 @@ class GameAdmin(GridBuilderAdmin):
         return context
     
     def get_detailed_filter_usage_stats(self, queryset):
-        """Calculate filter usage statistics with detailed descriptions"""
+        """Calculate filter usage statistics grouped by filter type"""
         from nbagrid_api_app.GameFilter import create_filter_from_db
         
-        # Group by filter_class and filter_config to get unique filter configurations
+        # Group by filter_class and filter_config to get all configurations
         usage_data = queryset.values('filter_class', 'filter_config').annotate(
             count=Count('id')
-        ).order_by('-count')
+        )
         
-        total_count = sum(stat['count'] for stat in usage_data)
+        # Group by filter type (not specific configuration)
+        filter_types = {}
         
-        # Create detailed descriptions for each unique filter configuration
-        detailed_stats = []
         for stat in usage_data:
             # Create a temporary GameFilterDB object to reconstruct the filter
             temp_filter_db = type('TempFilter', (), {
                 'filter_class': stat['filter_class'],
                 'filter_config': stat['filter_config'],
-                'filter_type': 'dynamic'  # We'll handle both types
+                'filter_type': 'dynamic'
             })()
             
             try:
-                # Reconstruct the filter to get its description
+                # Reconstruct the filter to get its type description
                 filter_obj = create_filter_from_db(temp_filter_db)
-                if hasattr(filter_obj, 'get_desc'):
-                    description = filter_obj.get_desc()
+                
+                # Get the filter type description (without specific values)
+                if hasattr(filter_obj, 'config') and 'description' in filter_obj.config:
+                    # For DynamicGameFilter, use the base description without values
+                    base_desc = filter_obj.config['description']
+                    # Remove trailing colons and "more than"/"no more than" etc.
+                    if base_desc.endswith(':'):
+                        base_desc = base_desc[:-1]
+                    if base_desc.startswith('More than '):
+                        base_desc = base_desc.replace('More than ', '').strip()
+                        if base_desc.endswith('seasons'):
+                            base_desc = "More than X seasons"
+                    elif base_desc.startswith('No more than '):
+                        base_desc = base_desc.replace('No more than ', '').strip()
+                        if base_desc.endswith('seasons'):
+                            base_desc = "No more than X seasons"
+                    elif base_desc.startswith('Taller than'):
+                        base_desc = "Taller than X cm"
+                    elif base_desc.startswith('Smaller than'):
+                        base_desc = "Smaller than X cm"
+                    elif base_desc.startswith('Salary'):
+                        base_desc = "Salary more than X"
+                    
+                    description = base_desc
                 else:
+                    # For static filters, just use the class name
                     description = stat['filter_class']
+                    
             except:
                 # Fallback to class name if reconstruction fails
                 description = stat['filter_class']
             
-            detailed_stats.append({
-                'filter_class': stat['filter_class'],
-                'description': description,
-                'count': stat['count'],
-                'percentage': round((stat['count'] / total_count * 100), 1) if total_count > 0 else 0
-            })
+            # Group by the type description
+            key = f"{stat['filter_class']}_{description}"
+            if key not in filter_types:
+                filter_types[key] = {
+                    'filter_class': stat['filter_class'],
+                    'description': description,
+                    'count': 0
+                }
+            filter_types[key]['count'] += stat['count']
         
-        return detailed_stats
+        # Convert to list and calculate percentages
+        detailed_stats = list(filter_types.values())
+        total_count = sum(stat['count'] for stat in detailed_stats)
+        
+        for stat in detailed_stats:
+            stat['percentage'] = round((stat['count'] / total_count * 100), 1) if total_count > 0 else 0
+        
+        return sorted(detailed_stats, key=lambda x: x['count'], reverse=True)
     
     def get_detailed_recent_trends(self, total_days):
-        """Compare recent usage (last 7 days) with previous period using detailed descriptions"""
+        """Compare recent usage (last 7 days) with previous period using filter types"""
         from nbagrid_api_app.GameFilter import create_filter_from_db
         
         recent_cutoff = datetime.now().date() - timedelta(days=7)
         previous_cutoff = datetime.now().date() - timedelta(days=total_days)
         
-        # Recent usage (last 7 days) - group by class and config
+        # Get both periods data
         recent_usage = GameFilterDB.objects.filter(
             date__gte=recent_cutoff
         ).values('filter_class', 'filter_config').annotate(count=Count('id'))
         
-        # Previous period usage - group by class and config
         previous_usage = GameFilterDB.objects.filter(
             date__gte=previous_cutoff,
             date__lt=recent_cutoff
         ).values('filter_class', 'filter_config').annotate(count=Count('id'))
         
-        # Create dictionaries with unique keys based on class + config
-        def create_filter_key(item):
-            return f"{item['filter_class']}_{hash(str(item['filter_config']))}"
+        # Group both periods by filter type
+        def group_by_filter_type(usage_data):
+            filter_types = {}
+            for item in usage_data:
+                temp_filter_db = type('TempFilter', (), {
+                    'filter_class': item['filter_class'],
+                    'filter_config': item['filter_config'],
+                    'filter_type': 'dynamic'
+                })()
+                
+                try:
+                    filter_obj = create_filter_from_db(temp_filter_db)
+                    if hasattr(filter_obj, 'config') and 'description' in filter_obj.config:
+                        base_desc = filter_obj.config['description']
+                        if base_desc.endswith(':'):
+                            base_desc = base_desc[:-1]
+                        if base_desc.startswith('More than '):
+                            base_desc = base_desc.replace('More than ', '').strip()
+                            if base_desc.endswith('seasons'):
+                                base_desc = "More than X seasons"
+                        elif base_desc.startswith('No more than '):
+                            base_desc = base_desc.replace('No more than ', '').strip()
+                            if base_desc.endswith('seasons'):
+                                base_desc = "No more than X seasons"
+                        elif base_desc.startswith('Taller than'):
+                            base_desc = "Taller than X cm"
+                        elif base_desc.startswith('Smaller than'):
+                            base_desc = "Smaller than X cm"
+                        elif base_desc.startswith('Salary'):
+                            base_desc = "Salary more than X"
+                        description = base_desc
+                    else:
+                        description = item['filter_class']
+                except:
+                    description = item['filter_class']
+                
+                key = f"{item['filter_class']}_{description}"
+                if key not in filter_types:
+                    filter_types[key] = {
+                        'filter_class': item['filter_class'],
+                        'description': description,
+                        'count': 0
+                    }
+                filter_types[key]['count'] += item['count']
+            
+            return filter_types
         
-        recent_dict = {create_filter_key(item): item for item in recent_usage}
-        previous_dict = {create_filter_key(item): item for item in previous_usage}
+        recent_types = group_by_filter_type(recent_usage)
+        previous_types = group_by_filter_type(previous_usage)
         
         # Calculate trends
         trends = []
-        all_filter_keys = set(recent_dict.keys()) | set(previous_dict.keys())
+        all_keys = set(recent_types.keys()) | set(previous_types.keys())
         
-        for filter_key in all_filter_keys:
-            recent_item = recent_dict.get(filter_key)
-            previous_item = previous_dict.get(filter_key)
+        for key in all_keys:
+            recent_data = recent_types.get(key, {'count': 0})
+            previous_data = previous_types.get(key, {'count': 0})
             
-            recent_count = recent_item['count'] if recent_item else 0
-            previous_count = previous_item['count'] if previous_item else 0
+            recent_count = recent_data['count']
+            previous_count = previous_data['count']
             
-            # Get the filter info from whichever period has data
-            filter_info = recent_item or previous_item
-            
-            # Get detailed description
-            temp_filter_db = type('TempFilter', (), {
-                'filter_class': filter_info['filter_class'],
-                'filter_config': filter_info['filter_config'],
-                'filter_type': 'dynamic'
-            })()
-            
-            try:
-                filter_obj = create_filter_from_db(temp_filter_db)
-                description = filter_obj.get_desc() if hasattr(filter_obj, 'get_desc') else filter_info['filter_class']
-            except:
-                description = filter_info['filter_class']
+            # Get filter info from whichever period has data
+            filter_info = recent_data if recent_count > 0 else previous_data
             
             if previous_count > 0:
                 change_percent = round(((recent_count - previous_count) / previous_count * 100), 1)
@@ -475,7 +537,7 @@ class GameAdmin(GridBuilderAdmin):
             
             trends.append({
                 'filter_class': filter_info['filter_class'],
-                'description': description,
+                'description': filter_info['description'],
                 'recent_count': recent_count,
                 'previous_count': previous_count,
                 'change_percent': change_percent,
