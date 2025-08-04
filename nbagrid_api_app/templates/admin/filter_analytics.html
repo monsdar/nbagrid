@@ -1,0 +1,375 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static admin_urls %}
+
+{% block title %}{{ title }} | {{ site_title|default:_('Django site admin') }}{% endblock %}
+
+{% block extrahead %}
+<style>
+    .analytics-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+    
+    .analytics-header {
+        background: #f8f9fa;
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 30px;
+        border-left: 4px solid #007cba;
+    }
+    
+    .analytics-header h1 {
+        margin: 0 0 10px 0;
+        color: #333;
+    }
+    
+    .analytics-summary {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+        margin-bottom: 30px;
+    }
+    
+    .summary-card {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        border-left: 4px solid #007cba;
+    }
+    
+    .summary-card h3 {
+        margin: 0 0 10px 0;
+        color: #666;
+        font-size: 14px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .summary-card .value {
+        font-size: 24px;
+        font-weight: bold;
+        color: #333;
+    }
+    
+    .section {
+        background: white;
+        padding: 25px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 30px;
+    }
+    
+    .section h2 {
+        margin: 0 0 20px 0;
+        color: #333;
+        border-bottom: 2px solid #007cba;
+        padding-bottom: 10px;
+    }
+    
+    .filter-usage-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 15px;
+    }
+    
+    .filter-usage-table th,
+    .filter-usage-table td {
+        padding: 12px;
+        text-align: left;
+        border-bottom: 1px solid #ddd;
+    }
+    
+    .filter-usage-table th {
+        background-color: #f8f9fa;
+        font-weight: 600;
+        color: #333;
+    }
+    
+    .filter-usage-table tr:hover {
+        background-color: #f8f9fa;
+    }
+    
+    .percentage-bar {
+        background: #e9ecef;
+        height: 20px;
+        border-radius: 10px;
+        overflow: hidden;
+        margin: 5px 0;
+    }
+    
+    .percentage-fill {
+        background: linear-gradient(90deg, #007cba, #0056b3);
+        height: 100%;
+        border-radius: 10px;
+        transition: width 0.3s ease;
+    }
+    
+    .trend-up {
+        color: #28a745;
+        font-weight: bold;
+    }
+    
+    .trend-down {
+        color: #dc3545;
+        font-weight: bold;
+    }
+    
+    .trend-stable {
+        color: #6c757d;
+    }
+    
+    .position-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 5px;
+        margin: 10px 0;
+    }
+    
+    .position-cell {
+        background: #f8f9fa;
+        padding: 10px;
+        text-align: center;
+        border-radius: 4px;
+        border: 2px solid transparent;
+    }
+    
+    .position-cell.active {
+        background: #007cba;
+        color: white;
+        border-color: #0056b3;
+    }
+    
+    .time-filter {
+        margin-bottom: 20px;
+    }
+    
+    .time-filter select {
+        padding: 8px 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        background: white;
+    }
+    
+    .daily-pattern {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 15px;
+        margin-top: 15px;
+    }
+    
+    .daily-item {
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 6px;
+        text-align: center;
+    }
+    
+    .daily-item .date {
+        font-weight: bold;
+        color: #333;
+        margin-bottom: 8px;
+    }
+    
+    .daily-item .count {
+        color: #007cba;
+        font-size: 18px;
+        font-weight: bold;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="analytics-container">
+    <div class="analytics-header">
+        <h1>{{ title }}</h1>
+        <p>Analyze which filters have been picked most by the GameBuilder to optimize game generation</p>
+        
+        <div class="time-filter">
+            <label for="days-select">Time Period:</label>
+            <select id="days-select" onchange="updateTimeRange(this.value)">
+                <option value="7" {% if days == 7 %}selected{% endif %}>Last 7 days</option>
+                <option value="30" {% if days == 30 %}selected{% endif %}>Last 30 days</option>
+                <option value="90" {% if days == 90 %}selected{% endif %}>Last 90 days</option>
+                <option value="365" {% if days == 365 %}selected{% endif %}>Last year</option>
+            </select>
+        </div>
+    </div>
+    
+    <div class="analytics-summary">
+        <div class="summary-card">
+            <h3>Total Games</h3>
+            <div class="value">{{ total_games }}</div>
+        </div>
+        <div class="summary-card">
+            <h3>Unique Filters</h3>
+            <div class="value">{{ filter_usage|length }}</div>
+        </div>
+        <div class="summary-card">
+            <h3>Static Filters</h3>
+            <div class="value">{{ static_usage|length }}</div>
+        </div>
+        <div class="summary-card">
+            <h3>Dynamic Filters</h3>
+            <div class="value">{{ dynamic_usage|length }}</div>
+        </div>
+    </div>
+    
+    <div class="section">
+        <h2>Overall Filter Usage</h2>
+        <p>Which filters are being selected most frequently across all games</p>
+        <table class="filter-usage-table">
+            <thead>
+                <tr>
+                    <th>Filter Class</th>
+                    <th>Usage Count</th>
+                    <th>Percentage</th>
+                    <th>Visual</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for filter in filter_usage %}
+                <tr>
+                    <td><strong>{{ filter.filter_class }}</strong></td>
+                    <td>{{ filter.count }}</td>
+                    <td>{{ filter.percentage }}%</td>
+                    <td>
+                        <div class="percentage-bar">
+                            <div class="percentage-fill" style="width: {{ filter.percentage }}%"></div>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <div class="section">
+        <h2>Static vs Dynamic Filter Usage</h2>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">
+            <div>
+                <h3>Static Filters (Rows)</h3>
+                <table class="filter-usage-table">
+                    <thead>
+                        <tr>
+                            <th>Filter</th>
+                            <th>Count</th>
+                            <th>%</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for filter in static_usage %}
+                        <tr>
+                            <td>{{ filter.filter_class }}</td>
+                            <td>{{ filter.count }}</td>
+                            <td>{{ filter.percentage }}%</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div>
+                <h3>Dynamic Filters (Columns)</h3>
+                <table class="filter-usage-table">
+                    <thead>
+                        <tr>
+                            <th>Filter</th>
+                            <th>Count</th>
+                            <th>%</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for filter in dynamic_usage %}
+                        <tr>
+                            <td>{{ filter.filter_class }}</td>
+                            <td>{{ filter.count }}</td>
+                            <td>{{ filter.percentage }}%</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <div class="section">
+        <h2>Recent Trends</h2>
+        <p>How filter usage has changed in the last 7 days compared to the previous period</p>
+        <table class="filter-usage-table">
+            <thead>
+                <tr>
+                    <th>Filter Class</th>
+                    <th>Recent (7 days)</th>
+                    <th>Previous Period</th>
+                    <th>Change</th>
+                    <th>Trend</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for trend in recent_trends %}
+                <tr>
+                    <td><strong>{{ trend.filter_class }}</strong></td>
+                    <td>{{ trend.recent_count }}</td>
+                    <td>{{ trend.previous_count }}</td>
+                    <td class="trend-{{ trend.trend }}">
+                        {% if trend.change_percent > 0 %}+{% endif %}{{ trend.change_percent }}%
+                    </td>
+                    <td>
+                        {% if trend.trend == 'up' %}
+                            <span class="trend-up">↗ Increasing</span>
+                        {% elif trend.trend == 'down' %}
+                            <span class="trend-down">↘ Decreasing</span>
+                        {% else %}
+                            <span class="trend-stable">→ Stable</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <div class="section">
+        <h2>Position Analysis</h2>
+        <p>How often each filter appears in different grid positions</p>
+        {% for analysis in position_analysis %}
+        <div style="margin-bottom: 25px; padding: 15px; background: #f8f9fa; border-radius: 6px;">
+            <h4>{{ analysis.filter_class }} ({{ analysis.total_usage }} total uses)</h4>
+            <div class="position-grid">
+                {% for pos in analysis.positions %}
+                <div class="position-cell {% if pos.count > 0 %}active{% endif %}">
+                    <div>Position {{ pos.position }}</div>
+                    <div><strong>{{ pos.count }}</strong> ({{ pos.percentage }}%)</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <div class="section">
+        <h2>Daily Patterns</h2>
+        <p>Filter usage over the last 14 days</p>
+        <div class="daily-pattern">
+            {% for day in daily_patterns %}
+            <div class="daily-item">
+                <div class="date">{{ day.date|date:"M j" }}</div>
+                <div class="count">{{ day.total_filters }}</div>
+                <div style="font-size: 12px; color: #666; margin-top: 5px;">
+                    S: {{ day.static_count }} | D: {{ day.dynamic_count }}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<script>
+function updateTimeRange(days) {
+    const url = new URL(window.location);
+    url.searchParams.set('days', days);
+    window.location = url;
+}
+</script>
+{% endblock %}
