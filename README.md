@@ -34,6 +34,41 @@ make runserver      # Start development server
 5. Run migrations: `python manage.py migrate`
 6. Start the development server: `python manage.py runserver`
 
+### Admin User Setup
+
+The application supports automatic creation of admin users from environment variables, making it easy to set up admin access in different environments.
+
+#### Using Django's Standard Environment Variables (Recommended)
+```bash
+export DJANGO_SUPERUSER_USERNAME=admin
+export DJANGO_SUPERUSER_PASSWORD=your_secure_password
+export DJANGO_SUPERUSER_EMAIL=admin@example.com  # Optional
+```
+
+#### Using Custom Environment Variables (Alternative)
+```bash
+export DJANGO_ADMIN_USER=admin
+export DJANGO_ADMIN_PASSWORD=your_secure_password
+```
+
+#### Automatic Admin User Creation
+When environment variables are set, an admin user will be created automatically when:
+- The Django application starts (if no superuser exists)
+- You run the management command: `python manage.py create_admin_user`
+
+#### Manual Admin User Creation
+You can also create admin users manually using the management command:
+```bash
+# Create from environment variables
+python manage.py create_admin_user
+
+# Force creation even if superuser exists
+python manage.py create_admin_user --force
+
+# Traditional Django method
+python manage.py createsuperuser
+```
+
 #### Available Make Commands
 Run `make help` to see all available commands, including:
 - `make test` - Run default tests
