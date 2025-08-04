@@ -18,7 +18,7 @@ class GameFilterDBAdmin(admin.ModelAdmin):
     def get_urls(self):
         urls = super().get_urls()
         custom_urls = [
-            path('analytics/', self.admin_site.admin_view(self.analytics_view), name='gamefilterdb_analytics'),
+            path('filter-analytics/', self.admin_site.admin_view(self.analytics_view), name='gamefilterdb_analytics'),
         ]
         return custom_urls + urls
     
@@ -172,5 +172,5 @@ class GameFilterDBAdmin(admin.ModelAdmin):
     def changelist_view(self, request, extra_context=None):
         """Add analytics link to the changelist view"""
         extra_context = extra_context or {}
-        extra_context['analytics_url'] = 'analytics/'
+        extra_context['analytics_url'] = 'filter-analytics/'
         return super().changelist_view(request, extra_context)
