@@ -5,23 +5,76 @@
 
 {% block extrahead %}
 <style>
+    :root {
+        --primary-color: #007cba;
+        --primary-dark: #0056b3;
+        --success-color: #28a745;
+        --danger-color: #dc3545;
+        --muted-color: #6c757d;
+        
+        /* Light mode colors */
+        --bg-primary: #ffffff;
+        --bg-secondary: #f8f9fa;
+        --bg-tertiary: #e9ecef;
+        --text-primary: #333333;
+        --text-secondary: #666666;
+        --text-muted: #6c757d;
+        --border-color: #dddddd;
+        --shadow: rgba(0, 0, 0, 0.1);
+    }
+    
+    /* Dark mode detection and colors */
+    @media (prefers-color-scheme: dark) {
+        :root {
+            --bg-primary: #2d3748;
+            --bg-secondary: #1a202c;
+            --bg-tertiary: #4a5568;
+            --text-primary: #e2e8f0;
+            --text-secondary: #cbd5e0;
+            --text-muted: #a0aec0;
+            --border-color: #4a5568;
+            --shadow: rgba(0, 0, 0, 0.3);
+        }
+    }
+    
+    /* Django admin dark mode support */
+    .theme-dark,
+    [data-theme="dark"],
+    body.dark-mode {
+        --bg-primary: #2d3748;
+        --bg-secondary: #1a202c;
+        --bg-tertiary: #4a5568;
+        --text-primary: #e2e8f0;
+        --text-secondary: #cbd5e0;
+        --text-muted: #a0aec0;
+        --border-color: #4a5568;
+        --shadow: rgba(0, 0, 0, 0.3);
+    }
+    
     .analytics-container {
         max-width: 1200px;
         margin: 0 auto;
         padding: 20px;
+        color: var(--text-primary);
     }
     
     .analytics-header {
-        background: #f8f9fa;
+        background: var(--bg-secondary);
         padding: 20px;
         border-radius: 8px;
         margin-bottom: 30px;
-        border-left: 4px solid #007cba;
+        border-left: 4px solid var(--primary-color);
+        box-shadow: 0 2px 4px var(--shadow);
     }
     
     .analytics-header h1 {
         margin: 0 0 10px 0;
-        color: #333;
+        color: var(--text-primary);
+    }
+    
+    .analytics-header p {
+        color: var(--text-secondary);
+        margin-bottom: 15px;
     }
     
     .analytics-summary {
@@ -32,16 +85,17 @@
     }
     
     .summary-card {
-        background: white;
+        background: var(--bg-primary);
         padding: 20px;
         border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        border-left: 4px solid #007cba;
+        box-shadow: 0 2px 4px var(--shadow);
+        border-left: 4px solid var(--primary-color);
+        border: 1px solid var(--border-color);
     }
     
     .summary-card h3 {
         margin: 0 0 10px 0;
-        color: #666;
+        color: var(--text-secondary);
         font-size: 14px;
         text-transform: uppercase;
         letter-spacing: 0.5px;
@@ -50,49 +104,67 @@
     .summary-card .value {
         font-size: 24px;
         font-weight: bold;
-        color: #333;
+        color: var(--text-primary);
     }
     
     .section {
-        background: white;
+        background: var(--bg-primary);
         padding: 25px;
         border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        box-shadow: 0 2px 4px var(--shadow);
         margin-bottom: 30px;
+        border: 1px solid var(--border-color);
     }
     
     .section h2 {
         margin: 0 0 20px 0;
-        color: #333;
-        border-bottom: 2px solid #007cba;
+        color: var(--text-primary);
+        border-bottom: 2px solid var(--primary-color);
         padding-bottom: 10px;
+    }
+    
+    .section h3 {
+        color: var(--text-primary);
+        margin-bottom: 15px;
+    }
+    
+    .section p {
+        color: var(--text-secondary);
+        margin-bottom: 15px;
     }
     
     .filter-usage-table {
         width: 100%;
         border-collapse: collapse;
         margin-top: 15px;
+        background: var(--bg-primary);
     }
     
     .filter-usage-table th,
     .filter-usage-table td {
         padding: 12px;
         text-align: left;
-        border-bottom: 1px solid #ddd;
+        border-bottom: 1px solid var(--border-color);
+        color: var(--text-primary);
     }
     
     .filter-usage-table th {
-        background-color: #f8f9fa;
+        background-color: var(--bg-secondary);
         font-weight: 600;
-        color: #333;
+        color: var(--text-primary);
     }
     
     .filter-usage-table tr:hover {
-        background-color: #f8f9fa;
+        background-color: var(--bg-secondary);
+    }
+    
+    .filter-usage-table em {
+        color: var(--text-muted);
+        font-size: 0.9em;
     }
     
     .percentage-bar {
-        background: #e9ecef;
+        background: var(--bg-tertiary);
         height: 20px;
         border-radius: 10px;
         overflow: hidden;
@@ -100,82 +172,66 @@
     }
     
     .percentage-fill {
-        background: linear-gradient(90deg, #007cba, #0056b3);
+        background: linear-gradient(90deg, var(--primary-color), var(--primary-dark));
         height: 100%;
         border-radius: 10px;
         transition: width 0.3s ease;
     }
     
     .trend-up {
-        color: #28a745;
+        color: var(--success-color);
         font-weight: bold;
     }
     
     .trend-down {
-        color: #dc3545;
+        color: var(--danger-color);
         font-weight: bold;
     }
     
     .trend-stable {
-        color: #6c757d;
-    }
-    
-    .position-grid {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 5px;
-        margin: 10px 0;
-    }
-    
-    .position-cell {
-        background: #f8f9fa;
-        padding: 10px;
-        text-align: center;
-        border-radius: 4px;
-        border: 2px solid transparent;
-    }
-    
-    .position-cell.active {
-        background: #007cba;
-        color: white;
-        border-color: #0056b3;
+        color: var(--muted-color);
     }
     
     .time-filter {
         margin-bottom: 20px;
     }
     
+    .time-filter label {
+        color: var(--text-primary);
+        margin-right: 10px;
+    }
+    
     .time-filter select {
         padding: 8px 12px;
-        border: 1px solid #ddd;
+        border: 1px solid var(--border-color);
         border-radius: 4px;
-        background: white;
+        background: var(--bg-primary);
+        color: var(--text-primary);
     }
     
-    .daily-pattern {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-        gap: 15px;
-        margin-top: 15px;
+    .time-filter select:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 2px rgba(0, 124, 186, 0.2);
     }
     
-    .daily-item {
-        background: #f8f9fa;
-        padding: 15px;
-        border-radius: 6px;
-        text-align: center;
+    /* Ensure good contrast for all text elements */
+    strong {
+        color: var(--text-primary);
     }
     
-    .daily-item .date {
-        font-weight: bold;
-        color: #333;
-        margin-bottom: 8px;
+    /* Handle Django admin theme detection */
+    body.theme-dark .analytics-container,
+    body[data-theme="dark"] .analytics-container,
+    .theme-dark .analytics-container {
+        color: var(--text-primary);
     }
     
-    .daily-item .count {
-        color: #007cba;
-        font-size: 18px;
-        font-weight: bold;
+    /* Additional dark mode support for various admin themes */
+    @media (prefers-color-scheme: dark) {
+        .analytics-container * {
+            color-scheme: dark;
+        }
     }
 </style>
 {% endblock %}
