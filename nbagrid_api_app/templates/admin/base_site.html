@@ -1,0 +1,18 @@
+{% extends "admin/base.html" %}
+{% load i18n static %}
+
+{% block title %}{{ title }} | {{ site_title|default:_('Django site admin') }}{% endblock %}
+
+{% block branding %}
+<h1 id="site-name">
+    <a href="{% url 'admin:index' %}">{{ site_header|default:_('Django administration') }}</a>
+</h1>
+{% endblock %}
+
+{% block nav-global %}
+<div style="float: right; margin-top: 5px;">
+    <a href="{% url 'index' %}" style="color: #ffc; text-decoration: none; font-weight: bold; background: rgba(255,255,255,0.1); padding: 5px 10px; border-radius: 3px;">
+        ← Back to NBAGrid
+    </a>
+</div>
+{% endblock %}
