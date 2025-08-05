@@ -34,6 +34,17 @@ class GameFilter(object):
     def get_detailed_desc(self) -> str:
         pass
 
+    def get_filter_type_description(self) -> str:
+        """Return a normalized type description for this filter.
+        
+        This should return a consistent identifier for the filter type that groups
+        similar filters together (e.g., all DynamicGameFilters with the same base
+        description should return the same type description).
+        
+        Default implementation returns the class name.
+        """
+        return self.__class__.__name__
+
     def __str__(self) -> str:
         return self.get_desc()
 
@@ -118,6 +129,20 @@ class DynamicGameFilter(GameFilter):
             self.current_value = self.config["initial_min_value"]
         if "initial_max_value" in self.config and self.current_value > self.config["initial_max_value"]:
             self.current_value = self.config["initial_max_value"]
+
+    def get_filter_type_description(self) -> str:
+        """Return a normalized type description for this dynamic filter."""
+        if 'field' not in self.config:
+            return self.__class__.__name__
+        
+        field = self.config['field']
+        comparison_type = self.config.get('comparison_type', 'higher')
+        
+        # Create a consistent type description based on field and comparison
+        if comparison_type == 'lower':
+            return f"{self.__class__.__name__}_{field}_lower"
+        else:
+            return f"{self.__class__.__name__}_{field}_higher"
 
 
 class PositionFilter(GameFilter):
@@ -513,6 +538,16 @@ class TeamCountFilter(DynamicGameFilter):
             f"This filter selects players who have played for {comparison_str} {self.current_value} different NBA teams "
             f"during their career. This includes all franchises a player has at least one game for."
         )
+
+    def get_filter_type_description(self) -> str:
+        """Return a normalized type description for team count filters."""
+        # TeamCountFilter doesn't use a field, it counts teams directly
+        comparison_type = self.config.get('comparison_type', 'higher')
+        
+        if comparison_type == 'lower':
+            return f"{self.__class__.__name__}_teams_lower"
+        else:
+            return f"{self.__class__.__name__}_teams_higher"
 
 
 def get_dynamic_filters(seed: int = 0) -> list[DynamicGameFilter]:

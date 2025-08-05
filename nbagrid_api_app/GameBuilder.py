@@ -57,7 +57,7 @@ class GameBuilder(object):
             days: Number of days to look back for usage
 
         Returns:
-            Dict mapping filter class names to their weights (higher weight = less likely to be selected)
+            Dict mapping filter type descriptions to their weights (higher weight = less likely to be selected)
         """
         # Get recent filter usage from GameFilterDB
         cutoff_date = datetime.now().date() - timedelta(days=days)
@@ -67,25 +67,45 @@ class GameBuilder(object):
 
         # Initialize weights for all filters
         for filter_obj in filter_pool:
-            filter_class = filter_obj.__class__.__name__
-            weights[filter_class] = 1.0  # Base weight
+            filter_type_desc = filter_obj.get_filter_type_description()
+            weights[filter_type_desc] = 1.0  # Base weight
 
-            # Count recent usage
-            usage_count = recent_usage.filter(filter_class=filter_class).count()
+            # Count recent usage by finding filters with the same type description
+            usage_count = 0
+            for usage_record in recent_usage:
+                # Create a temporary filter to get its type description
+                try:
+                    temp_filter = create_filter_from_db(usage_record)
+                    if temp_filter.get_filter_type_description() == filter_type_desc:
+                        usage_count += 1
+                except:
+                    # Fallback to class name comparison if filter reconstruction fails
+                    if usage_record.filter_class == filter_obj.__class__.__name__:
+                        usage_count += 1
+
             if usage_count > 0:
                 # Increase weight based on usage (more usage = higher weight = less likely to be selected)
-                weights[filter_class] += usage_count * 0.5
+                weights[filter_type_desc] += usage_count * 0.5
 
                 # Add extra weight for very recent usage (last 2 days)
-                very_recent = recent_usage.filter(
-                    filter_class=filter_class, date__gte=datetime.now().date() - timedelta(days=2)
-                ).count()
-                if very_recent > 0:
-                    weights[filter_class] += very_recent * 1.0
+                very_recent_count = 0
+                very_recent_usage = recent_usage.filter(date__gte=datetime.now().date() - timedelta(days=2))
+                for usage_record in very_recent_usage:
+                    try:
+                        temp_filter = create_filter_from_db(usage_record)
+                        if temp_filter.get_filter_type_description() == filter_type_desc:
+                            very_recent_count += 1
+                    except:
+                        if usage_record.filter_class == filter_obj.__class__.__name__:
+                            very_recent_count += 1
+                
+                if very_recent_count > 0:
+                    weights[filter_type_desc] += very_recent_count * 1.0
 
-            # Adjust weight based on high priority filters
+            # Adjust weight based on high priority filters (still using class names for backward compatibility)
+            filter_class = filter_obj.__class__.__name__
             if filter_class in self.high_priority_filters:
-                weights[filter_class] = self.high_priority_filters[filter_class]
+                weights[filter_type_desc] = self.high_priority_filters[filter_class]
 
         return weights
 
@@ -104,7 +124,7 @@ class GameBuilder(object):
         weights = self.get_filter_weights(filter_pool, filter_type)
 
         # Convert weights to list matching filter_pool order
-        weight_list = [weights[f.__class__.__name__] for f in filter_pool]
+        weight_list = [weights[f.get_filter_type_description()] for f in filter_pool]
 
         # Select filters using weighted random choice
         selected_filters = []
