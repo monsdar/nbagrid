@@ -2,15 +2,14 @@
 
 import copy
 import logging
-from datetime import datetime
+from collections import defaultdict
+from datetime import datetime, timedelta
 
 from django.contrib import admin
+from django.db.models import Count, Q
 from django.http import HttpResponseRedirect
 from django.shortcuts import render
 from django.urls import path, reverse
-from django.db.models import Count, Q
-from collections import defaultdict
-from datetime import datetime, timedelta
 
 from nbagrid_api_app.admin.gridbuilder_admin import GridBuilderAdmin
 from nbagrid_api_app.models import GameCompletion, GameFilterDB, GameGrid, GameResult, GridMetadata, LastUpdated
@@ -373,78 +372,71 @@ class GameAdmin(GridBuilderAdmin):
         
         return context
     
-    def get_detailed_filter_usage_stats(self, queryset):
-        """Calculate filter usage statistics grouped by filter type"""
+    def _extract_filter_type_description(self, filter_class, filter_config):
+        """Extract a normalized filter type description from filter configuration"""
         from nbagrid_api_app.GameFilter import create_filter_from_db
         
+        # Create a temporary GameFilterDB object to reconstruct the filter
+        temp_filter_db = type('TempFilter', (), {
+            'filter_class': filter_class,
+            'filter_config': filter_config,
+            'filter_type': 'dynamic'
+        })()
+        
+        try:
+            # Reconstruct the filter to get its type description
+            filter_obj = create_filter_from_db(temp_filter_db)
+            
+            # Get the filter type description (without specific values)
+            if hasattr(filter_obj, 'config') and 'description' in filter_obj.config:
+                # For DynamicGameFilter, use the base description without values
+                base_desc = filter_obj.config['description']
+                # Remove trailing colons
+                if base_desc.endswith(':'):
+                    base_desc = base_desc[:-1]
+                
+                # Normalize common filter patterns
+                if base_desc.startswith('More than '):
+                    remaining = base_desc.replace('More than ', '').strip()
+                    if remaining == '' or remaining == 'seasons':
+                        base_desc = "More than X seasons"
+                    else:
+                        base_desc = f"More than X {remaining}"
+                elif base_desc.startswith('No more than '):
+                    remaining = base_desc.replace('No more than ', '').strip()
+                    if remaining == '' or remaining == 'seasons':
+                        base_desc = "No more than X seasons"
+                    else:
+                        base_desc = f"No more than X {remaining}"
+                elif base_desc.startswith('Taller than'):
+                    base_desc = "Taller than X cm"
+                elif base_desc.startswith('Smaller than'):
+                    base_desc = "Smaller than X cm"
+                elif base_desc.startswith('Salary'):
+                    base_desc = "Salary more than X"
+                
+                # Debug fallback: if description is empty, show debug info
+                if not base_desc or base_desc.strip() == "":
+                    return f"[DEBUG] {filter_class} - Config: {str(filter_config)[:100]}..."
+                
+                return base_desc
+            else:
+                # For static filters, just use the class name
+                return filter_class
+                
+        except:
+            # Fallback to class name if reconstruction fails
+            return filter_class
+
+    def get_detailed_filter_usage_stats(self, queryset):
+        """Calculate filter usage statistics grouped by filter type"""
         # Group by filter_class and filter_config to get all configurations
         usage_data = queryset.values('filter_class', 'filter_config').annotate(
             count=Count('id')
         )
         
         # Group by filter type (not specific configuration)
-        filter_types = {}
-        
-        for stat in usage_data:
-            # Create a temporary GameFilterDB object to reconstruct the filter
-            temp_filter_db = type('TempFilter', (), {
-                'filter_class': stat['filter_class'],
-                'filter_config': stat['filter_config'],
-                'filter_type': 'dynamic'
-            })()
-            
-            try:
-                # Reconstruct the filter to get its type description
-                filter_obj = create_filter_from_db(temp_filter_db)
-                
-                # Get the filter type description (without specific values)
-                if hasattr(filter_obj, 'config') and 'description' in filter_obj.config:
-                    # For DynamicGameFilter, use the base description without values
-                    base_desc = filter_obj.config['description']
-                    # Remove trailing colons and "more than"/"no more than" etc.
-                    if base_desc.endswith(':'):
-                        base_desc = base_desc[:-1]
-                    if base_desc.startswith('More than '):
-                        remaining = base_desc.replace('More than ', '').strip()
-                        if remaining == '' or remaining == 'seasons':
-                            base_desc = "More than X seasons"
-                        else:
-                            base_desc = f"More than X {remaining}"
-                    elif base_desc.startswith('No more than '):
-                        remaining = base_desc.replace('No more than ', '').strip()
-                        if remaining == '' or remaining == 'seasons':
-                            base_desc = "No more than X seasons"
-                        else:
-                            base_desc = f"No more than X {remaining}"
-                    elif base_desc.startswith('Taller than'):
-                        base_desc = "Taller than X cm"
-                    elif base_desc.startswith('Smaller than'):
-                        base_desc = "Smaller than X cm"
-                    elif base_desc.startswith('Salary'):
-                        base_desc = "Salary more than X"
-                    
-                    description = base_desc
-                else:
-                    # For static filters, just use the class name
-                    description = stat['filter_class']
-                    
-            except:
-                # Fallback to class name if reconstruction fails
-                description = stat['filter_class']
-            
-            # Debug fallback: if description is empty, show debug info
-            if not description or description.strip() == "":
-                description = f"[DEBUG] {stat['filter_class']} - Config: {str(stat['filter_config'])[:100]}..."
-            
-            # Group by the type description
-            key = f"{stat['filter_class']}_{description}"
-            if key not in filter_types:
-                filter_types[key] = {
-                    'filter_class': stat['filter_class'],
-                    'description': description,
-                    'count': 0
-                }
-            filter_types[key]['count'] += stat['count']
+        filter_types = self._group_usage_by_filter_type(usage_data)
         
         # Convert to list and calculate percentages
         detailed_stats = list(filter_types.values())
@@ -455,10 +447,28 @@ class GameAdmin(GridBuilderAdmin):
         
         return sorted(detailed_stats, key=lambda x: x['count'], reverse=True)
     
+    def _group_usage_by_filter_type(self, usage_data):
+        """Group usage data by filter type description"""
+        filter_types = {}
+        for item in usage_data:
+            description = self._extract_filter_type_description(
+                item['filter_class'], 
+                item['filter_config']
+            )
+            
+            key = f"{item['filter_class']}_{description}"
+            if key not in filter_types:
+                filter_types[key] = {
+                    'filter_class': item['filter_class'],
+                    'description': description,
+                    'count': 0
+                }
+            filter_types[key]['count'] += item['count']
+        
+        return filter_types
+
     def get_detailed_recent_trends(self, total_days):
         """Compare recent usage (last 7 days) with previous period using filter types"""
-        from nbagrid_api_app.GameFilter import create_filter_from_db
-        
         recent_cutoff = datetime.now().date() - timedelta(days=7)
         previous_cutoff = datetime.now().date() - timedelta(days=total_days)
         
@@ -473,62 +483,8 @@ class GameAdmin(GridBuilderAdmin):
         ).values('filter_class', 'filter_config').annotate(count=Count('id'))
         
         # Group both periods by filter type
-        def group_by_filter_type(usage_data):
-            filter_types = {}
-            for item in usage_data:
-                temp_filter_db = type('TempFilter', (), {
-                    'filter_class': item['filter_class'],
-                    'filter_config': item['filter_config'],
-                    'filter_type': 'dynamic'
-                })()
-                
-                try:
-                    filter_obj = create_filter_from_db(temp_filter_db)
-                    if hasattr(filter_obj, 'config') and 'description' in filter_obj.config:
-                        base_desc = filter_obj.config['description']
-                        if base_desc.endswith(':'):
-                            base_desc = base_desc[:-1]
-                        if base_desc.startswith('More than '):
-                            remaining = base_desc.replace('More than ', '').strip()
-                            if remaining == '' or remaining == 'seasons':
-                                base_desc = "More than X seasons"
-                            else:
-                                base_desc = f"More than X {remaining}"
-                        elif base_desc.startswith('No more than '):
-                            remaining = base_desc.replace('No more than ', '').strip()
-                            if remaining == '' or remaining == 'seasons':
-                                base_desc = "No more than X seasons"
-                            else:
-                                base_desc = f"No more than X {remaining}"
-                        elif base_desc.startswith('Taller than'):
-                            base_desc = "Taller than X cm"
-                        elif base_desc.startswith('Smaller than'):
-                            base_desc = "Smaller than X cm"
-                        elif base_desc.startswith('Salary'):
-                            base_desc = "Salary more than X"
-                        description = base_desc
-                    else:
-                        description = item['filter_class']
-                except:
-                    description = item['filter_class']
-                
-                # Debug fallback: if description is empty, show debug info
-                if not description or description.strip() == "":
-                    description = f"[DEBUG] {item['filter_class']} - Config: {str(item['filter_config'])[:100]}..."
-                
-                key = f"{item['filter_class']}_{description}"
-                if key not in filter_types:
-                    filter_types[key] = {
-                        'filter_class': item['filter_class'],
-                        'description': description,
-                        'count': 0
-                    }
-                filter_types[key]['count'] += item['count']
-            
-            return filter_types
-        
-        recent_types = group_by_filter_type(recent_usage)
-        previous_types = group_by_filter_type(previous_usage)
+        recent_types = self._group_usage_by_filter_type(recent_usage)
+        previous_types = self._group_usage_by_filter_type(previous_usage)
         
         # Calculate trends
         trends = []
