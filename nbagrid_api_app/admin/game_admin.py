@@ -405,13 +405,17 @@ class GameAdmin(GridBuilderAdmin):
                     if base_desc.endswith(':'):
                         base_desc = base_desc[:-1]
                     if base_desc.startswith('More than '):
-                        base_desc = base_desc.replace('More than ', '').strip()
-                        if base_desc.endswith('seasons'):
+                        remaining = base_desc.replace('More than ', '').strip()
+                        if remaining == '' or remaining == 'seasons':
                             base_desc = "More than X seasons"
+                        else:
+                            base_desc = f"More than X {remaining}"
                     elif base_desc.startswith('No more than '):
-                        base_desc = base_desc.replace('No more than ', '').strip()
-                        if base_desc.endswith('seasons'):
+                        remaining = base_desc.replace('No more than ', '').strip()
+                        if remaining == '' or remaining == 'seasons':
                             base_desc = "No more than X seasons"
+                        else:
+                            base_desc = f"No more than X {remaining}"
                     elif base_desc.startswith('Taller than'):
                         base_desc = "Taller than X cm"
                     elif base_desc.startswith('Smaller than'):
@@ -485,13 +489,17 @@ class GameAdmin(GridBuilderAdmin):
                         if base_desc.endswith(':'):
                             base_desc = base_desc[:-1]
                         if base_desc.startswith('More than '):
-                            base_desc = base_desc.replace('More than ', '').strip()
-                            if base_desc.endswith('seasons'):
+                            remaining = base_desc.replace('More than ', '').strip()
+                            if remaining == '' or remaining == 'seasons':
                                 base_desc = "More than X seasons"
+                            else:
+                                base_desc = f"More than X {remaining}"
                         elif base_desc.startswith('No more than '):
-                            base_desc = base_desc.replace('No more than ', '').strip()
-                            if base_desc.endswith('seasons'):
+                            remaining = base_desc.replace('No more than ', '').strip()
+                            if remaining == '' or remaining == 'seasons':
                                 base_desc = "No more than X seasons"
+                            else:
+                                base_desc = f"No more than X {remaining}"
                         elif base_desc.startswith('Taller than'):
                             base_desc = "Taller than X cm"
                         elif base_desc.startswith('Smaller than'):
