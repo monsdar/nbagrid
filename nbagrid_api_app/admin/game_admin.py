@@ -2,9 +2,11 @@
 
 import copy
 import logging
-from datetime import datetime
+from collections import defaultdict
+from datetime import datetime, timedelta
 
 from django.contrib import admin
+from django.db.models import Count, Q
 from django.http import HttpResponseRedirect
 from django.shortcuts import render
 from django.urls import path, reverse
@@ -47,6 +49,7 @@ class GameAdmin(GridBuilderAdmin):
                 self.open_in_gridbuilder,
                 name="nbagrid_api_app_gamegrid_open_in_gridbuilder",
             ),
+            path("filter_analytics/", self.filter_analytics_view, name="nbagrid_api_app_gamegrid_filter_analytics"),
         ]
         return my_urls + urls
 
@@ -327,6 +330,193 @@ class GameAdmin(GridBuilderAdmin):
         except Exception as e:
             self.message_user(request, f"Error opening game in GridBuilder: {str(e)}", level="error")
             return HttpResponseRedirect(reverse("admin:nbagrid_api_app_gamegrid_view_game_dates"))
+    
+    def filter_analytics_view(self, request):
+        """Display filter usage analytics"""
+        context = self.get_analytics_context(request)
+        return render(request, 'admin/filter_analytics.html', context)
+    
+    def get_analytics_context(self, request):
+        """Generate analytics data for the template"""
+        # Get time range from request parameters (default to last 30 days)
+        days = int(request.GET.get('days', 30))
+        cutoff_date = datetime.now().date() - timedelta(days=days)
+        
+        # Base queryset for the time period
+        filters_queryset = GameFilterDB.objects.filter(date__gte=cutoff_date)
+        
+        # Overall filter usage statistics with detailed descriptions
+        filter_usage = self.get_detailed_filter_usage_stats(filters_queryset)
+        
+        # Filter usage by type (static vs dynamic) with detailed descriptions
+        static_usage = self.get_detailed_filter_usage_stats(filters_queryset.filter(filter_type='static'))
+        dynamic_usage = self.get_detailed_filter_usage_stats(filters_queryset.filter(filter_type='dynamic'))
+        
+        # Recent trends (last 7 days vs previous period)
+        recent_trends = self.get_detailed_recent_trends(days)
+        
+        context = {
+            'title': 'GameBuilder Filter Analytics',
+            'days': days,
+            'total_games': filters_queryset.values('date').distinct().count(),
+            'filter_usage': filter_usage,
+            'static_usage': static_usage,
+            'dynamic_usage': dynamic_usage,
+            'recent_trends': recent_trends,
+            'opts': self.model._meta,
+            'cl': self,  # For admin template compatibility
+            'has_add_permission': False,
+            'has_change_permission': False,
+            'has_delete_permission': False,
+        }
+        
+        return context
+    
+    def _extract_filter_type_description(self, filter_class, filter_config):
+        """Extract a normalized filter type description from filter configuration"""
+        from nbagrid_api_app.GameFilter import create_filter_from_db
+        
+        # Create a temporary GameFilterDB object to reconstruct the filter
+        temp_filter_db = type('TempFilter', (), {
+            'filter_class': filter_class,
+            'filter_config': filter_config,
+            'filter_type': 'dynamic'
+        })()
+        
+        try:
+            # Reconstruct the filter to get its type description
+            filter_obj = create_filter_from_db(temp_filter_db)
+            
+            # Get the filter type description (without specific values)
+            if hasattr(filter_obj, 'config') and 'description' in filter_obj.config:
+                # For DynamicGameFilter, use the base description without values
+                base_desc = filter_obj.config['description']
+                # Remove trailing colons
+                if base_desc.endswith(':'):
+                    base_desc = base_desc[:-1]
+                
+                # Normalize common filter patterns
+                if base_desc.startswith('More than '):
+                    remaining = base_desc.replace('More than ', '').strip()
+                    if remaining == '' or remaining == 'seasons':
+                        base_desc = "More than X seasons"
+                    else:
+                        base_desc = f"More than X {remaining}"
+                elif base_desc.startswith('No more than '):
+                    remaining = base_desc.replace('No more than ', '').strip()
+                    if remaining == '' or remaining == 'seasons':
+                        base_desc = "No more than X seasons"
+                    else:
+                        base_desc = f"No more than X {remaining}"
+                elif base_desc.startswith('Taller than'):
+                    base_desc = "Taller than X cm"
+                elif base_desc.startswith('Smaller than'):
+                    base_desc = "Smaller than X cm"
+                elif base_desc.startswith('Salary'):
+                    base_desc = "Salary more than X"
+                
+                # Debug fallback: if description is empty, show debug info
+                if not base_desc or base_desc.strip() == "":
+                    return f"[DEBUG] {filter_class} - Config: {str(filter_config)[:100]}..."
+                
+                return base_desc
+            else:
+                # For static filters, just use the class name
+                return filter_class
+                
+        except:
+            # Fallback to class name if reconstruction fails
+            return filter_class
+
+    def get_detailed_filter_usage_stats(self, queryset):
+        """Calculate filter usage statistics grouped by filter type"""
+        # Group by filter_class and filter_config to get all configurations
+        usage_data = queryset.values('filter_class', 'filter_config').annotate(
+            count=Count('id')
+        )
+        
+        # Group by filter type (not specific configuration)
+        filter_types = self._group_usage_by_filter_type(usage_data)
+        
+        # Convert to list and calculate percentages
+        detailed_stats = list(filter_types.values())
+        total_count = sum(stat['count'] for stat in detailed_stats)
+        
+        for stat in detailed_stats:
+            stat['percentage'] = round((stat['count'] / total_count * 100), 1) if total_count > 0 else 0
+        
+        return sorted(detailed_stats, key=lambda x: x['count'], reverse=True)
+    
+    def _group_usage_by_filter_type(self, usage_data):
+        """Group usage data by filter type description"""
+        filter_types = {}
+        for item in usage_data:
+            description = self._extract_filter_type_description(
+                item['filter_class'], 
+                item['filter_config']
+            )
+            
+            key = f"{item['filter_class']}_{description}"
+            if key not in filter_types:
+                filter_types[key] = {
+                    'filter_class': item['filter_class'],
+                    'description': description,
+                    'count': 0
+                }
+            filter_types[key]['count'] += item['count']
+        
+        return filter_types
+
+    def get_detailed_recent_trends(self, total_days):
+        """Compare recent usage (last 7 days) with previous period using filter types"""
+        recent_cutoff = datetime.now().date() - timedelta(days=7)
+        previous_cutoff = datetime.now().date() - timedelta(days=total_days)
+        
+        # Get both periods data
+        recent_usage = GameFilterDB.objects.filter(
+            date__gte=recent_cutoff
+        ).values('filter_class', 'filter_config').annotate(count=Count('id'))
+        
+        previous_usage = GameFilterDB.objects.filter(
+            date__gte=previous_cutoff,
+            date__lt=recent_cutoff
+        ).values('filter_class', 'filter_config').annotate(count=Count('id'))
+        
+        # Group both periods by filter type
+        recent_types = self._group_usage_by_filter_type(recent_usage)
+        previous_types = self._group_usage_by_filter_type(previous_usage)
+        
+        # Calculate trends
+        trends = []
+        all_keys = set(recent_types.keys()) | set(previous_types.keys())
+        
+        for key in all_keys:
+            recent_data = recent_types.get(key, {'count': 0})
+            previous_data = previous_types.get(key, {'count': 0})
+            
+            recent_count = recent_data['count']
+            previous_count = previous_data['count']
+            
+            # Get filter info from whichever period has data
+            filter_info = recent_data if recent_count > 0 else previous_data
+            
+            if previous_count > 0:
+                change_percent = round(((recent_count - previous_count) / previous_count * 100), 1)
+            elif recent_count > 0:
+                change_percent = 100  # New filter appeared
+            else:
+                change_percent = 0
+            
+            trends.append({
+                'filter_class': filter_info['filter_class'],
+                'description': filter_info['description'],
+                'recent_count': recent_count,
+                'previous_count': previous_count,
+                'change_percent': change_percent,
+                'trend': 'up' if change_percent > 0 else 'down' if change_percent < 0 else 'stable'
+            })
+        
+        return sorted(trends, key=lambda x: abs(x['change_percent']), reverse=True)
 
 
 @admin.register(GameFilterDB)
