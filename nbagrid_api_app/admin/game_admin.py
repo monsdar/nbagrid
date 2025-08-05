@@ -428,6 +428,10 @@ class GameAdmin(GridBuilderAdmin):
                 # Fallback to class name if reconstruction fails
                 description = stat['filter_class']
             
+            # Debug fallback: if description is empty, show debug info
+            if not description or description.strip() == "":
+                description = f"[DEBUG] {stat['filter_class']} - Config: {str(stat['filter_config'])[:100]}..."
+            
             # Group by the type description
             key = f"{stat['filter_class']}_{description}"
             if key not in filter_types:
@@ -499,6 +503,10 @@ class GameAdmin(GridBuilderAdmin):
                         description = item['filter_class']
                 except:
                     description = item['filter_class']
+                
+                # Debug fallback: if description is empty, show debug info
+                if not description or description.strip() == "":
+                    description = f"[DEBUG] {item['filter_class']} - Config: {str(item['filter_config'])[:100]}..."
                 
                 key = f"{item['filter_class']}_{description}"
                 if key not in filter_types:
