@@ -34,15 +34,16 @@ class GameFilter(object):
     def get_detailed_desc(self) -> str:
         pass
 
-    @abstractmethod
     def get_filter_type_description(self) -> str:
         """Return a normalized type description for this filter.
         
         This should return a consistent identifier for the filter type that groups
         similar filters together (e.g., all DynamicGameFilters with the same base
         description should return the same type description).
+        
+        Default implementation returns the class name.
         """
-        pass
+        return self.__class__.__name__
 
     def __str__(self) -> str:
         return self.get_desc()
@@ -131,37 +132,17 @@ class DynamicGameFilter(GameFilter):
 
     def get_filter_type_description(self) -> str:
         """Return a normalized type description for this dynamic filter."""
-        if 'description' not in self.config:
+        if 'field' not in self.config:
             return self.__class__.__name__
         
-        # Get the base description without specific values
-        base_desc = self.config['description']
+        field = self.config['field']
+        comparison_type = self.config.get('comparison_type', 'higher')
         
-        # Remove trailing colons
-        if base_desc.endswith(':'):
-            base_desc = base_desc[:-1]
-        
-        # Normalize common filter patterns
-        if base_desc.startswith('More than '):
-            remaining = base_desc.replace('More than ', '').strip()
-            if remaining == '' or remaining == 'seasons':
-                base_desc = "More than X seasons"
-            else:
-                base_desc = f"More than X {remaining}"
-        elif base_desc.startswith('No more than '):
-            remaining = base_desc.replace('No more than ', '').strip()
-            if remaining == '' or remaining == 'seasons':
-                base_desc = "No more than X seasons"
-            else:
-                base_desc = f"No more than X {remaining}"
-        elif base_desc.startswith('Taller than'):
-            base_desc = "Taller than X cm"
-        elif base_desc.startswith('Smaller than'):
-            base_desc = "Smaller than X cm"
-        elif base_desc.startswith('Salary'):
-            base_desc = "Salary more than X"
-        
-        return base_desc if base_desc.strip() else self.__class__.__name__
+        # Create a consistent type description based on field and comparison
+        if comparison_type == 'lower':
+            return f"{self.__class__.__name__}_{field}_lower"
+        else:
+            return f"{self.__class__.__name__}_{field}_higher"
 
 
 class PositionFilter(GameFilter):
@@ -189,10 +170,6 @@ class PositionFilter(GameFilter):
             f"Positions are taken as listed on nba.com."
         )
 
-    def get_filter_type_description(self) -> str:
-        """Return the class name as the type description for position filters."""
-        return self.__class__.__name__
-
 
 class USAFilter(GameFilter):
     def apply_filter(self, players: Manager[Player]) -> Manager[Player]:
@@ -211,10 +188,6 @@ class USAFilter(GameFilter):
             "Players who gained U.S. citizenship after being born elsewhere are also excluded."
         )
 
-    def get_filter_type_description(self) -> str:
-        """Return the class name as the type description for USA filters."""
-        return self.__class__.__name__
-
 
 class InternationalFilter(GameFilter):
     def apply_filter(self, players: Manager[Player]) -> Manager[Player]:
@@ -231,10 +204,6 @@ class InternationalFilter(GameFilter):
             "This filter selects players who were born outside the USA, like Canada, Greenland, Mexico, Panama, etc."
             "This also includes players born in US territories like Puerto Rico."
         )
-
-    def get_filter_type_description(self) -> str:
-        """Return the class name as the type description for international filters."""
-        return self.__class__.__name__
 
 
 class EuropeanUnionFilter(GameFilter):
@@ -286,10 +255,6 @@ class EuropeanUnionFilter(GameFilter):
             "Netherlands, Poland, Portugal, Romania, Slovakia, Slovenia, Spain, and Sweden."
         )
 
-    def get_filter_type_description(self) -> str:
-        """Return the class name as the type description for EU filters."""
-        return self.__class__.__name__
-
 
 class CountryFilter(GameFilter):
     def __init__(self, seed: int = 0):
@@ -322,10 +287,6 @@ class CountryFilter(GameFilter):
     def get_detailed_desc(self) -> str:
         return f"This filter selects players who were born in {self.country_name}."
 
-    def get_filter_type_description(self) -> str:
-        """Return the class name as the type description for country filters."""
-        return self.__class__.__name__
-
 
 class TeamFilter(GameFilter):
     def __init__(self, seed: int = 0):
@@ -349,10 +310,6 @@ class TeamFilter(GameFilter):
             f"Players need to have played at least one game for the team to be included."
         )
 
-    def get_filter_type_description(self) -> str:
-        """Return the class name as the type description for team filters."""
-        return self.__class__.__name__
-
 
 class BooleanFilter(GameFilter):
     """
@@ -374,10 +331,6 @@ class BooleanFilter(GameFilter):
             "Players who were drafted 11th or lower, or went undrafted, are excluded. "
         )
 
-    def get_filter_type_description(self) -> str:
-        """Return the class name as the type description for boolean filters."""
-        return self.__class__.__name__
-
 
 class Top10DraftpickFilter(GameFilter):
     def apply_filter(self, players: Manager[Player]) -> Manager[Player]:
@@ -397,10 +350,6 @@ class Top10DraftpickFilter(GameFilter):
             "This filter selects players who were chosen within the top 10 picks of any NBA draft. "
             "Players who were drafted 11th or lower, or went undrafted, are excluded. "
         )
-
-    def get_filter_type_description(self) -> str:
-        """Return the class name as the type description for top 10 draft pick filters."""
-        return self.__class__.__name__
 
 
 class AllNbaFilter(GameFilter):
@@ -423,10 +372,6 @@ class AllNbaFilter(GameFilter):
             "during their career. Players on multiple different teams are valid as well."
         )
 
-    def get_filter_type_description(self) -> str:
-        """Return the class name as the type description for All-NBA filters."""
-        return self.__class__.__name__
-
 
 class AllDefensiveFilter(GameFilter):
     def apply_filter(self, players: Manager[Player]) -> Manager[Player]:
@@ -444,10 +389,6 @@ class AllDefensiveFilter(GameFilter):
             "(First or Second) during their career."
         )
 
-    def get_filter_type_description(self) -> str:
-        """Return the class name as the type description for All-Defensive filters."""
-        return self.__class__.__name__
-
 
 class AllRookieFilter(GameFilter):
     def apply_filter(self, players: Manager[Player]) -> Manager[Player]:
@@ -463,10 +404,6 @@ class AllRookieFilter(GameFilter):
         return (
             "This filter selects players who were named to an NBA All-Rookie Team (First or Second) " "in their debut season."
         )
-
-    def get_filter_type_description(self) -> str:
-        """Return the class name as the type description for All-Rookie filters."""
-        return self.__class__.__name__
 
 
 class NbaChampFilter(GameFilter):
@@ -487,10 +424,6 @@ class NbaChampFilter(GameFilter):
             "'World Champion of what...?!' - Noah Lyles, World Champion"
         )
 
-    def get_filter_type_description(self) -> str:
-        """Return the class name as the type description for NBA Champion filters."""
-        return self.__class__.__name__
-
 
 class AllStarFilter(GameFilter):
     def apply_filter(self, players: Manager[Player]) -> Manager[Player]:
@@ -507,10 +440,6 @@ class AllStarFilter(GameFilter):
             "This filter selects players who have been selected to at least one NBA All-Star Game during their career. "
             "This is regardless of how they were selected, whether it was by fan vote, player vote, or coach vote."
         )
-
-    def get_filter_type_description(self) -> str:
-        """Return the class name as the type description for All-Star filters."""
-        return self.__class__.__name__
 
 
 class OlympicMedalFilter(GameFilter):
@@ -533,10 +462,6 @@ class OlympicMedalFilter(GameFilter):
             "while representing their country in Olympic basketball. This includes players who competed "
             "for Team USA as well as players who represented other countries in Olympic competition."
         )
-
-    def get_filter_type_description(self) -> str:
-        """Return the class name as the type description for Olympic Medal filters."""
-        return self.__class__.__name__
 
 
 class LastNameFilter(GameFilter):
@@ -575,10 +500,6 @@ class LastNameFilter(GameFilter):
 
     def get_detailed_desc(self) -> str:
         return f"This filter selects players whose last name starts with the letter '{self.selected_letter}'. "
-
-    def get_filter_type_description(self) -> str:
-        """Return the class name as the type description for Last Name filters."""
-        return self.__class__.__name__
 
 
 class TeamCountFilter(DynamicGameFilter):
@@ -620,10 +541,9 @@ class TeamCountFilter(DynamicGameFilter):
 
     def get_filter_type_description(self) -> str:
         """Return a normalized type description for team count filters."""
-        if "comparison_type" in self.config and self.config["comparison_type"] == "lower":
-            return "Teams played for: No more than X"
-        else:
-            return "Teams played for: At least X"
+        # Since TeamCountFilter extends DynamicGameFilter, we can use the parent implementation
+        # which will create a description based on field and comparison_type
+        return super().get_filter_type_description()
 
 
 def get_dynamic_filters(seed: int = 0) -> list[DynamicGameFilter]:
