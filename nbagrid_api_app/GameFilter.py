@@ -541,9 +541,13 @@ class TeamCountFilter(DynamicGameFilter):
 
     def get_filter_type_description(self) -> str:
         """Return a normalized type description for team count filters."""
-        # Since TeamCountFilter extends DynamicGameFilter, we can use the parent implementation
-        # which will create a description based on field and comparison_type
-        return super().get_filter_type_description()
+        # TeamCountFilter doesn't use a field, it counts teams directly
+        comparison_type = self.config.get('comparison_type', 'higher')
+        
+        if comparison_type == 'lower':
+            return f"{self.__class__.__name__}_teams_lower"
+        else:
+            return f"{self.__class__.__name__}_teams_higher"
 
 
 def get_dynamic_filters(seed: int = 0) -> list[DynamicGameFilter]:
