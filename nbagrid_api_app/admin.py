@@ -16,7 +16,6 @@ admin.site.register(GameFilterDB, GameFilterDBAdmin)
 admin.site.register(GridMetadata, GridMetadataAdmin)
 
 
-@admin.register(ImpressumContent)
 class ImpressumContentAdmin(admin.ModelAdmin):
     list_display = ('title', 'is_active', 'order', 'created_at', 'updated_at')
     list_filter = ('is_active', 'created_at')
@@ -24,7 +23,6 @@ class ImpressumContentAdmin(admin.ModelAdmin):
     search_fields = ('title', 'content')
     ordering = ('order', 'created_at')
     fields = ('title', 'content', 'is_active', 'order')
-    
-    class Meta:
-        verbose_name = "Impressum Content"
-        verbose_name_plural = "Impressum Content"
+
+
+admin.site.register(ImpressumContent, ImpressumContentAdmin)
