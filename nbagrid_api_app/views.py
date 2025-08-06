@@ -507,8 +507,8 @@ def game(request, year, month, day):
         # Get unplayed game data
         unplayed_game_data = get_unplayed_game_data(request.session.session_key, requested_date.date())
 
-        # Check if impressum content exists
-        has_impressum_content = ImpressumContent.objects.filter(is_active=True).exists()
+        # Check if impressum should be shown based on environment variable
+        show_impressum = settings.NBAGRID_SHOW_IMPRESSUM
 
         return render(
             request,
@@ -545,7 +545,7 @@ def game(request, year, month, day):
                 "user_data": user_data,
                 "player_stats": player_stats,
                 "unplayed_game_data": unplayed_game_data,
-                "has_impressum_content": has_impressum_content,
+                "show_impressum": show_impressum,
             },
         )
     finally:

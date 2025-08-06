@@ -1284,7 +1284,7 @@
             <a href="https://github.com/monsdar/nbagrid" target="_blank" rel="noopener noreferrer" class="admin-link">GitHub</a>
             <span class="admin-separator-dot">•</span>
             <a href="#" onclick="openAboutModal(); return false;" class="admin-link">About</a>
-            {% if has_impressum_content %}
+            {% if show_impressum %}
             <span class="admin-separator-dot">•</span>
             <a href="#" onclick="openImpressumModal(); return false;" class="admin-link">Impressum</a>
             {% endif %}
@@ -1966,7 +1966,15 @@
                 .then(data => {
                     const contentDiv = document.getElementById('impressumContent');
                     if (data.length === 0) {
-                        contentDiv.innerHTML = '<p>No impressum content available.</p>';
+                        contentDiv.innerHTML = `
+                            <div class="impressum-section">
+                                <h3>Impressum Configuration</h3>
+                                <div class="impressum-text">
+                                    No impressum content has been configured yet.<br><br>
+                                    To add impressum content, an administrator can add entries through the admin interface at <a href="/admin/" target="_blank" style="color: #4a9eff;">/admin/</a> under "Impressum Content".
+                                </div>
+                            </div>
+                        `;
                     } else {
                         let html = '';
                         data.forEach(item => {
@@ -1980,7 +1988,14 @@
                 })
                 .catch(error => {
                     console.error('Error loading impressum content:', error);
-                    document.getElementById('impressumContent').innerHTML = '<p>Error loading impressum content.</p>';
+                    document.getElementById('impressumContent').innerHTML = `
+                        <div class="impressum-section">
+                            <h3>Error</h3>
+                            <div class="impressum-text">
+                                Error loading impressum content. Please try again later.
+                            </div>
+                        </div>
+                    `;
                 });
         }
 
