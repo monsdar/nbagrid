@@ -205,6 +205,24 @@
             border-radius: 10px;
         }
 
+        /* Impressum specific styles */
+        .impressum-section {
+            margin-bottom: 20px;
+        }
+
+        .impressum-section h3 {
+            color: #FFF;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #444;
+            padding-bottom: 5px;
+        }
+
+        .impressum-text {
+            color: #CCC;
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+
         .player-suggestion {
             font-size: 14px;
             display: flex;
@@ -1266,6 +1284,10 @@
             <a href="https://github.com/monsdar/nbagrid" target="_blank" rel="noopener noreferrer" class="admin-link">GitHub</a>
             <span class="admin-separator-dot">•</span>
             <a href="#" onclick="openAboutModal(); return false;" class="admin-link">About</a>
+            {% if has_impressum_content %}
+            <span class="admin-separator-dot">•</span>
+            <a href="#" onclick="openImpressumModal(); return false;" class="admin-link">Impressum</a>
+            {% endif %}
             <span class="admin-separator-dot">•</span>
             <a href="/admin/" class="admin-link">Admin</a>
         </footer>
@@ -1412,6 +1434,16 @@
             <p>The game only shows players that are currently active in the NBA.</p>
             <p>Click on a category to get help what is searched for in that category.</p>
             <button class="btn btn-primary" onclick="closeHelpModal()">Let's Go!</button>
+        </div>
+    </div>
+
+    <div id="impressumModal" class="about-modal" role="dialog" aria-labelledby="impressumModalTitle" aria-hidden="true">
+        <div class="about-content">
+            <h2 id="impressumModalTitle">Impressum</h2>
+            <div id="impressumContent">
+                <!-- Content will be loaded dynamically -->
+            </div>
+            <button class="btn btn-primary" onclick="closeImpressumModal()">Close</button>
         </div>
     </div>
 
@@ -1780,6 +1812,9 @@
             if (event.target == document.getElementById('helpModal')) {
                 closeHelpModal();
             }
+            if (event.target == document.getElementById('impressumModal')) {
+                closeImpressumModal();
+            }
         }
 
         // Function to update player suggestion buttons based on selected players
@@ -1911,6 +1946,51 @@
             document.getElementById('statsModal').style.display = 'none';
             // Ensure input is cleared when stats modal is closed
             clearPlayerSearchInput();
+        }
+
+        function openImpressumModal() {
+            document.getElementById('impressumModal').style.display = 'block';
+            // Load impressum content dynamically
+            loadImpressumContent();
+        }
+
+        function closeImpressumModal() {
+            document.getElementById('impressumModal').style.display = 'none';
+            // Ensure input is cleared when impressum modal is closed
+            clearPlayerSearchInput();
+        }
+
+        function loadImpressumContent() {
+            fetch('/api/impressum')
+                .then(response => response.json())
+                .then(data => {
+                    const contentDiv = document.getElementById('impressumContent');
+                    if (data.length === 0) {
+                        contentDiv.innerHTML = '<p>No impressum content available.</p>';
+                    } else {
+                        let html = '';
+                        data.forEach(item => {
+                            html += `<div class="impressum-section">`;
+                            html += `<h3>${escapeHtml(item.title)}</h3>`;
+                            html += `<div class="impressum-text">${escapeHtml(item.content).replace(/\n/g, '<br>')}</div>`;
+                            html += `</div>`;
+                        });
+                        contentDiv.innerHTML = html;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading impressum content:', error);
+                    document.getElementById('impressumContent').innerHTML = '<p>Error loading impressum content.</p>';
+                });
+        }
+
+        function escapeHtml(unsafe) {
+            return unsafe
+                 .replace(/&/g, "&amp;")
+                 .replace(/</g, "&lt;")
+                 .replace(/>/g, "&gt;")
+                 .replace(/"/g, "&quot;")
+                 .replace(/'/g, "&#039;");
         }
 
         function refreshStats() {
