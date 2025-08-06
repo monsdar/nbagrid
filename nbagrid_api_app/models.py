@@ -763,3 +763,21 @@ class UserData(ExportModelOperationsMixin("userdata"), models.Model):
             The display name string
         """
         return cls.get_or_create_user(session_key).display_name
+
+
+class ImpressumContent(ExportModelOperationsMixin("impressum_content"), models.Model):
+    """Custom content for the Impressum modal that admins can edit"""
+    title = models.CharField(max_length=200, help_text="Title for the impressum section")
+    content = models.TextField(help_text="Content text for the impressum section")
+    is_active = models.BooleanField(default=True, help_text="Whether this content should be displayed")
+    order = models.PositiveIntegerField(default=0, help_text="Order of display in the Impressum modal")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['order', 'created_at']
+        verbose_name = "Impressum Content"
+        verbose_name_plural = "Impressum Content"
+
+    def __str__(self):
+        return self.title
