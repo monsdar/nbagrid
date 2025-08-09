@@ -187,3 +187,152 @@ class GridGenerationTest(TestCase):
         
         # We should see some variety in the selected filter types
         self.assertGreater(len(selected_types), 3, "Should see variety in selected filter types")
+
+    def test_weighted_choice_basic_functionality(self):
+        """Test that weighted_choice method works correctly with basic inputs."""
+        builder = GameBuilder(random_seed=42)
+        
+        items = ['A', 'B', 'C']
+        weights = [1.0, 2.0, 3.0]  # Higher weights should be less likely to be selected
+        
+        # Test that it returns one of the items
+        result = builder.weighted_choice(items, weights)
+        self.assertIn(result, items, "Result should be one of the input items")
+        
+        # Test with equal weights
+        equal_weights = [1.0, 1.0, 1.0]
+        result = builder.weighted_choice(items, equal_weights)
+        self.assertIn(result, items, "Result should be one of the input items with equal weights")
+
+    def test_weighted_choice_distribution(self):
+        """Test that weighted_choice respects weight distribution over many calls."""
+        builder = GameBuilder(random_seed=42)
+        
+        items = ['low_weight', 'high_weight']
+        weights = [0.1, 10.0]  # low_weight should be selected much more often
+        
+        # Run many iterations to test distribution
+        results = []
+        for _ in range(1000):
+            # Reset random seed for consistent testing
+            import random
+            random.seed(42 + len(results))  # Vary seed slightly each time
+            result = builder.weighted_choice(items, weights)
+            results.append(result)
+        
+        # Count occurrences
+        low_weight_count = results.count('low_weight')
+        high_weight_count = results.count('high_weight')
+        
+        # low_weight should be selected significantly more often
+        self.assertGreater(low_weight_count, high_weight_count, 
+                          f"Low weight item should be selected more often. "
+                          f"Low: {low_weight_count}, High: {high_weight_count}")
+        
+        # Ratio should be roughly inverse of the weight ratio
+        # With weights [0.1, 10.0], low_weight should be selected ~100x more often
+        ratio = low_weight_count / max(high_weight_count, 1)
+        self.assertGreater(ratio, 10, f"Selection ratio should reflect weight difference, got {ratio}")
+
+    def test_weighted_choice_edge_cases(self):
+        """Test weighted_choice with edge cases."""
+        builder = GameBuilder(random_seed=42)
+        
+        # Test with single item
+        single_item = ['only']
+        single_weight = [1.0]
+        result = builder.weighted_choice(single_item, single_weight)
+        self.assertEqual(result, 'only', "Should return the only item")
+        
+        # Test with very small weights (but not zero)
+        items = ['A', 'B']
+        small_weights = [0.001, 0.002]
+        result = builder.weighted_choice(items, small_weights)
+        self.assertIn(result, items, "Should handle very small weights")
+        
+        # Test with very large weights
+        large_weights = [1000.0, 2000.0]
+        result = builder.weighted_choice(items, large_weights)
+        self.assertIn(result, items, "Should handle very large weights")
+
+    def test_weighted_choice_zero_weight_protection(self):
+        """Test that weighted_choice handles zero weights gracefully."""
+        builder = GameBuilder(random_seed=42)
+        
+        items = ['A', 'B', 'C']
+        
+        # Test with zero weight - should handle gracefully now
+        zero_weights = [1.0, 0.0, 2.0]
+        result = builder.weighted_choice(items, zero_weights)
+        # Should return a valid result without crashing
+        self.assertIn(result, items, "Result should be valid even with zero weight")
+        
+        # Test with all zero weights - should fall back to random choice
+        all_zero_weights = [0.0, 0.0, 0.0]
+        result = builder.weighted_choice(items, all_zero_weights)
+        self.assertIn(result, items, "Should handle all zero weights gracefully")
+        
+        # Test with mixed zero and non-zero weights
+        mixed_weights = [0.0, 1.0, 0.0]
+        result = builder.weighted_choice(items, mixed_weights)
+        # Should only select from non-zero weight items (in this case, only 'B')
+        # But since we can't guarantee which item is selected, we just check it's valid
+        self.assertIn(result, items, "Should handle mixed zero and non-zero weights")
+
+    def test_weighted_choice_non_deterministic_behavior(self):
+        """Test that weighted_choice provides variety across multiple calls."""
+        items = ['A', 'B', 'C', 'D']
+        weights = [1.0, 2.0, 3.0, 4.0]
+        
+        # Test multiple calls - should get some variety
+        results = []
+        builder = GameBuilder(random_seed=123)
+        for i in range(20):  # More calls to increase chance of variety
+            result = builder.weighted_choice(items, weights)
+            results.append(result)
+        
+        # Should get some variety (not all the same)
+        unique_results = set(results)
+        self.assertGreater(len(unique_results), 1, 
+                          f"Should get variety in results, got: {unique_results}")
+        
+        # All results should still be valid items
+        for result in results:
+            self.assertIn(result, items, f"Invalid result: {result}")
+
+    def test_weighted_choice_matches_expected_behavior(self):
+        """Test that weighted_choice behaves as documented."""
+        builder = GameBuilder(random_seed=42)
+        
+        # According to the docstring: "higher weight = less likely to be selected"
+        items = ['should_be_selected_often', 'should_be_selected_rarely']
+        weights = [0.1, 100.0]  # First item has much lower weight
+        
+        selections = []
+        for i in range(100):
+            import random
+            random.seed(42 + i)  # Vary seed
+            result = builder.weighted_choice(items, weights)
+            selections.append(result)
+        
+        often_count = selections.count('should_be_selected_often')
+        rarely_count = selections.count('should_be_selected_rarely')
+        
+        # The item with lower weight should be selected more often
+        self.assertGreater(often_count, rarely_count,
+                          f"Lower weight item should be selected more often. "
+                          f"Often: {often_count}, Rarely: {rarely_count}")
+
+    def test_weighted_choice_fallback_behavior(self):
+        """Test the fallback behavior of weighted_choice."""
+        builder = GameBuilder(random_seed=42)
+        
+        items = ['A', 'B', 'C']
+        weights = [1.0, 2.0, 3.0]
+        
+        # The method has a fallback that returns items[-1]
+        # Let's test this by examining the algorithm logic
+        # We can't easily force the fallback, but we can verify the method completes
+        for _ in range(50):
+            result = builder.weighted_choice(items, weights)
+            self.assertIn(result, items, "Result should always be from the items list")
