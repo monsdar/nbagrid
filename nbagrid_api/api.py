@@ -8,7 +8,7 @@ from django.conf import settings
 
 from nbagrid_api_app.GameBuilder import GameBuilder
 from nbagrid_api_app.metrics import track_request_latency
-from nbagrid_api_app.models import LastUpdated, Player, Team
+from nbagrid_api_app.models import ImpressumContent, LastUpdated, Player, Team
 
 api = NinjaAPI()
 game_cache = {}
@@ -315,3 +315,23 @@ def add_player_team_relationship(request, stats_id: int, team_stats_id: int):
 def health_check(request):
     """Health check endpoint that returns 200 if the service is up and running"""
     return {"status": "healthy", "message": "Service is up and running"}
+
+
+class ImpressumContentSchema(Schema):
+    title: str
+    content: str
+    order: int
+
+
+@api.get("/impressum", response=list[ImpressumContentSchema])
+def get_impressum_content(request):
+    """Get active impressum content ordered by order field"""
+    content_items = ImpressumContent.objects.filter(is_active=True).order_by('order', 'created_at')
+    return [
+        {
+            "title": item.title,
+            "content": item.content,
+            "order": item.order,
+        }
+        for item in content_items
+    ]

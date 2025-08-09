@@ -27,7 +27,7 @@ from nbagrid_api_app.metrics import (
     update_active_games,
     update_pythonanywhere_cpu_metrics,
 )
-from nbagrid_api_app.models import GameCompletion, GameResult, GridMetadata, LastUpdated, Player, UserData
+from nbagrid_api_app.models import GameCompletion, GameResult, GridMetadata, ImpressumContent, LastUpdated, Player, UserData
 
 
 def get_valid_date(year, month, day):
@@ -507,6 +507,9 @@ def game(request, year, month, day):
         # Get unplayed game data
         unplayed_game_data = get_unplayed_game_data(request.session.session_key, requested_date.date())
 
+        # Check if impressum should be shown based on environment variable
+        show_impressum = settings.NBAGRID_SHOW_IMPRESSUM
+
         return render(
             request,
             "game.html",
@@ -542,6 +545,7 @@ def game(request, year, month, day):
                 "user_data": user_data,
                 "player_stats": player_stats,
                 "unplayed_game_data": unplayed_game_data,
+                "show_impressum": show_impressum,
             },
         )
     finally:
