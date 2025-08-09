@@ -2,7 +2,6 @@
 
 import copy
 import logging
-from collections import defaultdict
 from datetime import datetime, timedelta
 
 from django.contrib import admin
@@ -483,12 +482,3 @@ class GameAdmin(GridBuilderAdmin):
             })
         
         return sorted(trends, key=lambda x: abs(x['change_percent']), reverse=True)
-
-
-@admin.register(GameFilterDB)
-class GameFilterDBAdmin(admin.ModelAdmin):
-    """Admin view for GameFilterDB model"""
-
-    list_display = ("date", "filter_type", "filter_class", "filter_index")
-    list_filter = ("date", "filter_type", "filter_class")
-    search_fields = ("date", "filter_type", "filter_class", "filter_config")

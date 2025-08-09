@@ -25,7 +25,11 @@
                 "runserver",
             ],
             "django": true,
-            "justMyCode": true
+            "justMyCode": true,
+            "env": {
+                "NBAGRID_SHOW_IMPRESSUM": "1",
+                "IMPORT_TEST_DATA": "1"
+            }
         }
     ]
 }

@@ -233,6 +233,9 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # API Settings
 NBAGRID_API_KEY = os.environ.get("NBAGRID_API_KEY", "supersecret")
 
+# Impressum Settings
+NBAGRID_SHOW_IMPRESSUM = os.environ.get("NBAGRID_SHOW_IMPRESSUM", "0") == "1"
+
 # Prometheus metrics authentication
 PROMETHEUS_METRICS_ENABLED = True
 PROMETHEUS_METRICS_AUTH_USERNAME = os.environ.get("PROMETHEUS_METRICS_USERNAME", "prometheus")
