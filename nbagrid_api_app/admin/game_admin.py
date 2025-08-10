@@ -386,42 +386,8 @@ class GameAdmin(GridBuilderAdmin):
             # Reconstruct the filter to get its type description
             filter_obj = create_filter_from_db(temp_filter_db)
             
-            # Get the filter type description (without specific values)
-            if hasattr(filter_obj, 'config') and 'description' in filter_obj.config:
-                # For DynamicGameFilter, use the base description without values
-                base_desc = filter_obj.config['description']
-                # Remove trailing colons
-                if base_desc.endswith(':'):
-                    base_desc = base_desc[:-1]
-                
-                # Normalize common filter patterns
-                if base_desc.startswith('More than '):
-                    remaining = base_desc.replace('More than ', '').strip()
-                    if remaining == '' or remaining == 'seasons':
-                        base_desc = "More than X seasons"
-                    else:
-                        base_desc = f"More than X {remaining}"
-                elif base_desc.startswith('No more than '):
-                    remaining = base_desc.replace('No more than ', '').strip()
-                    if remaining == '' or remaining == 'seasons':
-                        base_desc = "No more than X seasons"
-                    else:
-                        base_desc = f"No more than X {remaining}"
-                elif base_desc.startswith('Taller than'):
-                    base_desc = "Taller than X cm"
-                elif base_desc.startswith('Smaller than'):
-                    base_desc = "Smaller than X cm"
-                elif base_desc.startswith('Salary'):
-                    base_desc = "Salary more than X"
-                
-                # Debug fallback: if description is empty, show debug info
-                if not base_desc or base_desc.strip() == "":
-                    return f"[DEBUG] {filter_class} - Config: {str(filter_config)[:100]}..."
-                
-                return base_desc
-            else:
-                # For static filters, just use the class name
-                return filter_class
+            # Use the filter's own method to get the type description
+            return filter_obj.get_filter_type_description()
                 
         except:
             # Fallback to class name if reconstruction fails
