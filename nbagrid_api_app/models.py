@@ -98,7 +98,7 @@ class Player(ExportModelOperationsMixin("player"), models.Model):
 
         # Use the seed string to generate a deterministic random seed
         seed_hash = int(hashlib.md5(seed_string.encode()).hexdigest(), 16)
-        random.seed(seed_hash)
+        rng = random.Random(seed_hash)
 
         # Get all unique first and last names from players
         all_names = cls.objects.values_list("name", flat=True)
@@ -114,8 +114,8 @@ class Player(ExportModelOperationsMixin("player"), models.Model):
         # Generate combinations until we find one that fits
         max_attempts = 10
         for _ in range(max_attempts):
-            first = random.choice(list(first_names))
-            last = random.choice(list(last_names))
+            first = rng.choice(list(first_names))
+            last = rng.choice(list(last_names))
             combined = f"{first} {last}"
 
             if len(combined) <= 14:

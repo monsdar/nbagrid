@@ -50,17 +50,19 @@ class GameFilter(object):
 
 
 class DynamicGameFilter(GameFilter):
-    def __init__(self, config):
+    def __init__(self, config, seed: int = 0):
         self.config = config
+        self.seed = seed
         self.current_value = self._get_initial_value()
 
     def _get_initial_value(self):
+        rng = random.Random(self.seed)
         if "initial_value_step" in self.config:
-            return random.choice(
+            return rng.choice(
                 range(self.config["initial_min_value"], self.config["initial_max_value"], self.config["initial_value_step"])
             )
         if "initial_min_value" in self.config and "initial_max_value" in self.config:
-            return random.randint(self.config["initial_min_value"], self.config["initial_max_value"])
+            return rng.randint(self.config["initial_min_value"], self.config["initial_max_value"])
         return 0
 
     def apply_filter(self, players: Manager[Player]) -> Manager[Player]:
@@ -147,9 +149,9 @@ class DynamicGameFilter(GameFilter):
 
 class PositionFilter(GameFilter):
     def __init__(self, seed: int = 0):
-        random.seed(seed)
+        rng = random.Random(seed)
         self.positions = ["Guard", "Forward", "Center"]
-        self.selected_position = random.choice(self.positions)
+        self.selected_position = rng.choice(self.positions)
 
     def apply_filter(self, players: Manager[Player]) -> Manager[Player]:
         return players.filter(
@@ -258,7 +260,7 @@ class EuropeanUnionFilter(GameFilter):
 
 class CountryFilter(GameFilter):
     def __init__(self, seed: int = 0):
-        random.seed(seed)
+        rng = random.Random(seed)
 
         # NOTE: Most countries do not have enough players for this filter to work
         #       A few results from querying in April 2025:
@@ -273,7 +275,7 @@ class CountryFilter(GameFilter):
             for country in Player.objects.all().values_list("country", flat=True).distinct()
             if Player.objects.filter(country=country).count() >= num_players_per_country
         ]
-        self.country_name = random.choice(countries)
+        self.country_name = rng.choice(countries)
 
     def apply_filter(self, players: Manager[Player]) -> Manager[Player]:
         return players.filter(country=self.country_name)
@@ -290,9 +292,9 @@ class CountryFilter(GameFilter):
 
 class TeamFilter(GameFilter):
     def __init__(self, seed: int = 0):
-        random.seed(seed)
+        rng = random.Random(seed)
         teams = list(Team.objects.all())
-        self.team_name = random.choice(teams).name
+        self.team_name = rng.choice(teams).name
 
     def apply_filter(self, players: Manager[Player]) -> Manager[Player]:
         return players.filter(teams__name=self.team_name)
@@ -466,11 +468,11 @@ class OlympicMedalFilter(GameFilter):
 
 class LastNameFilter(GameFilter):
     def __init__(self, seed: int = 0):
-        random.seed(seed)
+        rng = random.Random(seed)
         # Get valid letters and select a random one
         valid_letters = self._get_valid_letters()
         if valid_letters:
-            self.selected_letter = random.choice(valid_letters)
+            self.selected_letter = rng.choice(valid_letters)
         else:  # This is only the case when running within the context of a test
             self.selected_letter = "A"
 
@@ -551,7 +553,6 @@ class TeamCountFilter(DynamicGameFilter):
 
 
 def get_dynamic_filters(seed: int = 0) -> list[DynamicGameFilter]:
-    random.seed(seed)
     return [
         DynamicGameFilter(
             {
@@ -565,7 +566,7 @@ def get_dynamic_filters(seed: int = 0) -> list[DynamicGameFilter]:
                 "narrow_step": 5000000,
                 "unit": "M USD",
                 "detailed_desc": "This filter selects players with a base salary of at least the given amount for the 2024/2025 NBA season. Thanks to BBoe for suggesting this filter!",
-            }
+            }, seed=seed
         ),
         DynamicGameFilter(
             {
@@ -577,7 +578,7 @@ def get_dynamic_filters(seed: int = 0) -> list[DynamicGameFilter]:
                 "widen_step": 1,
                 "narrow_step": 1,
                 "detailed_desc": "This filter selects players who averaged at least a certain number of points per game (PPG). Only regular season games are considered.",
-            }
+            }, seed=seed
         ),
         DynamicGameFilter(
             {
@@ -589,7 +590,7 @@ def get_dynamic_filters(seed: int = 0) -> list[DynamicGameFilter]:
                 "widen_step": 1,
                 "narrow_step": 1,
                 "detailed_desc": "This filter selects players who averaged at least a certain number of rebounds per game (RPG). Only regular season games are considered.",
-            }
+            }, seed=seed
         ),
         DynamicGameFilter(
             {
@@ -601,7 +602,7 @@ def get_dynamic_filters(seed: int = 0) -> list[DynamicGameFilter]:
                 "widen_step": 1,
                 "narrow_step": 1,
                 "detailed_desc": "This filter selects players who averaged at least a certain number of assists per game (APG). Only regular season games are considered.",
-            }
+            }, seed=seed
         ),
         DynamicGameFilter(
             {
@@ -613,7 +614,7 @@ def get_dynamic_filters(seed: int = 0) -> list[DynamicGameFilter]:
                 "widen_step": 50,
                 "narrow_step": 50,
                 "detailed_desc": "This filter selects players who have played at least a certain number of games (GP). Only regular season games are considered. This filter excludes games where the player did not attend due to injury or other reasons.",
-            }
+            }, seed=seed
         ),
         DynamicGameFilter(
             {
@@ -628,7 +629,7 @@ def get_dynamic_filters(seed: int = 0) -> list[DynamicGameFilter]:
                 "comparison_type": "higher",
                 "unit": "seasons",
                 "detailed_desc": "This filter selects players who have played at least a certain number of NBA seasons.\n\nA player is credited with a season if they appeared in at least one regular season game during that year.\n\nSuspended seasons and lockout-shortened seasons still count as full seasons.",
-            }
+            }, seed=seed
         ),
         DynamicGameFilter(
             {
@@ -643,7 +644,7 @@ def get_dynamic_filters(seed: int = 0) -> list[DynamicGameFilter]:
                 "comparison_type": "lower",
                 "unit": "seasons",
                 "detailed_desc": "This filter selects players who have played at most a certain number of NBA seasons. This includes any season where a player played at least one game. This does not include G-League or International games.",
-            }
+            }, seed=seed
         ),
         DynamicGameFilter(
             {
@@ -658,7 +659,7 @@ def get_dynamic_filters(seed: int = 0) -> list[DynamicGameFilter]:
                 "unit": "cm",
                 "comparison_type": "higher",
                 "detailed_desc": "This filter selects players who are taller than a certain height in centimeters.",
-            }
+            }, seed=seed
         ),
         DynamicGameFilter(
             {
@@ -673,7 +674,7 @@ def get_dynamic_filters(seed: int = 0) -> list[DynamicGameFilter]:
                 "unit": "cm",
                 "comparison_type": "lower",
                 "detailed_desc": "This filter selects players who are shorter than a certain height in centimeters.",
-            }
+            }, seed=seed
         ),
         # NOTE: Weight filter was not very fun to play,
         #       as it's hard to estimate and not something
@@ -698,7 +699,7 @@ def get_dynamic_filters(seed: int = 0) -> list[DynamicGameFilter]:
                 "widen_step": 5,
                 "narrow_step": 5,
                 "detailed_desc": "This filter selects players who have scored at least a certain number of points in a single game. This includes regular season and playoff games.",
-            }
+            }, seed=seed
         ),
         DynamicGameFilter(
             {
@@ -710,7 +711,7 @@ def get_dynamic_filters(seed: int = 0) -> list[DynamicGameFilter]:
                 "widen_step": 5,
                 "narrow_step": 5,
                 "detailed_desc": "This filter selects players who have caught at least a certain number of rebounds in a single game. This includes regular season and playoff games.",
-            }
+            }, seed=seed
         ),
         DynamicGameFilter(
             {
@@ -722,7 +723,7 @@ def get_dynamic_filters(seed: int = 0) -> list[DynamicGameFilter]:
                 "widen_step": 5,
                 "narrow_step": 5,
                 "detailed_desc": "This filter selects players who have passed at least a certain number of assists in a single game. This includes regular season and playoff games.",
-            }
+            }, seed=seed
         ),
         DynamicGameFilter(
             {
@@ -734,7 +735,7 @@ def get_dynamic_filters(seed: int = 0) -> list[DynamicGameFilter]:
                 "widen_step": 1,
                 "narrow_step": 1,
                 "detailed_desc": "This filter selects players who have snatched at least a certain number of steals in a single game. This includes regular season and playoff games.",
-            }
+            }, seed=seed
         ),
         DynamicGameFilter(
             {
@@ -746,7 +747,7 @@ def get_dynamic_filters(seed: int = 0) -> list[DynamicGameFilter]:
                 "widen_step": 1,
                 "narrow_step": 1,
                 "detailed_desc": "This filter selects players who have blocked at least a certain number of shots in a single game. This includes regular season and playoff games.",
-            }
+            }, seed=seed
         ),
         TeamCountFilter(
             {
@@ -757,7 +758,7 @@ def get_dynamic_filters(seed: int = 0) -> list[DynamicGameFilter]:
                 "widen_step": 1,
                 "narrow_step": 1,
                 "detailed_desc": "This filter selects players who played for at least a certain number of NBA teams. This includes any team where a player played at least one game.",
-            }
+            }, seed=seed
         ),
         TeamCountFilter(
             {
@@ -769,7 +770,7 @@ def get_dynamic_filters(seed: int = 0) -> list[DynamicGameFilter]:
                 "narrow_step": 1,
                 "comparison_type": "lower",
                 "detailed_desc": "This filter selects players who played for at most a certain number of NBA teams. This includes any team where a player played at least one game.",
-            }
+            }, seed=seed
         ),
     ]
 

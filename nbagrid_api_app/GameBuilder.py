@@ -39,7 +39,7 @@ class GameBuilder(object):
             Randomly selected item based on weights
         """
         # Create a new random instance to avoid interference from global random state resets
-        rng = random.Random()
+        rng = random.Random(self.random_seed)
         
         # Handle edge case: if all weights are zero, return random choice
         if all(w == 0 for w in weights):

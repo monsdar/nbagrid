@@ -34,6 +34,16 @@ class GridGenerationTest(TestCase):
                 position=['Guard', 'Forward', 'Center'][i % 3],
                 draft_number=1 + (i % 60),
                 is_undrafted=(i % 10 == 0),
+                is_award_all_nba_first=(i % 5 == 0),
+                is_award_all_nba_second=(i % 7 == 0),
+                is_award_all_nba_third=(i % 11 == 0),
+                is_award_all_defensive=(i % 6 == 0),
+                is_award_all_rookie=(i % 8 == 0),
+                is_award_champ=(i % 9 == 0),
+                is_award_all_star=(i % 4 == 0),
+                is_award_olympic_gold_medal=(i % 15 == 0),
+                is_award_olympic_silver_medal=(i % 17 == 0),
+                is_award_olympic_bronze_medal=(i % 19 == 0),
             )
         
         # Add team relationships
@@ -96,7 +106,7 @@ class GridGenerationTest(TestCase):
 
     def test_grid_generation_success(self):
         """Test that complete grid generation works."""
-        builder = GameBuilder(random_seed=123)
+        builder = GameBuilder(random_seed=999)
         
         # Try to generate a grid
         test_date = datetime.now().date() + timedelta(days=1)
@@ -181,6 +191,7 @@ class GridGenerationTest(TestCase):
         # Select filters multiple times and ensure we get variety
         selected_types = set()
         for _ in range(5):
+            builder.random_seed = 42 + len(selected_types) # vary seed slightly each time
             selected = builder.select_filters(dynamic_filters, 3, 'dynamic')
             for f in selected:
                 selected_types.add(f.get_filter_type_description())
@@ -215,8 +226,7 @@ class GridGenerationTest(TestCase):
         results = []
         for _ in range(1000):
             # Reset random seed for consistent testing
-            import random
-            random.seed(42 + len(results))  # Vary seed slightly each time
+            builder.random_seed = 42 + len(results)
             result = builder.weighted_choice(items, weights)
             results.append(result)
         
@@ -284,10 +294,11 @@ class GridGenerationTest(TestCase):
         items = ['A', 'B', 'C', 'D']
         weights = [1.0, 2.0, 3.0, 4.0]
         
-        # Test multiple calls - should get some variety
+        # Test multiple calls with different seeds to get variety
         results = []
-        builder = GameBuilder(random_seed=123)
         for i in range(20):  # More calls to increase chance of variety
+            # Use different seeds for each call to simulate variety
+            builder = GameBuilder(random_seed=123 + i)
             result = builder.weighted_choice(items, weights)
             results.append(result)
         
@@ -310,8 +321,8 @@ class GridGenerationTest(TestCase):
         
         selections = []
         for i in range(100):
-            import random
-            random.seed(42 + i)  # Vary seed
+            # Use different seeds for variety
+            builder = GameBuilder(random_seed=42 + i)
             result = builder.weighted_choice(items, weights)
             selections.append(result)
         
