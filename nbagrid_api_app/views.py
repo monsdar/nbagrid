@@ -27,7 +27,7 @@ from nbagrid_api_app.metrics import (
     update_active_games,
     update_pythonanywhere_cpu_metrics,
 )
-from nbagrid_api_app.models import GameCompletion, GameResult, GridMetadata, ImpressumContent, LastUpdated, Player, UserData
+from nbagrid_api_app.models import GameCompletion, GameFilterDB, GameGrid, GameResult, GridMetadata, ImpressumContent, LastUpdated, Player, UserData
 
 
 def get_valid_date(year, month, day):
@@ -54,13 +54,70 @@ def get_navigation_dates(requested_date: datetime) -> tuple[datetime, datetime, 
 
     return prev_date, next_date, show_prev, show_next
 
+def get_random_past_game_filters(requested_date: datetime, builder: GameBuilder) -> tuple[list[GameFilter], list[GameFilter]]:
+    """Final fallback method to copy a random past game when no cached games are available."""
+    logger.warning(f"No cached games available for fallback. Attempting to copy random past game for {requested_date}.")
+    
+    # Find any existing game from the past (any date that has GameFilterDB entries)
+    past_game_dates = GameFilterDB.objects.values_list('date', flat=True).order_by('date')
+    
+    if past_game_dates.exists():
+        # Select a random past game date
+        import random
+        random_past_date = random.choice(past_game_dates)
+        logger.info(f"Copying random past game from {random_past_date} to {requested_date}")
+        
+        # Copy GameFilterDB entries to the new date
+        past_filters = GameFilterDB.objects.filter(date=random_past_date)
+        for past_filter in past_filters:
+            GameFilterDB.objects.create(
+                date=requested_date,
+                filter_type=past_filter.filter_type,
+                filter_class=past_filter.filter_class,
+                filter_config=past_filter.filter_config,
+                filter_index=past_filter.filter_index,
+            )
+        
+        # NOTE: Do not copy GridMetadata if it exists, let's keep the copied game "anonymous" by not adding a name to it
+        
+        # Copy GameGrid if it exists
+        try:
+            past_game_grid = GameGrid.objects.filter(date=random_past_date).first()
+            if past_game_grid:
+                GameGrid.objects.create(
+                    date=requested_date,
+                    grid_size=past_game_grid.grid_size,
+                    cell_correct_players=past_game_grid.cell_correct_players,
+                )
+        except Exception as grid_error:
+            logger.warning(f"Failed to copy GameGrid: {grid_error}")
+        
+        # Now try to get the filters from the copied past game
+        try:
+            filters = builder.get_filters_from_db(requested_date)
+            if filters[0] and filters[1]:
+                logger.info(f"Successfully copied random past game filters for {requested_date}")
+                return filters
+            else:
+                raise Exception("Failed to retrieve copied past game filters")
+        except Exception as copy_error:
+            logger.error(f"Copying past game also failed: {copy_error}")
+            raise Exception(f"All fallback methods failed, cannot generate filters for {requested_date}")
+    else:
+        # No games exist at all - this should be very rare
+        logger.error(f"No games exist in the database at all. Cannot provide fallback.")
+        raise Exception(f"No games exist in the database. Cannot provide fallback.")
 
 def get_game_filters(requested_date: datetime) -> tuple[list[GameFilter], list[GameFilter]]:
     """Get or create game filters for the requested date."""
     # Create a GameBuilder with the requested date's timestamp as seed
     builder = GameBuilder(requested_date.timestamp())
-    # Get the filters - this will either retrieve from DB or create new ones
-    filters = builder.get_tuned_filters(requested_date, num_iterations=30, reuse_cached_game=True)
+    
+    try:
+        # Get the filters - this will either retrieve from DB or create new ones
+        filters = builder.get_tuned_filters(requested_date, num_iterations=10, reuse_cached_game=True)
+    except Exception as e:
+        filters = get_random_past_game_filters(requested_date, builder) # Last resort, simply copy a random past game
 
     # Initialize scores for all cells if this is a new game and no completions exist
     # AND no initial game results exist for this date
