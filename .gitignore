@@ -90,6 +90,7 @@ local_settings.py
 **/db.sqlite3
 staticfiles/*
 !staticfiles/favicon.ico
+.grids/
 
 # Testing and Coverage
 .coverage

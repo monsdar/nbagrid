@@ -16,6 +16,19 @@
             ]
         },
         {
+            "name": "Python Debugger: Generate Grids",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/manage.py",
+            "console": "integratedTerminal",
+            "args": [
+                "generate_grids",
+                "5",
+                "--quality-threshold",
+                "80.0"
+            ]
+        },
+        {
             "name": "Python Debugger: Django",
             "type": "debugpy",
             "request": "launch",

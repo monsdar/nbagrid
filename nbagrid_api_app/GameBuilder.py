@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from django.db.models import Manager
 
 from nbagrid_api_app.GameFilter import GameFilter, create_filter_from_db, get_dynamic_filters, get_static_filters
-from nbagrid_api_app.models import GameFilterDB, GameGrid, Player
+from nbagrid_api_app.models import GameFilterDB, GameGrid, Player, GridMetadata
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -84,7 +84,6 @@ class GameBuilder(object):
             reference_date = datetime.now().date()
         cutoff_date = reference_date - timedelta(days=days)
         recent_usage = GameFilterDB.objects.filter(date__gte=cutoff_date, filter_type=filter_type)
-
         weights = {}
 
         # Initialize weights for all filters
@@ -202,10 +201,8 @@ class GameBuilder(object):
             success = False
         return (success, dynamic_filter)
 
-    def get_tuned_filters(self, requested_date, num_iterations: int = 10):
-        # Check if filters already exist in database for today
+    def get_filters_from_db(self, requested_date):
         existing_filters = GameFilterDB.objects.filter(date=requested_date)
-
         if existing_filters.exists():
             # Reconstruct filters from database
             static_filters = []
@@ -222,8 +219,53 @@ class GameBuilder(object):
                 # Ensure GameGrid exists for the requested date
                 self.update_game_grid(requested_date, static_filters, dynamic_filters)
                 return (static_filters, dynamic_filters)
+        return (None, None)
+
+    def store_filters_in_db(self, requested_date, static_filters, dynamic_filters):
+        # Save filters to database
+        for idx, filter_obj in enumerate(static_filters):
+            GameFilterDB.objects.create(
+                date=requested_date,
+                filter_type="static",
+                filter_class=filter_obj.__class__.__name__,
+                filter_config=filter_obj.__dict__,
+                filter_index=idx,
+            )
+        for idx, filter_obj in enumerate(dynamic_filters):
+            GameFilterDB.objects.create(
+                date=requested_date,
+                filter_type="dynamic",
+                filter_class=filter_obj.__class__.__name__,
+                filter_config=filter_obj.__dict__,
+                filter_index=idx,
+            )
+        # Create/update the GameGrid for this date
+        self.update_game_grid(requested_date, static_filters, dynamic_filters)
+        
+    def get_tuned_filters(self, requested_date, num_iterations: int = 10, reuse_cached_game: bool = False):
+        
+        # When there's already a game for the requested date, we can just return the filters
+        if requested_date:
+            static_filters, dynamic_filters = self.get_filters_from_db(requested_date)
+            if static_filters and dynamic_filters:
+                return (static_filters, dynamic_filters)
+
+            # When we're allowed to reuse a cached game let's check if there's one available
+            # Get a list of GameFilterDB dates before April 1st 2025 (all games before that date are cached games)
+            cached_game_dates = GameFilterDB.objects.filter(date__lt=datetime(year=2025, month=4, day=1)).values_list('date', flat=True)
+            cached_game_date = cached_game_dates.order_by('-date').first()
+            # Now move the GameFilterDBs entries for the cached game date to the requested date
+            GameFilterDB.objects.filter(date=cached_game_date).update(date=requested_date)
+            GridMetadata.objects.filter(date=cached_game_date).update(date=requested_date)
+            GameGrid.objects.filter(date=cached_game_date).delete()
+            # Now get the filters from the requested date
+            static_filters, dynamic_filters = self.get_filters_from_db(requested_date)
+            if static_filters and dynamic_filters:
+                return (static_filters, dynamic_filters)
 
         # If no filters exist or they're incomplete, generate new ones
+        static_filters = []
+        dynamic_filters = []
         for loop_index in range(num_iterations):
 
             # Let's try to not use dynamic_filters in the row, as these tend to be more generic and not as interesting
@@ -233,37 +275,16 @@ class GameBuilder(object):
                 use_dynamic_filters_in_row = True
             static_filters, dynamic_filters = self.generate_grid(use_dynamic_filters_in_row=use_dynamic_filters_in_row, game_date=requested_date)
             if len(dynamic_filters) < self.num_dynamics:
-                logger.warning(
-                    f"Failed to generate a grid with {self.num_dynamics} dynamic filters. Static filters: {static_filters}"
-                )
+                logger.warning(f"Failed to generate a grid with {self.num_statics} dynamic filters. Static filters: {static_filters}")
                 continue
-            if len(static_filters) == self.num_statics:
-                # Save filters to database
-                for idx, filter_obj in enumerate(static_filters):
-                    GameFilterDB.objects.create(
-                        date=requested_date,
-                        filter_type="static",
-                        filter_class=filter_obj.__class__.__name__,
-                        filter_config=filter_obj.__dict__,
-                        filter_index=idx,
-                    )
+            else:
+                break # we got the filters we wanted
 
-                for idx, filter_obj in enumerate(dynamic_filters):
-                    GameFilterDB.objects.create(
-                        date=requested_date,
-                        filter_type="dynamic",
-                        filter_class=filter_obj.__class__.__name__,
-                        filter_config=filter_obj.__dict__,
-                        filter_index=idx,
-                    )
-
-                # Create/update the GameGrid for this date
-                self.update_game_grid(requested_date, static_filters, dynamic_filters)
-
-                return (static_filters, dynamic_filters)
-        raise Exception(
-            f"Failed to generate a grid with {self.num_dynamics} dynamic filters and {self.num_statics} static filters"
-        )
+        if len(static_filters) == self.num_statics:
+            if requested_date:
+                self.store_filters_in_db(requested_date, static_filters, dynamic_filters)
+            return (static_filters, dynamic_filters)
+        raise Exception(f"Failed to generate a grid with {self.num_dynamics} dynamic filters and {self.num_statics} static filters")
 
     def update_game_grid(self, date, static_filters, dynamic_filters):
         """

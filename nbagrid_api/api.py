@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 
 from ninja import NinjaAPI, Schema
@@ -8,7 +8,7 @@ from django.conf import settings
 
 from nbagrid_api_app.GameBuilder import GameBuilder
 from nbagrid_api_app.metrics import track_request_latency
-from nbagrid_api_app.models import ImpressumContent, LastUpdated, Player, Team
+from nbagrid_api_app.models import GameFilterDB, ImpressumContent, LastUpdated, Player, Team
 
 api = NinjaAPI()
 game_cache = {}
@@ -39,6 +39,19 @@ def is_valid_date(given_date: datetime) -> bool:
         return False
     return True
 
+def has_cached_game(given_date: datetime):
+    # check whether the given_date already has a cached game by checking the GameFilterDB table
+    return GameFilterDB.objects.filter(date=given_date).exists()
+
+def get_first_available_date():
+    # get the first available date before April 1st where there is NO cached game
+    # get the earliest date in the GameFilterDB table
+    start_date = GameFilterDB.objects.order_by('date').first().date
+    # check whether the date before start_date has a cached game
+    target_date = start_date - timedelta(days=1)
+    while has_cached_game(target_date):
+        target_date = target_date - timedelta(days=1)
+    return target_date    
 
 def get_cached_game_for_date(given_date: datetime):
     if not is_valid_date(given_date):
@@ -164,28 +177,14 @@ class LastUpdatedSchema(Schema):
     updated_by: str
     notes: Optional[str] = None
 
-
-# Schema for the game grid generation API
-class GameGridSchema(Schema):
-    year: Optional[int] = None
-    month: Optional[int] = None
-    day: Optional[int] = None
-
-
-# Schema for submitting a prebuilt GameFilter
-class GameFilterSchema(Schema):
-    filter_type: str  # 'static' or 'dynamic'
-    filter_class: str  # e.g., 'PositionFilter', 'DynamicGameFilter'
-    filter_config: dict  # Configuration for the filter
-    filter_index: int  # Position in the grid
-
-
 # Schema for submitting a prebuilt game
 class PrebuiltGameSchema(Schema):
     year: Optional[int] = None
     month: Optional[int] = None
     day: Optional[int] = None
     filters: dict  # Dictionary with 'row' and 'col' keys containing filter configurations
+    game_title: Optional[str] = None  # Optional title for the pre-generated grid
+    force: bool = False  # Allow overwriting future grids (never past grids)
 
 
 @api.post("/player/{stats_id}", auth=header_key)
@@ -274,6 +273,115 @@ def record_update(request, data: LastUpdatedSchema):
         }
     except Exception as e:
         return {"status": "error", "message": str(e)}, 500
+    finally:
+        timer_stop()
+
+
+@api.post("/upload_prebuilt_game", auth=header_key)
+def upload_prebuilt_game(request, data: PrebuiltGameSchema):
+    """Upload a pre-generated grid to the database"""
+    timer_stop = track_request_latency("upload_prebuilt_game")
+    try:
+        try:
+            # Parse the date from the schema
+            if data.year and data.month and data.day:
+                target_date = datetime(year=data.year, month=data.month, day=data.day).date()
+            else:
+                # If no date is given add them to the first available date before April 1st 2025
+                target_date = get_first_available_date()
+            
+            # Check if grid already exists for this date
+            from nbagrid_api_app.models import GameFilterDB
+            existing_grid = GameFilterDB.objects.filter(date=target_date).exists()
+            
+            if existing_grid:
+                # Never allow overwriting past grids
+                if target_date < datetime.now().date():
+                    return {"status": "error", "message": f"Cannot overwrite past grid for {target_date}"}, 400
+                
+                # For future grids, only allow overwriting if force=True
+                if not data.force:
+                    return {"status": "error", "message": f"Grid already exists for {target_date}. Use force=True to overwrite."}, 400
+                
+                # If force=True and it's a future grid, delete existing grid first
+                if data.force and target_date > datetime.now().date():
+                    # Delete existing filters and metadata
+                    GameFilterDB.objects.filter(date=target_date).delete()
+                    from nbagrid_api_app.models import GridMetadata, GameGrid
+                    GridMetadata.objects.filter(date=target_date).delete()
+                    GameGrid.objects.filter(date=target_date).delete()
+            
+            # Validate filter configuration
+            filters = data.filters
+            if not filters or not isinstance(filters, dict):
+                return {"status": "error", "message": "Invalid filters format"}, 400
+            
+            row_filters = filters.get("row", {})
+            col_filters = filters.get("col", {})
+            
+            # Validate we have the correct number of filters
+            if len(row_filters) != 3 or len(col_filters) != 3:
+                return {"status": "error", "message": f"Invalid filter configuration: expected 3 row and 3 column filters, got {len(row_filters)} row and {len(col_filters)} column"}, 400
+            
+            # Import necessary modules
+            from nbagrid_api_app.models import GameFilterDB, GridMetadata, LastUpdated, GameGrid
+            from nbagrid_api_app.GameBuilder import GameBuilder
+            
+            # Create GameFilterDB objects for each filter
+            # Process row filters (static filters)
+            for index, filter_data in row_filters.items():
+                GameFilterDB.objects.create(
+                    date=target_date,
+                    filter_type="static",
+                    filter_class=filter_data["class"],
+                    filter_config=filter_data["config"],
+                    filter_index=int(index),
+                )
+            
+            # Process column filters (dynamic filters)
+            for index, filter_data in col_filters.items():
+                GameFilterDB.objects.create(
+                    date=target_date,
+                    filter_type="dynamic",
+                    filter_class=filter_data["class"],
+                    filter_config=filter_data["config"],
+                    filter_index=int(index),
+                )
+            
+            # Create the GameGrid object using GameBuilder
+            builder = GameBuilder()
+            builder.get_tuned_filters(target_date)
+            
+            # Create GridMetadata
+            if data.game_title:
+                GridMetadata.objects.create(
+                    date=target_date,
+                    game_title=data.game_title
+                )
+            
+            # Record the update timestamp
+            LastUpdated.update_timestamp(
+                data_type="game_data",
+                updated_by="API prebuilt game upload",
+                notes=f"Uploaded pre-generated game for {target_date}" + (" (overwritten)" if existing_grid and data.force else ""),
+            )
+            
+            action = "overwritten" if existing_grid and data.force else "uploaded"
+            return {
+                "status": "success",
+                "message": f"Pre-generated game {action} successfully for {target_date}",
+                "date": {
+                    "year": target_date.year,
+                    "month": target_date.month,
+                    "day": target_date.day
+                },
+                "action": action,
+                "was_overwritten": existing_grid and data.force
+            }
+            
+        except Exception as e:
+            timer_stop(status="error")
+            return {"status": "error", "message": str(e)}, 500
     finally:
         timer_stop()
 
