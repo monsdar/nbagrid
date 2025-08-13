@@ -27,4 +27,4 @@ RUN python manage.py collectstatic --noinput
 EXPOSE 8000
 
 # Run gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "nbagrid_api.wsgi:application"] 
+CMD ["gunicorn", "-c", "gunicorn.conf.py", "nbagrid_api.wsgi:application"] 
