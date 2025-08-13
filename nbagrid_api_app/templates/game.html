@@ -400,7 +400,30 @@
             z-index: 10;
         }
 
+        .support-button {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background-color: #1d428a;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            font-size: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.3s;
+            z-index: 10;
+        }
+
         .help-button:hover {
+            background-color: #2a4d6e;
+        }
+
+        .support-button:hover {
             background-color: #2a4d6e;
         }
 
@@ -1193,10 +1216,9 @@
 <body>
     <main class="game-container {% if is_finished %}game-finished{% endif %}">
         <header class="game-header">
-            <h1 class="game-title-large"><a href="{% url 'index' %}" style="color: white; text-decoration: none;">NBAGrid</a></h1>
-            <nav class="date-navigation" aria-label="Date navigation">
-                {% if show_prev %}
-                <a href="{% url 'game' year=prev_date.year month=prev_date.month day=prev_date.day %}"
+            <nav class="date-navigation">
+                {% if show_previous %}
+                <a href="{% url 'game' year=previous_date.year month=previous_date.month day=previous_date.day %}"
                     class="nav-arrow" aria-label="Previous date">←</a>
                 {% else %}
                 <span class="nav-arrow disabled" aria-label="No previous date available">←</span>
@@ -1210,6 +1232,7 @@
                 {% endif %}
             </nav>
             <p class="game-subtitle">Click title to return Home</p>
+            <button class="support-button" onclick="openSupportModal()" aria-label="Support">💖</button>
             <button class="help-button" onclick="openHelpModal()" aria-label="Help">?</button>
         </header>
         
@@ -1310,6 +1333,7 @@
 
     <div id="aboutModal" class="about-modal" role="dialog" aria-labelledby="aboutModalTitle" aria-hidden="true">
         <div class="about-content">
+            <span class="close" onclick="closeAboutModal()" aria-label="Close about modal">&times;</span>
             <h2 id="aboutModalTitle">About NBAGrid</h2>
             <p>NBAGrid is a daily puzzle game where you try to find NBA players that match specific criteria. Each day
                 presents a new grid with different combinations of player attributes to guess.</p>
@@ -1317,11 +1341,20 @@
                 popular grid-based puzzle game <a href="https://www.geogridgame.com" target="_blank" rel="noopener">GeoGrid</a>.</p>
             <p>The code for this game is open source and available on <a href="https://github.com/monsdar/nbagrid"
                     target="_blank" rel="noopener">GitHub</a>.</p>
+            <button class="btn btn-secondary" onclick="closeAboutModal()">Close</button>
+        </div>
+    </div>
+
+    <div id="supportModal" class="about-modal" role="dialog" aria-labelledby="supportModalTitle" aria-hidden="true">
+        <div class="about-content">
+            <span class="close" onclick="closeSupportModal()" aria-label="Close support modal">&times;</span>
+            <h2 id="supportModalTitle">Support NBAGrid</h2>
             <div class="support-section">
-                <h3>Support This Project</h3>
-                <p>While hosting this service isn't extremely expensive, it's not free either. If you enjoy playing
-                    NBAGrid and would like to support its development and maintenance, consider buying me a coffee!</p>
-                <p>Feedback is always welcome! Feel free to suggest filters, grids,
+                <p>Thanks for enjoying my game! It's a passion project and I'm happy to see you here.</p>
+                <p>While hosting this service isn't extremely expensive, it's not free either.
+                    There's no company behind this, and I'd like to keep any ads out of it. So if you enjoy playing
+                    NBAGrid and would like to support its development and maintenance, please consider buying me a coffee.</p>
+                <p>Feedback is always welcome. Feel free to suggest filters, grids,
                     or general ideas within your coffee-message or use the <a href="https://github.com/monsdar/nbagrid/issues" target="_blank" rel="noopener">GitHub issue tracker</a>.</p>
                 <a href="https://buymeacoffee.com/monsdar" target="_blank" rel="noopener" class="btn btn-primary" style="color: white;">☕ Buy Me a Coffee ☕</a>
             </div>
@@ -1803,6 +1836,9 @@
             if (event.target == document.getElementById('aboutModal')) {
                 closeAboutModal();
             }
+            if (event.target == document.getElementById('supportModal')) {
+                closeSupportModal();
+            }
             if (event.target == document.getElementById('filterDetailsModal')) {
                 closeFilterDetailsModal();
             }
@@ -1927,9 +1963,19 @@
             document.getElementById('aboutModal').style.display = 'block';
         }
 
+        function openSupportModal() {
+            document.getElementById('supportModal').style.display = 'block';
+        }
+
         function closeAboutModal() {
             document.getElementById('aboutModal').style.display = 'none';
             // Ensure input is cleared when about modal is closed
+            clearPlayerSearchInput();
+        }
+
+        function closeSupportModal() {
+            document.getElementById('supportModal').style.display = 'none';
+            // Ensure input is cleared when support modal is closed
             clearPlayerSearchInput();
         }
 
