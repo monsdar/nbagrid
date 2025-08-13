@@ -1216,9 +1216,10 @@
 <body>
     <main class="game-container {% if is_finished %}game-finished{% endif %}">
         <header class="game-header">
-            <nav class="date-navigation">
-                {% if show_previous %}
-                <a href="{% url 'game' year=previous_date.year month=previous_date.month day=previous_date.day %}"
+            <h1 class="game-title-large"><a href="{% url 'index' %}" style="color: white; text-decoration: none;">NBAGrid</a></h1>
+            <nav class="date-navigation" aria-label="Date navigation">
+                {% if show_prev %}
+                <a href="{% url 'game' year=prev_date.year month=prev_date.month day=prev_date.day %}"
                     class="nav-arrow" aria-label="Previous date">←</a>
                 {% else %}
                 <span class="nav-arrow disabled" aria-label="No previous date available">←</span>
