@@ -86,6 +86,23 @@ target/
 local_settings.py
 
 .env
+*.sqlite3
 **/db.sqlite3
 staticfiles/*
 !staticfiles/favicon.ico
+.grids/
+
+# Testing and Coverage
+.coverage
+htmlcov/
+coverage.xml
+.pytest_cache/
+.tox/
+
+# Code Quality Tools
+.mypy_cache/
+.pylint.d/
+
+# IDE
+.vscode/settings.json
+.idea/

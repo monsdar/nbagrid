@@ -12,13 +12,14 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 import os
 from pathlib import Path
+
 from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Load environment variables from .env file
-env_file = Path(f'{BASE_DIR}/.env')
+env_file = Path(f"{BASE_DIR}/.env")
 if env_file.exists():
     print(f"Loading environment variables from .env file in {env_file.absolute()}!")
     load_dotenv(env_file, override=True)
@@ -29,59 +30,59 @@ else:
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-3%1y9=l0hq-(5+j&3nq-!8=_(3lb3uis*3@8miu0ucthzpv^-*')
-if 'DJANGO_SECRET_KEY' in os.environ:
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "django-insecure-3%1y9=l0hq-(5+j&3nq-!8=_(3lb3uis*3@8miu0ucthzpv^-*")
+if "DJANGO_SECRET_KEY" in os.environ:
     print(f"Using secret key provided by environment var 'DJANGO_SECRET_KEY'!")
 else:
     print("No secret key provided by environment var 'DJANGO_SECRET_KEY', using hardcoded secret in DEBUG mode!")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False if 'DJANGO_PRODUCTION' in os.environ else True
-if 'DJANGO_PRODUCTION' in os.environ:
+DEBUG = False if "DJANGO_PRODUCTION" in os.environ else True
+if "DJANGO_PRODUCTION" in os.environ:
     print(f"Using production mode, as environment var 'DJANGO_PRODUCTION' is set!")
 else:
     print("Using development mode, DEBUG is enabled!")
 
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
-if 'DJANGO_ALLOWED_HOSTS' in os.environ:
-    ALLOWED_HOSTS.extend(os.environ['DJANGO_ALLOWED_HOSTS'].split(','))
+ALLOWED_HOSTS = ["127.0.0.1", "localhost"]
+if "DJANGO_ALLOWED_HOSTS" in os.environ:
+    ALLOWED_HOSTS.extend(os.environ["DJANGO_ALLOWED_HOSTS"].split(","))
 print(f"ALLOWED_HOSTS: {ALLOWED_HOSTS}")
 
 # Add your PythonAnywhere domain to ALLOWED_HOSTS
-PYTHONANYWHERE_DOMAIN = os.environ.get('PYTHONANYWHERE_DOMAIN')
+PYTHONANYWHERE_DOMAIN = os.environ.get("PYTHONANYWHERE_DOMAIN")
 
 # Application definition
 
 INSTALLED_APPS = [
-    'whitenoise.runserver_nostatic',
-    'django.contrib.admin',
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'django.contrib.messages',
-    'django.contrib.staticfiles',
-    'nbagrid_api_app.apps.NbagridApiAppConfig',
-    'django_prometheus',
+    "whitenoise.runserver_nostatic",
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
+    "nbagrid_api_app.apps.NbagridApiAppConfig",
+    "django_prometheus",
 ]
 
 MIDDLEWARE = [
-    'django_prometheus.middleware.PrometheusBeforeMiddleware',
-    'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.contrib.messages.middleware.MessageMiddleware',
-    'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'django_prometheus.middleware.PrometheusAfterMiddleware',
-    'nbagrid_api.middleware.DomainRedirectMiddleware',
+    "django_prometheus.middleware.PrometheusBeforeMiddleware",
+    "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.common.CommonMiddleware",
+    "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "django_prometheus.middleware.PrometheusAfterMiddleware",
+    "nbagrid_api.middleware.DomainRedirectMiddleware",
 ]
 
 
 CSRF_TRUSTED_ORIGINS = []
-if 'DJANGO_CSRF_TRUSTED_ORIGINS' in os.environ:
-    CSRF_TRUSTED_ORIGINS.extend(os.environ['DJANGO_CSRF_TRUSTED_ORIGINS'].split(','))
+if "DJANGO_CSRF_TRUSTED_ORIGINS" in os.environ:
+    CSRF_TRUSTED_ORIGINS.extend(os.environ["DJANGO_CSRF_TRUSTED_ORIGINS"].split(","))
 print(f"DJANGO_CSRF_TRUSTED_ORIGINS: {CSRF_TRUSTED_ORIGINS}")
 
 STORAGES = {
@@ -90,60 +91,60 @@ STORAGES = {
     },
 }
 
-ROOT_URLCONF = 'nbagrid_api.urls'
+ROOT_URLCONF = "nbagrid_api.urls"
 
 TEMPLATES = [
     {
-        'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [BASE_DIR / 'nbagrid_api_app/templates'],
-        'APP_DIRS': True,
-        'OPTIONS': {
-            'context_processors': [
-                'django.template.context_processors.request',
-                'django.contrib.auth.context_processors.auth',
-                'django.contrib.messages.context_processors.messages',
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [BASE_DIR / "nbagrid_api_app/templates"],
+        "APP_DIRS": True,
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
             ],
         },
     },
 ]
 
-WSGI_APPLICATION = 'nbagrid_api.wsgi.application'
+WSGI_APPLICATION = "nbagrid_api.wsgi.application"
 
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 # Check database configuration based on environment variables
-if all(os.environ.get(var) for var in ['POSTGRES_DB', 'POSTGRES_USER', 'POSTGRES_PASSWORD']):
+if all(os.environ.get(var) for var in ["POSTGRES_DB", "POSTGRES_USER", "POSTGRES_PASSWORD"]):
     print("Using PostgreSQL database configuration from environment variables")
     DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': os.environ.get('POSTGRES_DB'),
-            'USER': os.environ.get('POSTGRES_USER'),
-            'PASSWORD': os.environ.get('POSTGRES_PASSWORD'),
-            'HOST': os.environ.get('POSTGRES_HOST', 'localhost'),
-            'PORT': os.environ.get('POSTGRES_PORT', '5432'),
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": os.environ.get("POSTGRES_DB"),
+            "USER": os.environ.get("POSTGRES_USER"),
+            "PASSWORD": os.environ.get("POSTGRES_PASSWORD"),
+            "HOST": os.environ.get("POSTGRES_HOST", "localhost"),
+            "PORT": os.environ.get("POSTGRES_PORT", "5432"),
         }
     }
-elif all(os.environ.get(var) for var in ['MYSQL_USER', 'MYSQL_PASSWORD', 'MYSQL_DATABASE']):
+elif all(os.environ.get(var) for var in ["MYSQL_USER", "MYSQL_PASSWORD", "MYSQL_DATABASE"]):
     print("Using MySQL database configuration from environment variables")
     DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.mysql',
-            'NAME': os.environ.get('MYSQL_DATABASE'),
-            'USER': os.environ.get('MYSQL_USER'),
-            'PASSWORD': os.environ.get('MYSQL_PASSWORD'),
-            'HOST': os.environ.get('MYSQL_ADDRESS', 'localhost'),
-            'PORT': '3306',
+        "default": {
+            "ENGINE": "django.db.backends.mysql",
+            "NAME": os.environ.get("MYSQL_DATABASE"),
+            "USER": os.environ.get("MYSQL_USER"),
+            "PASSWORD": os.environ.get("MYSQL_PASSWORD"),
+            "HOST": os.environ.get("MYSQL_ADDRESS", "localhost"),
+            "PORT": "3306",
         }
     }
 else:
     print("Using SQLite database configuration")
     DATABASES = {
-        'default': {
-            'ENGINE': 'django_prometheus.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
+        "default": {
+            "ENGINE": "django_prometheus.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
         }
     }
 
@@ -156,25 +157,25 @@ LOGGING = {
     "disable_existing_loggers": False,  # retain the default loggers
     "loggers": {
         "nbagrid_api_app.admin": {
-            "level": "WARNING" if 'DJANGO_PRODUCTION' in os.environ else "DEBUG",
+            "level": "WARNING" if "DJANGO_PRODUCTION" in os.environ else "DEBUG",
             "handlers": ["console"],
         },
         "nbagrid_api_app.GameBuilder": {
-            "level": "WARNING" if 'DJANGO_PRODUCTION' in os.environ else "DEBUG",
+            "level": "WARNING" if "DJANGO_PRODUCTION" in os.environ else "DEBUG",
             "handlers": ["console"],
         },
         "nbagrid_api_app.views": {
-            "level": "WARNING" if 'DJANGO_PRODUCTION' in os.environ else "DEBUG",
+            "level": "WARNING" if "DJANGO_PRODUCTION" in os.environ else "DEBUG",
             "handlers": ["console"],
         },
         "nbagrid_api_app.models": {
-            "level": "WARNING" if 'DJANGO_PRODUCTION' in os.environ else "DEBUG",
+            "level": "WARNING" if "DJANGO_PRODUCTION" in os.environ else "DEBUG",
             "handlers": ["console"],
         },
     },
     "handlers": {
         "console": {
-            "level": "WARNING" if 'DJANGO_PRODUCTION' in os.environ else "DEBUG",
+            "level": "WARNING" if "DJANGO_PRODUCTION" in os.environ else "DEBUG",
             "class": "logging.StreamHandler",
             "formatter": "verbose",
         },
@@ -192,16 +193,16 @@ LOGGING = {
 
 AUTH_PASSWORD_VALIDATORS = [
     {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
     },
 ]
 
@@ -209,9 +210,9 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = "en-us"
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = "UTC"
 
 USE_I18N = True
 
@@ -221,23 +222,26 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = 'static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+STATIC_URL = "static/"
+STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # API Settings
-NBAGRID_API_KEY = os.environ.get('NBAGRID_API_KEY', 'supersecret')
+NBAGRID_API_KEY = os.environ.get("NBAGRID_API_KEY", "supersecret")
+
+# Impressum Settings
+NBAGRID_SHOW_IMPRESSUM = os.environ.get("NBAGRID_SHOW_IMPRESSUM", "0") == "1"
 
 # Prometheus metrics authentication
 PROMETHEUS_METRICS_ENABLED = True
-PROMETHEUS_METRICS_AUTH_USERNAME = os.environ.get('PROMETHEUS_METRICS_USERNAME', 'prometheus')
-PROMETHEUS_METRICS_AUTH_PASSWORD = os.environ.get('PROMETHEUS_METRICS_PASSWORD', 'prometheus_secret')
+PROMETHEUS_METRICS_AUTH_USERNAME = os.environ.get("PROMETHEUS_METRICS_USERNAME", "prometheus")
+PROMETHEUS_METRICS_AUTH_PASSWORD = os.environ.get("PROMETHEUS_METRICS_PASSWORD", "prometheus_secret")
 
 # PythonAnywhere API settings
-PYTHONANYWHERE_USERNAME = os.environ.get('PYTHONANYWHERE_USERNAME')
-PYTHONANYWHERE_API_TOKEN = os.environ.get('PYTHONANYWHERE_API_TOKEN')
-PYTHONANYWHERE_HOST = os.environ.get('PYTHONANYWHERE_HOST', 'www.pythonanywhere.com')
+PYTHONANYWHERE_USERNAME = os.environ.get("PYTHONANYWHERE_USERNAME")
+PYTHONANYWHERE_API_TOKEN = os.environ.get("PYTHONANYWHERE_API_TOKEN")
+PYTHONANYWHERE_HOST = os.environ.get("PYTHONANYWHERE_HOST", "www.pythonanywhere.com")

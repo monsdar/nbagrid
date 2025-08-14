@@ -14,45 +14,48 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
-from django.contrib import admin
-from django.urls import path, include
+
+from django_prometheus import exports
+
 from django.conf import settings
 from django.conf.urls.static import static
-from django.views.static import serve
-from .api import api
-import nbagrid_api_app.views
-from django_prometheus import exports
-from nbagrid_api_app.auth import basic_auth_required
+from django.contrib import admin
 from django.http import HttpResponse
+from django.urls import include, path
+from django.views.static import serve
+
+import nbagrid_api_app.views
+from nbagrid_api_app.auth import basic_auth_required
+
+from .api import api
+
 
 # Create secured versions of the django-prometheus endpoints
 @basic_auth_required
 def secured_metrics_view(request):
     return HttpResponse(exports.ExportToDjangoView(request))
 
+
 # The metrics endpoint
 @basic_auth_required
 def secured_metrics_registry_view(request):
     return HttpResponse(exports.ExportToDjangoPrometheusDjangoMetrics(request))
 
+
 urlpatterns = [
     path("", nbagrid_api_app.views.index, name="index"),
     path("<int:year>/<int:month>/<int:day>/", nbagrid_api_app.views.game, name="game"),
-    path('admin/', admin.site.urls),
+    path("admin/", admin.site.urls),
     path("api/", api.urls),
-    path('metrics/', nbagrid_api_app.views.metrics_view, name='metrics'),
-    
+    path("metrics/", nbagrid_api_app.views.metrics_view, name="metrics"),
     # Display name endpoints
-    path('api/update-display-name/', nbagrid_api_app.views.update_display_name, name='update-display-name'),
-    path('api/random-name/', nbagrid_api_app.views.generate_random_name, name='random-name'),
-    
+    path("api/update-display-name/", nbagrid_api_app.views.update_display_name, name="update-display-name"),
+    path("api/random-name/", nbagrid_api_app.views.generate_random_name, name="random-name"),
     # Player search endpoint
-    path('search-players/', nbagrid_api_app.views.search_players, name='search-players'),
-    
+    path("search-players/", nbagrid_api_app.views.search_players, name="search-players"),
     # Secure the django-prometheus exports
-    path('django_metrics', secured_metrics_view, name='django-metrics'),
-    path('prometheus/metrics', secured_metrics_registry_view, name='prometheus-django-metrics'),
-    
+    path("django_metrics", secured_metrics_view, name="django-metrics"),
+    path("prometheus/metrics", secured_metrics_registry_view, name="prometheus-django-metrics"),
     # Serve favicon.ico
-    path('favicon.ico', serve, {'path': 'favicon.ico', 'document_root': settings.STATIC_ROOT}),
+    path("favicon.ico", serve, {"path": "favicon.ico", "document_root": settings.STATIC_ROOT}),
 ]
