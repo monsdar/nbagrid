@@ -23,9 +23,12 @@ from nbagrid_api_app.metrics import (
     increment_unique_users,
     record_game_completion,
     record_game_start,
+    record_user_guess,
+    record_wrong_guess,
     track_request_latency,
     update_active_games,
     update_pythonanywhere_cpu_metrics,
+    update_total_guesses_gauge,
 )
 from nbagrid_api_app.models import GameCompletion, GameFilterDB, GameGrid, GameResult, GridMetadata, ImpressumContent, LastUpdated, Player, UserData
 
@@ -166,6 +169,8 @@ def get_game_stats(requested_date):
     return {
         "completion_count": GameCompletion.get_completion_count(requested_date.date()),
         "total_guesses": GameResult.get_total_guesses(requested_date.date()),
+        "user_guesses": GameResult.get_total_user_guesses(requested_date.date()),
+        "wrong_guesses": GameResult.get_total_wrong_guesses(requested_date.date()),
         "perfect_games": GameCompletion.get_perfect_games(requested_date.date()),
         "average_score": GameCompletion.get_average_score(requested_date.date()),
     }
@@ -315,6 +320,9 @@ def handle_player_guess(request, game_grid, game_state: GameState, requested_dat
         else:
             # Record wrong guess in the database
             GameResult.record_wrong_guess(requested_date.date(), cell_key, player)
+            # Record metrics for wrong guess
+            date_str = requested_date.date().isoformat()
+            record_wrong_guess(date_str)
 
         # Calculate total score for both correct and incorrect guesses
         update_total_score(game_state, requested_date)
@@ -416,6 +424,10 @@ def handle_correct_guess(requested_date, cell_key, player, cell_data, game_state
 
         # Update the cell data in game_state
         game_state.selected_cells[cell_key].append(cell_data)
+
+        # Record metrics for user guess
+        date_str = requested_date.date().isoformat()
+        record_user_guess(date_str)
 
         logger.info(
             f"Player {player.name} in cell {cell_key} - First guess: {is_first_guess}, Score: {cell_score}, Tier: {cell_data['tier']}"
@@ -692,6 +704,12 @@ def metrics_view(request):
         # Count active games based on DB state (not perfect but gives an estimate)
         active_games_count = GameCompletion.objects.filter(completed_at__gte=datetime.now() - timedelta(hours=1)).count()
         update_active_games(active_games_count)
+
+        # Update total guesses gauge for today
+        today = datetime.now().date()
+        today_str = today.isoformat()
+        total_guesses = GameResult.get_total_guesses(today)
+        update_total_guesses_gauge(today_str, total_guesses)
 
         # Update PythonAnywhere CPU metrics if environment variables are set
         pa_username = settings.PYTHONANYWHERE_USERNAME
