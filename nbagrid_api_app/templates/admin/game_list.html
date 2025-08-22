@@ -73,7 +73,7 @@
             <tr>
               <th>Date</th>
               <th>Completions</th>
-              <th>Guesses (Total/User)</th>
+              <th>Guesses (Total/User/Wrong)</th>
               <th>Correct Players</th>
               <th>Actions</th>
             </tr>
@@ -83,7 +83,7 @@
               <tr>
                 <td>{{ date_info.date }}</td>
                 <td>Avg Score: {{ date_info.average_score|floatformat:0 }}<br/>Avg Correct Cells: {{ date_info.average_correct_cells|floatformat:1 }}<br/>Total: {{ date_info.completion_count }}</td>
-                <td>Total: {{ date_info.total_guesses }}<br/>User: {{ date_info.user_guesses }}</td>
+                <td>Total: {{ date_info.total_guesses }}<br/>User: {{ date_info.user_guesses }}<br/>Wrong: {{ date_info.wrong_guesses }}</td>
                 <td>Min: {{ date_info.min_correct_players }}<br/>Max: {{ date_info.max_correct_players }}<br/>Avg: {{ date_info.avg_correct_players|floatformat:1 }}<br/>Total: {{ date_info.total_correct_players }}</td>
                 <td>
                   <a href="{% url 'admin:nbagrid_api_app_gamegrid_open_in_gridbuilder' date_info.date|date:'Y-m-d' %}" class="gridbuilder-button">Open in GridBuilder</a>

@@ -287,6 +287,7 @@ class GameResult(ExportModelOperationsMixin("gameresult"), models.Model):
     player = models.ForeignKey(Player, on_delete=models.CASCADE)
     guess_count = models.IntegerField(default=1)  # Number of times this player was correctly guessed for this cell
     initial_guesses = models.IntegerField(default=0)  # Number of initial guesses set during grid initialization
+    wrong_guesses = models.IntegerField(default=0)  # Number of times this player was incorrectly guessed for this cell
 
     class Meta:
         unique_together = ["date", "cell_key", "player"]  # Ensure we can track multiple correct players per cell
@@ -325,6 +326,27 @@ class GameResult(ExportModelOperationsMixin("gameresult"), models.Model):
             user_guesses = max(0, result['guess_count'] - result['initial_guesses'])
             total_user_guesses += user_guesses
         return total_user_guesses
+
+    @classmethod
+    def get_total_wrong_guesses(cls, date):
+        """Get the total number of wrong guesses for a specific date."""
+        return cls.objects.filter(date=date).aggregate(total=models.Sum("wrong_guesses"))["total"] or 0
+
+    @classmethod
+    def record_wrong_guess(cls, date, cell_key, player):
+        """Record a wrong guess for a player in a specific cell on a specific date."""
+        result, created = cls.objects.get_or_create(
+            date=date, 
+            cell_key=cell_key, 
+            player=player,
+            defaults={"wrong_guesses": 1}
+        )
+        
+        if not created:
+            result.wrong_guesses += 1
+            result.save()
+        
+        return result
 
     @classmethod
     def get_player_rarity_score(cls, date, cell_key, player):
@@ -415,7 +437,7 @@ class GameResult(ExportModelOperationsMixin("gameresult"), models.Model):
             )
 
     def __str__(self):
-        return f"{self.date} - {self.cell_key} - {self.player.name} ({self.guess_count} total, {self.initial_guesses} initial, {self.user_guesses} user)"
+        return f"{self.date} - {self.cell_key} - {self.player.name} ({self.guess_count} correct, {self.initial_guesses} initial, {self.user_guesses} user, {self.wrong_guesses} wrong)"
 
 
 class GameCompletion(ExportModelOperationsMixin("gamecompletion"), models.Model):
@@ -667,6 +689,11 @@ class GameGrid(ExportModelOperationsMixin("gamegrid"), models.Model):
     def total_user_guesses(self):
         """Get the total user guess count on the fly by summing all GameResult.user_guesses values for this date"""
         return GameResult.get_total_user_guesses(self.date)
+
+    @property
+    def total_wrong_guesses(self):
+        """Get the total wrong guess count on the fly by summing all GameResult.wrong_guesses values for this date"""
+        return GameResult.get_total_wrong_guesses(self.date)
 
     @property
     def average_score(self):

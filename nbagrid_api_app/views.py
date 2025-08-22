@@ -312,6 +312,9 @@ def handle_player_guess(request, game_grid, game_state: GameState, requested_dat
         # Handle correct guess
         if is_correct:
             handle_correct_guess(requested_date, cell_key, player, cell_data, game_state)
+        else:
+            # Record wrong guess in the database
+            GameResult.record_wrong_guess(requested_date.date(), cell_key, player)
 
         # Calculate total score for both correct and incorrect guesses
         update_total_score(game_state, requested_date)

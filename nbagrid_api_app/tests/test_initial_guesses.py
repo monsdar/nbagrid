@@ -1,6 +1,6 @@
 from django.test import TestCase
 from datetime import date
-from nbagrid_api_app.models import GameResult, Player, Team
+from nbagrid_api_app.models import GameResult, Player, Team, GameGrid
 
 
 class InitialGuessesTestCase(TestCase):
@@ -112,9 +112,10 @@ class InitialGuessesTestCase(TestCase):
         )
         
         str_repr = str(result)
-        self.assertIn("10 total", str_repr)
+        self.assertIn("10 correct", str_repr)
         self.assertIn("3 initial", str_repr)
         self.assertIn("7 user", str_repr)
+        self.assertIn("0 wrong", str_repr)
 
     def test_admin_user_guesses_display(self):
         """Test that the admin can correctly calculate and display user guesses."""
@@ -145,3 +146,29 @@ class InitialGuessesTestCase(TestCase):
         # Test that the admin properties work correctly
         self.assertEqual(game_grid.total_guesses, 18)  # 10 + 8
         self.assertEqual(game_grid.total_user_guesses, 13)  # (10-3) + (8-2)
+        self.assertEqual(game_grid.total_wrong_guesses, 0)  # No wrong guesses yet
+
+    def test_wrong_guesses_functionality(self):
+        """Test that wrong guesses are properly recorded and counted."""
+        # Test recording wrong guesses
+        result1 = GameResult.record_wrong_guess(self.test_date, self.cell_key, self.player1)
+        self.assertEqual(result1.wrong_guesses, 1)
+        
+        # Test incrementing wrong guesses
+        result2 = GameResult.record_wrong_guess(self.test_date, self.cell_key, self.player1)
+        self.assertEqual(result2.wrong_guesses, 2)
+        
+        # Test recording wrong guesses for different player
+        result3 = GameResult.record_wrong_guess(self.test_date, self.cell_key, self.player2)
+        self.assertEqual(result3.wrong_guesses, 1)
+        
+        # Test total wrong guesses count
+        total_wrong = GameResult.get_total_wrong_guesses(self.test_date)
+        self.assertEqual(total_wrong, 3)  # 2 + 1
+        
+        # Test GameGrid property
+        game_grid = GameGrid.objects.create(
+            date=self.test_date,
+            cell_correct_players={"0_0": 1}
+        )
+        self.assertEqual(game_grid.total_wrong_guesses, 3)
