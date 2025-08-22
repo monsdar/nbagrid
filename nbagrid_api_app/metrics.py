@@ -16,6 +16,11 @@ active_games_gauge = Gauge("nbagrid_active_games", "Number of currently active g
 
 unique_users_gauge = Counter("nbagrid_unique_users", "Number of unique users based on session keys")
 
+# Guess tracking metrics
+user_guesses_counter = Counter("nbagrid_user_guesses_total", "Number of correct user guesses", ["date"])
+wrong_guesses_counter = Counter("nbagrid_wrong_guesses_total", "Number of incorrect user guesses", ["date"])
+total_guesses_gauge = Gauge("nbagrid_total_guesses", "Total number of guesses for a date", ["date"])
+
 # PythonAnywhere API metrics
 cpu_limit_gauge = Gauge("pythonanywhere_cpu_limit_seconds", "Daily CPU limit in seconds")
 
@@ -68,6 +73,22 @@ def increment_active_games():
 # Update unique users gauge
 def increment_unique_users():
     unique_users_gauge.inc()
+
+
+# Record user guesses metrics
+def record_user_guess(date_str):
+    """Record a correct user guess for a specific date."""
+    user_guesses_counter.labels(date=date_str).inc()
+
+
+def record_wrong_guess(date_str):
+    """Record an incorrect user guess for a specific date."""
+    wrong_guesses_counter.labels(date=date_str).inc()
+
+
+def update_total_guesses_gauge(date_str, total_guesses):
+    """Update the total guesses gauge for a specific date."""
+    total_guesses_gauge.labels(date=date_str).set(total_guesses)
 
 
 # Function to update CPU metrics from PythonAnywhere API

@@ -27,6 +27,8 @@ class GameAdmin(GridBuilderAdmin):
         "completion_count",
         "total_correct_players",
         "total_guesses",
+        "total_user_guesses",
+        "total_wrong_guesses",
         "average_score",
         "average_correct_cells",
     )
@@ -81,6 +83,8 @@ class GameAdmin(GridBuilderAdmin):
                 "date": game_grid.date,
                 "completion_count": game_grid.completion_count,
                 "total_guesses": game_grid.total_guesses,
+                "user_guesses": game_grid.total_user_guesses,
+                "wrong_guesses": game_grid.total_wrong_guesses,
                 "min_correct_players": min_correct_players,
                 "max_correct_players": max_correct_players,
                 "avg_correct_players": avg_correct_players,
