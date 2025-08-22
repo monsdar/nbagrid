@@ -389,7 +389,7 @@ def handle_correct_guess(requested_date, cell_key, player, cell_data, game_state
     """Handle the logic for a correct guess."""
     try:
         result, created = GameResult.objects.get_or_create(
-            date=requested_date.date(), cell_key=cell_key, player=player, defaults={"guess_count": 1}
+            date=requested_date.date(), cell_key=cell_key, player=player, defaults={"guess_count": 1, "initial_guesses": 0}
         )
 
         if not created:
