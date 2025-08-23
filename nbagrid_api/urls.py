@@ -71,5 +71,5 @@ urlpatterns = [
     # Serve favicon.ico
     path("favicon.ico", serve, {"path": "favicon.ico", "document_root": settings.STATIC_ROOT}),
     # Serve entity_images for player portraits
-    path("static/entity_images/<str:filename>", serve_entity_image, name="entity-image"),
+    path("entity_images/<str:filename>", serve_entity_image, name="entity-image"),
 ]
