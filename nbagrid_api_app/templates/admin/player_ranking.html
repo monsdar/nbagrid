@@ -1,0 +1,224 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls static admin_list %}
+
+{% block extrastyle %}
+  {{ block.super }}
+  <link rel="stylesheet" type="text/css" href="{% static "admin/css/changelists.css" %}">
+  <style>
+    .ranking-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    .ranking-table th,
+    .ranking-table td {
+      padding: 8px 12px;
+      text-align: left;
+      border-bottom: 1px solid var(--hairline-color, #ddd);
+    }
+    .ranking-table th {
+      background-color: var(--primary, #f5f5f5);
+      font-weight: bold;
+      color: var(--primary-fg, #333);
+    }
+    .ranking-table tr:hover {
+      background-color: var(--body-bg, #f9f9f9);
+    }
+    .ranking-table tr:nth-child(even) {
+      background-color: var(--darkened-bg, #f8f9fa);
+    }
+    .ranking-table tr:nth-child(even):hover {
+      background-color: var(--body-bg, #f9f9f9);
+    }
+    .portrait-available {
+      color: var(--success, #28a745);
+      font-weight: bold;
+    }
+    .portrait-missing {
+      color: var(--error, #dc3545);
+      font-weight: bold;
+    }
+    .stats-id {
+      font-family: monospace;
+      background-color: var(--darkened-bg, #f8f9fa);
+      color: var(--body-fg, #333);
+      padding: 2px 6px;
+      border-radius: 3px;
+      border: 1px solid var(--hairline-color, #ddd);
+    }
+    .ranking-header {
+      margin-bottom: 20px;
+      padding: 15px;
+      background-color: var(--darkened-bg, #e9ecef);
+      border-radius: 5px;
+      border: 1px solid var(--hairline-color, #ddd);
+    }
+    .ranking-header h1,
+    .ranking-header h3 {
+      color: var(--body-fg, #333);
+      margin-top: 0;
+    }
+    .ranking-header p {
+      color: var(--body-fg, #333);
+      margin-bottom: 0;
+    }
+    .ranking-nav {
+      margin-bottom: 20px;
+    }
+    .ranking-nav a {
+      display: inline-block;
+      padding: 8px 16px;
+      margin-right: 10px;
+      text-decoration: none;
+      background-color: var(--button-bg, #007bff);
+      color: var(--button-fg, white);
+      border-radius: 4px;
+      border: 1px solid var(--button-border, #007bff);
+      transition: all 0.2s ease;
+    }
+    .ranking-nav a:hover {
+      background-color: var(--button-hover-bg, #0056b3);
+      border-color: var(--button-hover-border, #0056b3);
+      color: var(--button-hover-fg, white);
+    }
+    .ranking-nav a.active {
+      background-color: var(--success, #28a745);
+      border-color: var(--success, #28a745);
+      color: white;
+    }
+    
+    /* Dark mode specific adjustments */
+    @media (prefers-color-scheme: dark) {
+      .ranking-table th {
+        background-color: var(--darkened-bg, #2b2b2b);
+        color: var(--body-fg, #e1e1e1);
+      }
+      .ranking-table tr:hover {
+        background-color: var(--body-bg, #3a3a3a);
+      }
+      .ranking-table tr:nth-child(even) {
+        background-color: var(--darkened-bg, #2b2b2b);
+      }
+      .ranking-table tr:nth-child(even):hover {
+        background-color: var(--body-bg, #3a3a3a);
+      }
+      .stats-id {
+        background-color: var(--darkened-bg, #2b2b2b);
+        color: var(--body-fg, #e1e1e1);
+        border-color: var(--hairline-color, #555);
+      }
+      .ranking-header {
+        background-color: var(--darkened-bg, #2b2b2b);
+        border-color: var(--hairline-color, #555);
+      }
+      .ranking-header h1,
+      .ranking-header h3,
+      .ranking-header p {
+        color: var(--body-fg, #e1e1e1);
+      }
+    }
+    
+    /* Ensure proper contrast in all modes */
+    .ranking-table td {
+      color: var(--body-fg, #333);
+    }
+    
+    /* Responsive design */
+    @media (max-width: 768px) {
+      .ranking-table {
+        font-size: 14px;
+      }
+      .ranking-table th,
+      .ranking-table td {
+        padding: 6px 8px;
+      }
+      .ranking-nav a {
+        display: block;
+        margin-bottom: 10px;
+        text-align: center;
+      }
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+  <div class="ranking-header">
+    <h1>{{ title }}</h1>
+    <p>This page shows players ranked by their guess count across all games.</p>
+  </div>
+
+  <div class="ranking-nav">
+    <a href="{% url 'admin:player_ranking_by_guesses' %}" {% if sort_type == 'total_guesses' %}class="active"{% endif %}>
+      Rank by Total Guesses
+    </a>
+    <a href="{% url 'admin:player_ranking_by_user_guesses' %}" {% if sort_type == 'user_guesses' %}class="active"{% endif %}>
+      Rank by User Guesses
+    </a>
+  </div>
+
+  <div class="module filtered">
+    <table class="ranking-table">
+      <thead>
+        <tr>
+          <th>Rank</th>
+          <th>Player Name</th>
+          <th>Position</th>
+          <th>Stats ID</th>
+          <th>Portrait</th>
+          <th>Total Guesses</th>
+          <th>User Guesses</th>
+          <th>Wrong Guesses</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in ranking %}
+        <tr>
+          <td>{{ forloop.counter }}</td>
+          <td>
+            <strong>{{ item.player.name }}</strong>
+            {% if item.player.display_name and item.player.display_name != item.player.name %}
+              <br><small>({{ item.player.display_name }})</small>
+            {% endif %}
+          </td>
+          <td>{{ item.player.position|default:"-" }}</td>
+          <td><span class="stats-id">{{ item.stats_id }}</span></td>
+          <td>
+            {% if item.has_portrait %}
+              <span class="portrait-available">✓ Available</span>
+            {% else %}
+              <span class="portrait-missing">✗ Missing</span>
+            {% endif %}
+          </td>
+          <td>{{ item.total_guesses }}</td>
+          <td>{{ item.total_user_guesses }}</td>
+          <td>{{ item.total_wrong_guesses }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="8" style="text-align: center; padding: 20px;">
+            No players found with guess data.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="ranking-header" style="margin-top: 30px;">
+    <h3>Summary</h3>
+    <p>
+      <strong>Total Players:</strong> {{ ranking|length }}<br>
+      <strong>Players with Portraits:</strong> 
+      {% with portrait_count=ranking|length %}
+        {% for item in ranking %}
+          {% if item.has_portrait %}
+            {% with portrait_count=portrait_count|add:"-1" %}{% endwith %}
+          {% endif %}
+        {% endfor %}
+        {{ ranking|length|add:"-"|add:portrait_count }}
+      {% endwith %}
+    </p>
+  </div>
+</div>
+{% endblock %}

@@ -439,6 +439,88 @@ class GameResult(ExportModelOperationsMixin("gameresult"), models.Model):
     def __str__(self):
         return f"{self.date} - {self.cell_key} - {self.player.name} ({self.guess_count} correct, {self.initial_guesses} initial, {self.user_guesses} user, {self.wrong_guesses} wrong)"
 
+    @classmethod
+    def get_player_ranking_by_guesses(cls):
+        """Get a ranking of all players sorted by their total guess count across all games.
+        Returns a list of tuples (player, total_guesses, total_user_guesses, total_wrong_guesses)."""
+        from django.db.models import Sum
+        
+        # Get all players with their total guess counts
+        player_stats = cls.objects.values('player_id').annotate(
+            total_guesses=Sum('guess_count'),
+            total_initial_guesses=Sum('initial_guesses'),
+            total_wrong_guesses=Sum('wrong_guesses')
+        ).order_by('-total_guesses')
+        
+        # Convert to list of tuples for easier processing
+        ranking = []
+        for stat in player_stats:
+            try:
+                player = Player.objects.get(id=stat['player_id'])
+                total_guesses = stat['total_guesses'] or 0
+                total_initial_guesses = stat['total_initial_guesses'] or 0
+                total_wrong_guesses = stat['total_wrong_guesses'] or 0
+                
+                # Calculate user guesses (total - initial)
+                total_user_guesses = max(0, total_guesses - total_initial_guesses)
+                
+                ranking.append((player, total_guesses, total_user_guesses, total_wrong_guesses))
+            except Player.DoesNotExist:
+                # Skip if player doesn't exist
+                continue
+        
+        return ranking
+
+    @classmethod
+    def get_player_ranking_by_user_guesses(cls):
+        """Get a ranking of all players sorted by their total user guess count (excluding initial guesses).
+        Returns a list of tuples (player, total_user_guesses, total_guesses, total_wrong_guesses)."""
+        from django.db.models import Sum
+        
+        # Get all players with their total guess counts
+        player_stats = cls.objects.values('player_id').annotate(
+            total_guesses=Sum('guess_count'),
+            total_initial_guesses=Sum('initial_guesses'),
+            total_wrong_guesses=Sum('wrong_guesses')
+        )
+        
+        # Calculate user guesses and create ranking list
+        ranking_data = []
+        for stat in player_stats:
+            try:
+                player = Player.objects.get(id=stat['player_id'])
+                total_guesses = stat['total_guesses'] or 0
+                total_initial_guesses = stat['total_initial_guesses'] or 0
+                total_wrong_guesses = stat['total_wrong_guesses'] or 0
+                
+                # Calculate user guesses (total - initial)
+                total_user_guesses = max(0, total_guesses - total_initial_guesses)
+                
+                ranking_data.append({
+                    'player': player,
+                    'total_user_guesses': total_user_guesses,
+                    'total_guesses': total_guesses,
+                    'total_wrong_guesses': total_wrong_guesses,
+                })
+            except Player.DoesNotExist:
+                # Skip if player doesn't exist
+                continue
+        
+        # Sort by user guesses (descending)
+        ranking_data.sort(key=lambda x: x['total_user_guesses'], reverse=True)
+        
+        # Convert to list of tuples
+        ranking = []
+        for data in ranking_data:
+            ranking.append((
+                data['player'], 
+                data['total_user_guesses'], 
+                data['total_guesses'], 
+                data['total_wrong_guesses']
+            ))
+        
+        return ranking
+
 
 class GameCompletion(ExportModelOperationsMixin("gamecompletion"), models.Model):
     date = models.DateField()

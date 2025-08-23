@@ -31,6 +31,42 @@
                 <button type="submit">Update Olympic Medal Winners from static</button>
         </form>
     </div>
+    
+    <div class="ranking-section" style="margin: 20px 0; padding: 15px; background-color: var(--darkened-bg, #f8f9fa); border-radius: 5px; border: 1px solid var(--hairline-color, #ddd);">
+        <h3 style="margin-top: 0; color: var(--body-fg, #333);">Player Rankings</h3>
+        <p style="margin-bottom: 15px; color: var(--body-fg, #333);">View players ranked by their guess counts across all games:</p>
+        <a href="ranking_by_guesses/" class="ranking-button" style="margin-right: 10px; text-decoration: none; padding: 8px 16px; background-color: var(--button-bg, #007bff); color: var(--button-fg, white); border-radius: 4px; border: 1px solid var(--button-border, #007bff); display: inline-block; transition: all 0.2s ease;">
+            Rank by Total Guesses
+        </a>
+        <a href="ranking_by_user_guesses/" class="ranking-button" style="text-decoration: none; padding: 8px 16px; background-color: var(--success, #28a745); color: white; border-radius: 4px; border: 1px solid var(--success, #28a745); display: inline-block; transition: all 0.2s ease;">
+            Rank by User Guesses
+        </a>
+        
+        <style>
+            .ranking-button:hover {
+                background-color: var(--button-hover-bg, #0056b3) !important;
+                border-color: var(--button-hover-bg, #0056b3) !important;
+                color: var(--button-hover-fg, white) !important;
+            }
+            .ranking-button[href*="user_guesses"]:hover {
+                background-color: var(--success-hover, #1e7e34) !important;
+                border-color: var(--success-hover, #1e7e34) !important;
+            }
+            
+            /* Dark mode adjustments */
+            @media (prefers-color-scheme: dark) {
+                .ranking-section {
+                    background-color: var(--darkened-bg, #2b2b2b);
+                    border-color: var(--hairline-color, #555);
+                }
+                .ranking-section h3,
+                .ranking-section p {
+                    color: var(--body-fg, #e1e1e1);
+                }
+            }
+        </style>
+    </div>
+    
     <br />
     {{ block.super }}
 {% endblock %}
