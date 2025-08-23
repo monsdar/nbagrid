@@ -16,9 +16,9 @@ active_games_gauge = Gauge("nbagrid_active_games", "Number of currently active g
 
 unique_users_gauge = Counter("nbagrid_unique_users", "Number of unique users based on session keys")
 
-# New vs Returning Users metrics
-new_users_counter = Counter("nbagrid_new_users_total", "Number of new users (first-time visitors)")
-returning_users_counter = Counter("nbagrid_returning_users_total", "Number of returning users")
+# New vs Returning Users metrics (only counts users who have made at least one guess)
+new_users_counter = Counter("nbagrid_new_users_total", "Number of new users who have made guesses")
+returning_users_counter = Counter("nbagrid_returning_users_total", "Number of returning users who have made guesses")
 
 # User return frequency metrics
 user_return_frequency_histogram = Histogram(
@@ -27,8 +27,8 @@ user_return_frequency_histogram = Histogram(
     buckets=(1, 2, 3, 7, 14, 30, 60, 90, 180, 365, float('inf'))
 )
 
-# Daily active users
-daily_active_users_gauge = Gauge("nbagrid_daily_active_users", "Number of unique users active today")
+# Daily active users (only counts users who have made guesses)
+daily_active_users_gauge = Gauge("nbagrid_daily_active_users", "Number of unique users active today who have made guesses")
 
 # User activity metrics
 user_sessions_by_age_histogram = Histogram(
@@ -93,14 +93,14 @@ def increment_unique_users():
 
 # Record new user event
 def record_new_user():
-    """Record when a new user (first-time visitor) is created."""
+    """Record when a new user who has made guesses is created."""
     new_users_counter.inc()
 
 
 # Record returning user event
 def record_returning_user(days_since_last_visit=None):
     """
-    Record when a returning user visits.
+    Record when a returning user who has made guesses visits.
     
     Args:
         days_since_last_visit (float, optional): Number of days since the user's last visit.
