@@ -138,20 +138,19 @@
         }
 
         .correct {
-            background-color: #004d00;  /* Green for correct picks */
             color: white;
             cursor: default;
         }
 
         .wrong-guesses {
-            color: #800000;  /* Dark red text */
+            color: #5a2d2d;  /* Muted dark red text */
             font-size: 10px;
             font-weight: bold;
             position: absolute;
             top: 2px;
             left: 2px;
             z-index: 1;
-            background-color: #ff8e8e;  /* Bright red background */
+            background-color: #d4a5a5;  /* Muted light red background */
             padding: 2px 4px;
             border-radius: 3px;
             text-transform: uppercase;
@@ -178,7 +177,6 @@
         }
 
         #attempts-remaining {
-            color: #1e8a1e;
             font-weight: 700;
         }
 
@@ -272,7 +270,7 @@
         }
 
         @keyframes flashRed {
-            0% { background-color: #4a1e1e; }
+            0% { background-color: #5a2d2d; }  /* Muted dark red */
             100% { background-color: #2a2a2a; }
         }
 
@@ -289,13 +287,13 @@
         }
 
         .exhausted {
-            background-color: #4a1e1e !important;
+            background-color: #5a2d2d !important;  /* Muted dark red */
             color: white;
             cursor: pointer;
         }
 
         .exhausted:hover {
-            background-color: #5a2e2e !important;
+            background-color: #6a3d3d !important;  /* Slightly lighter muted red */
         }
 
         .correct-players-content h2 {
@@ -320,16 +318,16 @@
         }
 
         .correct-player.wrong-guess {
-            background-color: #4a1e1e;
-            border-left: 3px solid #800000;
+            background-color: #5a2d2d;  /* Muted dark red */
+            border-left: 3px solid #5a2d2d;  /* Muted dark red */
         }
 
         .correct-player.wrong-guess .player-name {
-            color: #ff8e8e;
+            color: #d4a5a5;  /* Muted light red */
         }
 
         .correct-player.wrong-guess .player-stats {
-            color: #cc6666;
+            color: #b8a5a5;  /* Muted lighter red */
         }
 
         .wrong-guess-count {
@@ -338,8 +336,8 @@
             right: 2px;
             font-size: 10px;
             font-weight: bold;
-            color: #800000;
-            background-color: #ff8e8e;
+            color: #5a2d2d;  /* Muted dark red */
+            background-color: #d4a5a5;  /* Muted light red */
             padding: 2px 4px;
             border-radius: 3px;
             text-transform: uppercase;
@@ -606,7 +604,7 @@
 
         .game-attempts #attempts-remaining.low-attempts,
         .game-attempts.low-attempts .attempts-label {
-            color: orange;
+            font-weight: 700;
         }
 
         .player-suggestion button:hover {
@@ -614,27 +612,27 @@
         }
 
         .cell.tier-common {
-            border: 2px solid #808080;  /* Gray for common */
+            border: 2px solid #6b6b6b;  /* Gray for common */
             box-sizing: border-box;
         }
 
         .cell.tier-rare {
-            border: 2px solid #1e90ff;  /* Blue for rare */
+            border: 2px solid #5a8bb8;  /* Blue for rare */
             box-sizing: border-box;
         }
 
         .cell.tier-epic {
-            border: 2px solid #9370db;  /* Purple for epic */
+            border: 2px solid #7a6b9b;  /* Purple for epic */
             box-sizing: border-box;
         }
 
         .cell.tier-first {
-            border: 2px solid #ffd700;  /* Gold for first */
+            border: 2px solid #b8a85a;  /* Gold for first */
             box-sizing: border-box;
         }
 
         .cell.tier-first .tier-label {
-            background-color: #ffd700;
+            background-color: #b8a85a;  /* Gold for first */
             color: #000;
         }
 
@@ -796,17 +794,17 @@
         }
 
         .cell.tier-common .tier-label {
-            background-color: #808080;
+            background-color: #6b6b6b;  /* Gray */
             color: white;
         }
 
         .cell.tier-rare .tier-label {
-            background-color: #1e90ff;
+            background-color: #5a8bb8;  /* Blue */
             color: white;
         }
 
         .cell.tier-epic .tier-label {
-            background-color: #9370db;
+            background-color: #7a6b9b;  /* Purple */
             color: white;
         }
 
