@@ -6,7 +6,7 @@ from prometheus_client import Counter, Gauge, Histogram
 # Define metrics
 game_completions_counter = Counter("nbagrid_game_completions_total", "Number of completed games", ["result"])  # 'win', 'lose'
 
-game_starts_counter = Counter("nbagrid_game_starts_total", "Number of started games")
+game_starts_counter = Counter("nbagrid_game_starts_total", "Number of games where users have made at least one guess")
 
 game_score_histogram = Histogram(
     "nbagrid_game_score", "Distribution of game scores", ["result"], buckets=(0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100)
@@ -76,7 +76,7 @@ def record_game_completion(score, result):
     game_score_histogram.labels(result=result).observe(score)
 
 
-# Increment counter when a new game is started
+# Increment counter when a user makes their first guess in a game
 def record_game_start():
     game_starts_counter.inc()
 

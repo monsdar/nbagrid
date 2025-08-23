@@ -423,6 +423,20 @@ def handle_player_guess(request, game_grid, game_state: GameState, requested_dat
                 # Now track metrics for this newly active user
                 get_user_data(request, track_metrics=True)
 
+        # Record game start metric when the first guess is made for this date
+        date_str = requested_date.date().isoformat()
+        if not request.session.get("tracked_games", {}):
+            request.session["tracked_games"] = {}
+        
+        tracked_games = request.session.get("tracked_games", {})
+        if date_str not in tracked_games:
+            tracked_games[date_str] = True
+            request.session["tracked_games"] = tracked_games
+            request.session.save()
+            # Record a new game start (only when first guess is made)
+            record_game_start()
+            logger.info(f"Game start metric recorded for date {date_str} after first guess")
+
         game_state.decrement_attempts()
         game_state.check_completion(len(game_grid) * len(game_grid[0]))
 
@@ -648,7 +662,7 @@ def game(request, year, month, day):
         # Format the last updated date
         last_updated_str = last_updated_date.strftime("%B %d, %Y") if last_updated_date else "Unknown"
 
-        # Track active games with per-date tracking
+        # Track active games with per-date tracking (game start metric now recorded when first guess is made)
         date_str = requested_date.date().isoformat()
         if not request.session.get("tracked_games", {}):
             request.session["tracked_games"] = {}
@@ -662,8 +676,6 @@ def game(request, year, month, day):
             # Increment active games counter
             increment_active_games()
 
-            # Record a new game start
-            record_game_start()
             logger.info(f"New game started for date {date_str} with session key: {request.session.session_key}")
 
         # Get ranking data if game is finished
