@@ -99,10 +99,16 @@
             font-size: 14px;
             transition: background-color .3s;
             color: white;
-            min-height: 60px;
+            min-height: 150px;
+            max-height: 150px;
             word-break: break-word;
-            padding: 10px;
+            padding: 0;
             position: relative;
+        }
+
+        /* Remove padding for cells with no portrait images */
+        .cell.no-portrait {
+            padding: 0;
         }
 
         .cell:not(.header-cell):not(.game-title-cell):not(.correct):hover {
@@ -121,7 +127,6 @@
             cursor: default;
             color: white;
             margin: 0;
-            padding: 15px;
         }
 
         .header-row {
@@ -156,7 +161,7 @@
             min-height: 70px;
             color: white;
             margin: 0;
-            padding: 20px;
+            padding: 4px;
             display: flex;
             flex-direction: column;
             gap: 10px;
@@ -610,18 +615,22 @@
 
         .cell.tier-common {
             border: 2px solid #808080;  /* Gray for common */
+            box-sizing: border-box;
         }
 
         .cell.tier-rare {
             border: 2px solid #1e90ff;  /* Blue for rare */
+            box-sizing: border-box;
         }
 
         .cell.tier-epic {
             border: 2px solid #9370db;  /* Purple for epic */
+            box-sizing: border-box;
         }
 
         .cell.tier-first {
             border: 2px solid #ffd700;  /* Gold for first */
+            box-sizing: border-box;
         }
 
         .cell.tier-first .tier-label {
@@ -631,12 +640,159 @@
 
         .cell .tier-label {
             position: absolute;
-            top: 2px;
-            right: 2px;
+            top: 0;
+            right: 0;
             font-size: 10px;
-            padding: 2px 4px;
-            border-radius: 3px;
             text-transform: uppercase;
+        }
+
+        /* ===== PLAYER CELL SYSTEM - NEW LAYOUT ===== */
+        
+        /* Base cell content container - starts with name-only layout by default */
+        .player-cell-content {
+            display: grid;
+            grid-template-rows: auto 1fr auto;
+            grid-template-columns: 1fr;
+            width: 100%;
+            height: 100%;
+            gap: 0;
+            position: relative;
+            align-items: stretch;
+        }
+
+        /* Portrait layout - only applied when image loads successfully */
+        .player-cell-content.has-portrait {
+            grid-template-rows: auto 1fr auto;
+        }
+
+        /* Tier badge - top of cell, full width, max 10% height */
+        .tier-label {
+            grid-row: 1;
+            grid-column: 1;
+            width: 100%;
+            max-height: 10%;
+            background-color: #333;
+            color: white;
+            text-align: center;
+            font-size: 8px;
+            font-weight: bold;
+            padding: 2px 0px;
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        /* Player portrait image - center of cell, full size */
+        .player-portrait {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: top center;
+            grid-row: 2 / 4;
+            grid-column: 1;
+            max-width: 120px;
+            max-height: calc(100% - 2em);
+            justify-self: center;
+            align-self: center;
+            box-sizing: border-box;
+            min-height: 0;
+            overflow: hidden;
+            opacity: 0;
+            transition: opacity 0.2s ease-in-out;
+        }
+
+        /* Show portrait when image loads successfully */
+        .player-portrait.loaded {
+            opacity: 1;
+        }
+
+        /* Player name - default styling (name-only layout) */
+        .player-name-text {
+            grid-row: 2;
+            grid-column: 1;
+            width: 100%;
+            background-color: transparent;
+            color: white;
+            text-align: center;
+            font-size: 14px;
+            font-weight: bold;
+            padding: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            white-space: normal;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            line-height: 1.2;
+        }
+
+        /* Player name - portrait layout styling */
+        .player-cell-content.has-portrait .player-name-text {
+            grid-row: 3;
+            background-color: rgba(0, 0, 0, 0.8);
+            font-size: 11px;
+            font-weight: 500;
+            padding: 2px 0px;
+        }
+
+        /* ===== DEFAULT LAYOUT (NAME-ONLY) ===== */
+        .player-cell-content {
+            grid-template-rows: auto 1fr auto;
+            align-items: center;
+        }
+
+        .player-cell-content .player-name-text {
+            grid-row: 2;
+            grid-column: 1;
+            font-size: 14px;
+            font-weight: bold;
+            background-color: transparent;
+            color: white;
+            padding: 0;
+            max-height: none;
+            white-space: normal;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            line-height: 1.2;
+        }
+
+        .player-cell-content .tier-label {
+            grid-row: 1;
+            grid-column: 1;
+        }
+
+        /* ===== RESPONSIVE ADJUSTMENTS ===== */
+        @media screen and (max-width: 480px) {
+            .tier-label {
+                font-size: 7px;
+            }
+            
+            .player-name-text {
+                font-size: 14px;
+            }
+
+            .player-cell-content.no-image .player-name-text {
+                font-size: 14px;
+            }
+        }
+
+        @media screen and (max-width: 360px) {
+            .tier-label {
+                font-size: 6px;
+                padding: 1px;
+            }
+            
+            .player-name-text {
+                font-size: 14px;
+            }
+            
+            .player-cell-content.no-image .player-name-text {
+                font-size: 14px;
+            }
         }
 
         .cell.tier-common .tier-label {
@@ -658,13 +814,10 @@
         @media screen and (max-width: 480px) {
             .cell {
                 font-size: 12px;
-                min-height: 50px;
-                padding: 8px;
             }
 
             .header-cell {
                 font-size: 12px;
-                padding: 10px;
             }
 
             .current-date {
@@ -1276,8 +1429,14 @@
                 {% endwith %}
                 {% endif %}
                 {% if cell_data and cell_data.is_correct and cell_data.player_name %}
-                {{ cell_data.player_name }}
-                <span class="tier-label">{{ cell_data.tier }}</span>
+                <div class="player-cell-content" id="cell-{{ forloop.parentloop.parentloop.counter0 }}-{{ forloop.counter0 }}">
+                    <img src="/static/entity_images/{{ cell_data.player_id }}.png" 
+                         alt="{{ cell_data.player_name }}" 
+                         class="player-portrait"
+                         onload="this.classList.add('loaded'); this.parentElement.classList.add('has-portrait');" onerror="this.style.display='none'; this.parentElement.className='player-cell-content no-image';">
+                    <div class="player-name-text">{{ cell_data.player_name }}</div>
+                    <span class="tier-label">{{ cell_data.tier }}</span>
+                </div>
                 {% elif is_finished and not cell_data.is_correct %}
                 ?
                 {% endif %}
@@ -1705,16 +1864,38 @@
                             return;
                         }
                         
+                        // Create player cell content container
+                        const playerCellContent = document.createElement('div');
+                        playerCellContent.className = 'player-cell-content';
+                        
+                        // Add the player image
+                        const playerImage = document.createElement('img');
+                        playerImage.src = `/static/entity_images/${correctCellData.player_id}.png`;
+                        playerImage.alt = playerName;
+                        playerImage.className = 'player-portrait';
+                        playerImage.onerror = function() { 
+                            this.style.display = 'none';
+                            // When image fails to load, change class to no-image
+                            playerCellContent.className = 'player-cell-content no-image';
+                        };
+                        playerImage.onload = function() {
+                            // When image loads successfully, switch to portrait layout
+                            playerCellContent.className = 'player-cell-content has-portrait';
+                            this.classList.add('loaded');
+                        };
+                        playerCellContent.appendChild(playerImage);
+                        
                         // Add the player name
-                        const playerNameSpan = document.createElement('span');
-                        playerNameSpan.textContent = playerName;
-                        currentCell.appendChild(playerNameSpan);
+                        const playerNameDiv = document.createElement('div');
+                        playerNameDiv.className = 'player-name-text';
+                        playerNameDiv.textContent = playerName;
+                        playerCellContent.appendChild(playerNameDiv);
                         
                         // Add tier label
                         const tierLabel = document.createElement('span');
                         tierLabel.className = 'tier-label';
                         tierLabel.textContent = correctCellData.tier;
-                        currentCell.appendChild(tierLabel);
+                        playerCellContent.appendChild(tierLabel);
                         
                         // Add wrong guesses count if there are any
                         const incorrectGuesses = data.cell_data.filter(cell => !cell.is_correct).length;
@@ -1725,6 +1906,7 @@
                             currentCell.appendChild(wrongGuessesSpan);
                         }
                         
+                        currentCell.appendChild(playerCellContent);
                         currentCell.classList.add('correct');
                         currentCell.classList.add(`tier-${correctCellData.tier}`);
                     } else {

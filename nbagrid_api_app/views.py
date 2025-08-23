@@ -599,7 +599,12 @@ def get_correct_players(game_grid, game_state):
             # Include player stats for each matching player
             for p in matching_players:
                 correct_players[cell_key].append(
-                    {"name": p.name, "stats": [f.get_player_stats_str(p) for f in cell["filters"]], "is_wrong_guess": False}
+                    {
+                        "name": p.name, 
+                        "stats": [f.get_player_stats_str(p) for f in cell["filters"]], 
+                        "is_wrong_guess": False,
+                        "player_id": p.stats_id  # Add player_id for image lookup
+                    }
                 )
 
     return correct_players
