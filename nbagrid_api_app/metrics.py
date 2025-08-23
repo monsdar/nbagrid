@@ -57,6 +57,13 @@ api_request_latency = Histogram("nbagrid_api_request_latency_seconds", "API requ
 # API request counter
 api_request_counter = Counter("nbagrid_api_requests_total", "Number of API requests", ["endpoint", "status"])
 
+# Grid generation metrics
+grid_cached_usage_counter = Counter("nbagrid_grid_cached_usage_total", "Number of times a cached grid has been used")
+
+grid_random_fallback_counter = Counter("nbagrid_grid_random_fallback_total", "Number of times random fallback was needed for grid generation")
+
+grid_tuning_iterations_counter = Counter("nbagrid_grid_tuning_iterations_total", "Number of tuning iterations needed for grid generation", ["filter_type"])
+
 
 # Helper function to track API request latency
 def track_request_latency(endpoint):
@@ -151,6 +158,21 @@ def record_wrong_guess(date_str):
 def update_total_guesses_gauge(date_str, total_guesses):
     """Update the total guesses gauge for a specific date."""
     total_guesses_gauge.labels(date=date_str).set(total_guesses)
+
+# Record when a cached grid has been used
+def record_cached_grid_usage():
+    grid_cached_usage_counter.inc()
+
+
+# Record when random fallback was needed for grid generation
+def record_random_fallback_usage():
+    grid_random_fallback_counter.inc()
+
+
+# Record tuning iterations for grid generation
+def record_tuning_iterations(filter_type, iterations=1):
+    grid_tuning_iterations_counter.labels(filter_type=filter_type).inc(iterations)
+
 
 # Function to update CPU metrics from PythonAnywhere API
 def update_pythonanywhere_cpu_metrics(username, token, host="www.pythonanywhere.com"):

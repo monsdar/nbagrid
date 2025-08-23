@@ -33,6 +33,7 @@ from nbagrid_api_app.metrics import (
     update_daily_active_users,
     update_pythonanywhere_cpu_metrics,
     update_total_guesses_gauge,
+    record_random_fallback_usage,
 )
 from nbagrid_api_app.models import GameCompletion, GameFilterDB, GameGrid, GameResult, GridMetadata, ImpressumContent, LastUpdated, Player, UserData
 
@@ -109,6 +110,7 @@ def get_navigation_dates(requested_date: datetime) -> tuple[datetime, datetime, 
 def get_random_past_game_filters(requested_date: datetime, builder: GameBuilder) -> tuple[list[GameFilter], list[GameFilter]]:
     """Final fallback method to copy a random past game when no cached games are available."""
     logger.warning(f"No cached games available for fallback. Attempting to copy random past game for {requested_date}.")
+    record_random_fallback_usage()
     
     # Find any existing game from the past (any date that has GameFilterDB entries)
     past_game_dates = GameFilterDB.objects.values_list('date', flat=True).order_by('date')
