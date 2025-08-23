@@ -16,6 +16,27 @@ active_games_gauge = Gauge("nbagrid_active_games", "Number of currently active g
 
 unique_users_gauge = Counter("nbagrid_unique_users", "Number of unique users based on session keys")
 
+# New vs Returning Users metrics (only counts users who have made at least one guess)
+new_users_counter = Counter("nbagrid_new_users_total", "Number of new users who have made guesses")
+returning_users_counter = Counter("nbagrid_returning_users_total", "Number of returning users who have made guesses")
+
+# User return frequency metrics
+user_return_frequency_histogram = Histogram(
+    "nbagrid_user_return_frequency_days", 
+    "Distribution of days between user visits", 
+    buckets=(1, 2, 3, 7, 14, 30, 60, 90, 180, 365, float('inf'))
+)
+
+# Daily active users (only counts users who have made guesses)
+daily_active_users_gauge = Gauge("nbagrid_daily_active_users", "Number of unique users active today who have made guesses")
+
+# User activity metrics
+user_sessions_by_age_histogram = Histogram(
+    "nbagrid_user_sessions_by_age_days",
+    "Distribution of user sessions by account age in days",
+    buckets=(1, 7, 14, 30, 60, 90, 180, 365, float('inf'))
+)
+
 # Guess tracking metrics
 user_guesses_counter = Counter("nbagrid_user_guesses_total", "Number of correct user guesses", ["date"])
 wrong_guesses_counter = Counter("nbagrid_wrong_guesses_total", "Number of incorrect user guesses", ["date"])
@@ -74,7 +95,48 @@ def increment_active_games():
 def increment_unique_users():
     unique_users_gauge.inc()
 
+# Record new user event
+def record_new_user():
+    """Record when a new user who has made guesses is created."""
+    new_users_counter.inc()
 
+
+# Record returning user event
+def record_returning_user(days_since_last_visit=None):
+    """
+    Record when a returning user who has made guesses visits.
+    
+    Args:
+        days_since_last_visit (float, optional): Number of days since the user's last visit.
+                                               If provided, will be recorded in the return frequency histogram.
+    """
+    returning_users_counter.inc()
+    
+    if days_since_last_visit is not None:
+        user_return_frequency_histogram.observe(days_since_last_visit)
+
+
+# Record user session by account age
+def record_user_session_by_age(account_age_days):
+    """
+    Record a user session categorized by how old their account is.
+    
+    Args:
+        account_age_days (float): Number of days since the user account was created.
+    """
+    user_sessions_by_age_histogram.observe(account_age_days)
+
+
+# Update daily active users count
+def update_daily_active_users(count):
+    """
+    Update the gauge for daily active users.
+    
+    Args:
+        count (int): Number of unique users active today.
+    """
+    daily_active_users_gauge.set(count)
+    
 # Record user guesses metrics
 def record_user_guess(date_str):
     """Record a correct user guess for a specific date."""
@@ -89,7 +151,6 @@ def record_wrong_guess(date_str):
 def update_total_guesses_gauge(date_str, total_guesses):
     """Update the total guesses gauge for a specific date."""
     total_guesses_gauge.labels(date=date_str).set(total_guesses)
-
 
 # Function to update CPU metrics from PythonAnywhere API
 def update_pythonanywhere_cpu_metrics(username, token, host="www.pythonanywhere.com"):

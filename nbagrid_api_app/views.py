@@ -23,14 +23,63 @@ from nbagrid_api_app.metrics import (
     increment_unique_users,
     record_game_completion,
     record_game_start,
+    record_new_user,
+    record_returning_user,
+    record_user_session_by_age,
     record_user_guess,
     record_wrong_guess,
     track_request_latency,
     update_active_games,
+    update_daily_active_users,
     update_pythonanywhere_cpu_metrics,
     update_total_guesses_gauge,
 )
 from nbagrid_api_app.models import GameCompletion, GameFilterDB, GameGrid, GameResult, GridMetadata, ImpressumContent, LastUpdated, Player, UserData
+
+
+def user_has_made_guesses(request):
+    """Check if the current user has made any guesses in any game."""
+    try:
+        # First check the persistent flag in UserData
+        try:
+            user_data = UserData.objects.get(session_key=request.session.session_key)
+            if user_data.has_made_guesses:
+                return True
+        except UserData.DoesNotExist:
+            pass
+        
+        # Also check current session for any selected cells (for immediate detection)
+        for key, value in request.session.items():
+            if key.startswith('game_state_') and isinstance(value, dict):
+                selected_cells = value.get('selected_cells', {})
+                if selected_cells:
+                    # User has made at least one guess in some game
+                    return True
+        return False
+    except Exception as e:
+        logger.error(f"Error checking if user has made guesses: {e}")
+        return False
+
+
+def update_daily_active_users_metric():
+    """Calculate and update the daily active users metric for users who have made guesses."""
+    from datetime import datetime, timezone, timedelta
+    
+    try:
+        # Count unique users who have made guesses and were active in the last 24 hours
+        yesterday = datetime.now(timezone.utc) - timedelta(days=1)
+        daily_active_count = UserData.objects.filter(
+            last_active__gte=yesterday,
+            has_made_guesses=True
+        ).count()
+        
+        update_daily_active_users(daily_active_count)
+        logger.info(f"Updated daily active users metric (users who made guesses): {daily_active_count}")
+        
+        return daily_active_count
+    except Exception as e:
+        logger.error(f"Error updating daily active users metric: {e}")
+        return 0
 
 
 def get_valid_date(year, month, day):
@@ -176,13 +225,47 @@ def get_game_stats(requested_date):
     }
 
 
-def get_user_data(request):
+def get_user_data(request, track_metrics=True):
     """Get or create user data for the current session."""
     try:
+        from datetime import datetime, timezone
+        
+        # Check if user already exists before calling get_or_create_user
+        try:
+            existing_user = UserData.objects.get(session_key=request.session.session_key)
+            is_new_user = False
+            days_since_last_visit = None
+            
+            # Calculate days since last visit for returning user metrics
+            if existing_user.last_active:
+                days_since_last_visit = (datetime.now(timezone.utc) - existing_user.last_active).total_seconds() / 86400
+                
+        except UserData.DoesNotExist:
+            is_new_user = True
+            
+        # Now get or create the user data (this will update last_active)
         user_data = UserData.get_or_create_user(request.session.session_key)
-        logger.info(
-            f"Created/retrieved UserData for session {request.session.session_key} with display name {user_data.display_name}"
-        )
+        
+        # Only record metrics if user has made guesses and tracking is enabled
+        if track_metrics and user_has_made_guesses(request):
+            # Record metrics based on whether this is a new or returning user
+            if is_new_user:
+                record_new_user()
+                logger.info(f"New active user created with session {request.session.session_key} and display name {user_data.display_name}")
+            else:
+                if days_since_last_visit is not None:
+                    record_returning_user(days_since_last_visit)
+                else:
+                    record_returning_user()
+                logger.info(f"Returning active user with session {request.session.session_key} and display name {user_data.display_name}")
+                
+            # Record user session by account age
+            if user_data.created_at:
+                account_age_days = (datetime.now(timezone.utc) - user_data.created_at).total_seconds() / 86400
+                record_user_session_by_age(account_age_days)
+        elif track_metrics:
+            logger.debug(f"User {request.session.session_key} has not made any guesses yet - not tracking metrics")
+        
         return user_data
     except Exception as e:
         logger.error(f"Failed to create UserData: {e}")
@@ -199,14 +282,10 @@ def handle_game_completion(request, requested_date, game_state, correct_cells_co
             final_score=game_state.total_score,
         )
 
-        # Create UserData for first-time game completion
-        try:
-            user_data = UserData.get_or_create_user(request.session.session_key)
-            logger.info(
-                f"Created/retrieved UserData for session {request.session.session_key} with display name {user_data.display_name}"
-            )
-        except Exception as e:
-            logger.error(f"Failed to create UserData: {e}")
+        # Create UserData for first-time game completion (don't track metrics here as they're already tracked)
+        user_data = get_user_data(request, track_metrics=False)
+        if not user_data:
+            logger.error("Failed to get user data during game completion")
 
         # Record game completion metrics
         result = "win" if correct_cells_count >= 9 else "lose"
@@ -282,6 +361,9 @@ def handle_player_guess(request, game_grid, game_state: GameState, requested_dat
     if game_state.is_finished or game_state.attempts_remaining <= 0:
         logger.error(f"Cannot handle another guess: Game is already finished or attempts remaining is 0")
         return JsonResponse({"error": "Game is finished"}, status=400)
+    
+    # Check if this is the user's first guess ever (before adding the new guess)
+    is_first_guess_ever = not user_has_made_guesses(request)
 
     try:
         # Get data from request.POST instead of request.body
@@ -329,6 +411,17 @@ def handle_player_guess(request, game_grid, game_state: GameState, requested_dat
         logger.info(
             f"Player {player.name} in cell {cell_key} guessed {'correctly' if is_correct else 'incorrectly'}. Total score: {game_state.total_score}"
         )
+        
+        # If this was the user's first guess ever, now track them in metrics
+        if is_first_guess_ever:
+            logger.info(f"User {request.session.session_key} made their first guess - now tracking in metrics")
+            # Get or create user data and mark them as having made guesses
+            user_data = get_user_data(request, track_metrics=False)  # Don't track yet
+            if user_data and not user_data.has_made_guesses:
+                user_data.has_made_guesses = True
+                user_data.save()
+                # Now track metrics for this newly active user
+                get_user_data(request, track_metrics=True)
 
         game_state.decrement_attempts()
         game_state.check_completion(len(game_grid) * len(game_grid[0]))
@@ -519,8 +612,13 @@ def game(request, year, month, day):
             increment_unique_users()
             logger.info(f"New unique user counted with session key: {request.session.session_key}")
 
-        # Get user data
-        user_data = get_user_data(request)
+        # Get user data (only track metrics for users who have made guesses)
+        user_data = get_user_data(request, track_metrics=True)
+        
+        # Update daily active users metric (only occasionally to avoid performance impact)
+        import random
+        if random.random() < 0.1:  # Update 10% of the time to balance accuracy with performance
+            update_daily_active_users_metric()
 
         prev_date, next_date, show_prev, show_next = get_navigation_dates(requested_date)
         static_filters, dynamic_filters = get_game_filters(requested_date)
@@ -656,8 +754,11 @@ def update_display_name(request):
         if not re.match(r"^[a-zA-Z0-9\s]+$", new_name):
             return JsonResponse({"error": "Name can only contain letters, numbers and spaces"}, status=400)
 
-        # Update the user's display name
-        user_data = UserData.get_or_create_user(request.session.session_key)
+        # Update the user's display name (don't track metrics for name changes)
+        user_data = get_user_data(request, track_metrics=False)
+        if not user_data:
+            return JsonResponse({"error": "Failed to get user data"}, status=500)
+        
         user_data.display_name = new_name
         user_data.save()
 
