@@ -286,9 +286,16 @@ class GameResult(ExportModelOperationsMixin("gameresult"), models.Model):
     cell_key = models.CharField(max_length=10)  # e.g., "0_1" for row 0, col 1
     player = models.ForeignKey(Player, on_delete=models.CASCADE)
     guess_count = models.IntegerField(default=1)  # Number of times this player was correctly guessed for this cell
+    initial_guesses = models.IntegerField(default=0)  # Number of initial guesses set during grid initialization
+    wrong_guesses = models.IntegerField(default=0)  # Number of times this player was incorrectly guessed for this cell
 
     class Meta:
         unique_together = ["date", "cell_key", "player"]  # Ensure we can track multiple correct players per cell
+
+    @property
+    def user_guesses(self):
+        """Calculate the number of actual user guesses by subtracting initial guesses from total guess count."""
+        return max(0, self.guess_count - self.initial_guesses)
 
     @classmethod
     def get_cell_stats(cls, date, cell_key):
@@ -309,6 +316,37 @@ class GameResult(ExportModelOperationsMixin("gameresult"), models.Model):
     def get_total_guesses(cls, date):
         """Get the total number of correct guesses for a specific date."""
         return cls.objects.filter(date=date).aggregate(total=models.Sum("guess_count"))["total"] or 0
+
+    @classmethod
+    def get_total_user_guesses(cls, date):
+        """Get the total number of user guesses (excluding initial guesses) for a specific date."""
+        results = cls.objects.filter(date=date).values('guess_count', 'initial_guesses')
+        total_user_guesses = 0
+        for result in results:
+            user_guesses = max(0, result['guess_count'] - result['initial_guesses'])
+            total_user_guesses += user_guesses
+        return total_user_guesses
+
+    @classmethod
+    def get_total_wrong_guesses(cls, date):
+        """Get the total number of wrong guesses for a specific date."""
+        return cls.objects.filter(date=date).aggregate(total=models.Sum("wrong_guesses"))["total"] or 0
+
+    @classmethod
+    def record_wrong_guess(cls, date, cell_key, player):
+        """Record a wrong guess for a player in a specific cell on a specific date."""
+        result, created = cls.objects.get_or_create(
+            date=date, 
+            cell_key=cell_key, 
+            player=player,
+            defaults={"wrong_guesses": 1}
+        )
+        
+        if not created:
+            result.wrong_guesses += 1
+            result.save()
+        
+        return result
 
     @classmethod
     def get_player_rarity_score(cls, date, cell_key, player):
@@ -375,21 +413,31 @@ class GameResult(ExportModelOperationsMixin("gameresult"), models.Model):
 
         # Initialize scores based on rank
         for rank, (player, _) in enumerate(sorted_players, 1):
-            # Calculate guess_count based on rank
+            # Calculate initial_guesses based on rank
             is_bottom_third = rank >= (total_players - bottom_third_cutoff)
             has_counted_games = player_counts[player] >= 0
             if (not is_bottom_third) and has_counted_games:
-                guess_count = (total_players - rank + 1) * game_factor
+                initial_guesses = (total_players - rank + 1) * game_factor
+                guess_count = initial_guesses
             else:
+                initial_guesses = 0
                 guess_count = 0
 
-            logger.debug(f"Setting player {player.name} count to {guess_count} (rank {rank})")
+            logger.debug(f"Setting player {player.name} initial_guesses to {initial_guesses} (rank {rank})")
 
-            # Create or update GameResult entry
-            cls.objects.update_or_create(date=date, cell_key=cell_key, player=player, defaults={"guess_count": guess_count})
+            # Create or update GameResult entry with both initial_guesses and guess_count
+            cls.objects.update_or_create(
+                date=date, 
+                cell_key=cell_key, 
+                player=player, 
+                defaults={
+                    "initial_guesses": initial_guesses,
+                    "guess_count": initial_guesses  # Initially, guess_count equals initial_guesses
+                }
+            )
 
     def __str__(self):
-        return f"{self.date} - {self.cell_key} - {self.player.name} ({self.guess_count} guesses)"
+        return f"{self.date} - {self.cell_key} - {self.player.name} ({self.guess_count} correct, {self.initial_guesses} initial, {self.user_guesses} user, {self.wrong_guesses} wrong)"
 
 
 class GameCompletion(ExportModelOperationsMixin("gamecompletion"), models.Model):
@@ -638,6 +686,16 @@ class GameGrid(ExportModelOperationsMixin("gamegrid"), models.Model):
         return GameResult.objects.filter(date=self.date).aggregate(total=models.Sum("guess_count"))["total"] or 0
 
     @property
+    def total_user_guesses(self):
+        """Get the total user guess count on the fly by summing all GameResult.user_guesses values for this date"""
+        return GameResult.get_total_user_guesses(self.date)
+
+    @property
+    def total_wrong_guesses(self):
+        """Get the total wrong guess count on the fly by summing all GameResult.wrong_guesses values for this date"""
+        return GameResult.get_total_wrong_guesses(self.date)
+
+    @property
     def average_score(self):
         """Get the average score for completions of this grid"""
         return GameCompletion.get_average_score(self.date)
@@ -723,6 +781,7 @@ class UserData(ExportModelOperationsMixin("userdata"), models.Model):
     display_name = models.CharField(max_length=14, help_text="Generated display name for the user")
     created_at = models.DateTimeField(auto_now_add=True, help_text="When this user data was created")
     last_active = models.DateTimeField(auto_now=True, help_text="When this user was last active")
+    has_made_guesses = models.BooleanField(default=False, help_text="Whether this user has made at least one guess")
 
     def __str__(self):
         return f"{self.display_name} ({self.session_key})"

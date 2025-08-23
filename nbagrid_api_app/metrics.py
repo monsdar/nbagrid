@@ -6,7 +6,7 @@ from prometheus_client import Counter, Gauge, Histogram
 # Define metrics
 game_completions_counter = Counter("nbagrid_game_completions_total", "Number of completed games", ["result"])  # 'win', 'lose'
 
-game_starts_counter = Counter("nbagrid_game_starts_total", "Number of started games")
+game_starts_counter = Counter("nbagrid_game_starts_total", "Number of games where users have made at least one guess")
 
 game_score_histogram = Histogram(
     "nbagrid_game_score", "Distribution of game scores", ["result"], buckets=(0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100)
@@ -15,6 +15,32 @@ game_score_histogram = Histogram(
 active_games_gauge = Gauge("nbagrid_active_games", "Number of currently active games")
 
 unique_users_gauge = Counter("nbagrid_unique_users", "Number of unique users based on session keys")
+
+# New vs Returning Users metrics (only counts users who have made at least one guess)
+new_users_counter = Counter("nbagrid_new_users_total", "Number of new users who have made guesses")
+returning_users_counter = Counter("nbagrid_returning_users_total", "Number of returning users who have made guesses")
+
+# User return frequency metrics
+user_return_frequency_histogram = Histogram(
+    "nbagrid_user_return_frequency_days", 
+    "Distribution of days between user visits", 
+    buckets=(1, 2, 3, 7, 14, 30, 60, 90, 180, 365, float('inf'))
+)
+
+# Daily active users (only counts users who have made guesses)
+daily_active_users_gauge = Gauge("nbagrid_daily_active_users", "Number of unique users active today who have made guesses")
+
+# User activity metrics
+user_sessions_by_age_histogram = Histogram(
+    "nbagrid_user_sessions_by_age_days",
+    "Distribution of user sessions by account age in days",
+    buckets=(1, 7, 14, 30, 60, 90, 180, 365, float('inf'))
+)
+
+# Guess tracking metrics
+user_guesses_counter = Counter("nbagrid_user_guesses_total", "Number of correct user guesses", ["date"])
+wrong_guesses_counter = Counter("nbagrid_wrong_guesses_total", "Number of incorrect user guesses", ["date"])
+total_guesses_gauge = Gauge("nbagrid_total_guesses", "Total number of guesses for a date", ["date"])
 
 # PythonAnywhere API metrics
 cpu_limit_gauge = Gauge("pythonanywhere_cpu_limit_seconds", "Daily CPU limit in seconds")
@@ -57,7 +83,7 @@ def record_game_completion(score, result):
     game_score_histogram.labels(result=result).observe(score)
 
 
-# Increment counter when a new game is started
+# Increment counter when a user makes their first guess in a game
 def record_game_start():
     game_starts_counter.inc()
 
@@ -76,6 +102,62 @@ def increment_active_games():
 def increment_unique_users():
     unique_users_gauge.inc()
 
+# Record new user event
+def record_new_user():
+    """Record when a new user who has made guesses is created."""
+    new_users_counter.inc()
+
+
+# Record returning user event
+def record_returning_user(days_since_last_visit=None):
+    """
+    Record when a returning user who has made guesses visits.
+    
+    Args:
+        days_since_last_visit (float, optional): Number of days since the user's last visit.
+                                               If provided, will be recorded in the return frequency histogram.
+    """
+    returning_users_counter.inc()
+    
+    if days_since_last_visit is not None:
+        user_return_frequency_histogram.observe(days_since_last_visit)
+
+
+# Record user session by account age
+def record_user_session_by_age(account_age_days):
+    """
+    Record a user session categorized by how old their account is.
+    
+    Args:
+        account_age_days (float): Number of days since the user account was created.
+    """
+    user_sessions_by_age_histogram.observe(account_age_days)
+
+
+# Update daily active users count
+def update_daily_active_users(count):
+    """
+    Update the gauge for daily active users.
+    
+    Args:
+        count (int): Number of unique users active today.
+    """
+    daily_active_users_gauge.set(count)
+    
+# Record user guesses metrics
+def record_user_guess(date_str):
+    """Record a correct user guess for a specific date."""
+    user_guesses_counter.labels(date=date_str).inc()
+
+
+def record_wrong_guess(date_str):
+    """Record an incorrect user guess for a specific date."""
+    wrong_guesses_counter.labels(date=date_str).inc()
+
+
+def update_total_guesses_gauge(date_str, total_guesses):
+    """Update the total guesses gauge for a specific date."""
+    total_guesses_gauge.labels(date=date_str).set(total_guesses)
 
 # Record when a cached grid has been used
 def record_cached_grid_usage():
