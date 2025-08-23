@@ -6,6 +6,7 @@ from django.db.models import Manager
 
 from nbagrid_api_app.GameFilter import GameFilter, create_filter_from_db, get_dynamic_filters, get_static_filters
 from nbagrid_api_app.models import GameFilterDB, GameGrid, Player, GridMetadata
+from nbagrid_api_app.metrics import record_cached_grid_usage, record_tuning_iterations
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -248,6 +249,7 @@ class GameBuilder(object):
         if requested_date:
             static_filters, dynamic_filters = self.get_filters_from_db(requested_date)
             if static_filters and dynamic_filters:
+                record_cached_grid_usage()
                 return (static_filters, dynamic_filters)
 
             # When we're allowed to reuse a cached game let's check if there's one available
@@ -261,6 +263,7 @@ class GameBuilder(object):
             # Now get the filters from the requested date
             static_filters, dynamic_filters = self.get_filters_from_db(requested_date)
             if static_filters and dynamic_filters:
+                record_cached_grid_usage()
                 return (static_filters, dynamic_filters)
 
         # If no filters exist or they're incomplete, generate new ones
@@ -374,6 +377,10 @@ class GameBuilder(object):
                     found_filter = True
                     break
                 num_tuning_attempts += 1
+            
+            # Record tuning iterations for metrics
+            record_tuning_iterations("dynamic", num_tuning_attempts)
+            
             # Continue with the next dynamic filter if we did not find a suitable filter
             if not found_filter:
                 logger.warning(
