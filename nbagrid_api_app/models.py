@@ -781,6 +781,7 @@ class UserData(ExportModelOperationsMixin("userdata"), models.Model):
     display_name = models.CharField(max_length=14, help_text="Generated display name for the user")
     created_at = models.DateTimeField(auto_now_add=True, help_text="When this user data was created")
     last_active = models.DateTimeField(auto_now=True, help_text="When this user was last active")
+    has_made_guesses = models.BooleanField(default=False, help_text="Whether this user has made at least one guess")
 
     def __str__(self):
         return f"{self.display_name} ({self.session_key})"
