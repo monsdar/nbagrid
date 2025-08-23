@@ -9,11 +9,14 @@ from nba_api.stats.static import players as static_players
 from django.contrib import admin
 from django.http import HttpResponseRedirect
 from django.urls import path
+from django.template.response import TemplateResponse
+import os
+from django.conf import settings
 
 from nbagrid_api_app.admin.player_salary_spotrac_admin import PlayerSalarySpotracAdmin
 from nbagrid_api_app.admin.player_static_all_nba_admin import PlayerStaticAllNbaAdmin
 from nbagrid_api_app.admin.player_static_olympians_admin import PlayerStaticOlympiansAdmin
-from nbagrid_api_app.models import Player
+from nbagrid_api_app.models import Player, GameResult
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +49,8 @@ class PlayerAdmin(PlayerStaticOlympiansAdmin, PlayerStaticAllNbaAdmin, PlayerSal
             path("sync_players_from_nba_stats/", self.sync_player_data_from_nba_stats),
             path("sync_player_stats_from_nba_stats/", self.sync_player_stats_from_nba_stats),
             path("sync_player_awards_from_nba_stats/", self.sync_player_awards_from_nba_stats),
+            path("ranking_by_guesses/", self.ranking_by_guesses_view, name="player_ranking_by_guesses"),
+            path("ranking_by_user_guesses/", self.ranking_by_user_guesses_view, name="player_ranking_by_user_guesses"),
         ]
         return my_urls + urls
 
@@ -68,6 +73,72 @@ class PlayerAdmin(PlayerStaticOlympiansAdmin, PlayerStaticAllNbaAdmin, PlayerSal
         self.sync_player_awards()
         self.message_user(request, "Successfully synced player awards", level="success")
         return HttpResponseRedirect("../")
+
+    def ranking_by_guesses_view(self, request):
+        """Display ranking of players by total guess count"""
+        ranking = GameResult.get_player_ranking_by_guesses()
+        
+        # Add portrait availability information
+        ranking_with_portraits = []
+        for player, total_guesses, total_user_guesses, total_wrong_guesses in ranking:
+            has_portrait = self._check_portrait_availability(player.stats_id)
+            ranking_with_portraits.append({
+                'player': player,
+                'total_guesses': total_guesses,
+                'total_user_guesses': total_user_guesses,
+                'total_wrong_guesses': total_wrong_guesses,
+                'has_portrait': has_portrait,
+                'stats_id': player.stats_id,
+            })
+        
+        context = {
+            'title': 'Player Ranking by Total Guesses',
+            'ranking': ranking_with_portraits,
+            'sort_type': 'total_guesses',
+            'opts': self.model._meta,
+        }
+        
+        return TemplateResponse(request, 'admin/player_ranking.html', context)
+    
+    def ranking_by_user_guesses_view(self, request):
+        """Display ranking of players by user guess count (excluding initial guesses)"""
+        ranking = GameResult.get_player_ranking_by_user_guesses()
+        
+        # Add portrait availability information
+        ranking_with_portraits = []
+        for player, total_user_guesses, total_guesses, total_wrong_guesses in ranking:
+            has_portrait = self._check_portrait_availability(player.stats_id)
+            ranking_with_portraits.append({
+                'player': player,
+                'total_guesses': total_guesses,
+                'total_user_guesses': total_user_guesses,
+                'total_wrong_guesses': total_wrong_guesses,
+                'has_portrait': has_portrait,
+                'stats_id': player.stats_id,
+            })
+        
+        context = {
+            'title': 'Player Ranking by User Guesses',
+            'ranking': ranking_with_portraits,
+            'sort_type': 'user_guesses',
+            'opts': self.model._meta,
+        }
+        
+        return TemplateResponse(request, 'admin/player_ranking.html', context)
+    
+    def _check_portrait_availability(self, stats_id):
+        """Check if a player portrait is available"""
+        # Check in staticfiles directory first (for production)
+        static_portrait_path = os.path.join(settings.STATIC_ROOT, 'entity_images', f'{stats_id}.png')
+        if os.path.exists(static_portrait_path):
+            return True
+        
+        # Check in static directory (for development)
+        static_portrait_path = os.path.join(settings.BASE_DIR, 'static', 'entity_images', f'{stats_id}.png')
+        if os.path.exists(static_portrait_path):
+            return True
+        
+        return False
 
     def init_players(self):
         # Create all active players that are in the static players list
