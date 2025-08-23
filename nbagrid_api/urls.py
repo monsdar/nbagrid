@@ -23,8 +23,7 @@ from django.contrib import admin
 from django.http import HttpResponse
 from django.urls import include, path
 from django.views.static import serve
-from django.http import FileResponse
-import os
+
 
 import nbagrid_api_app.views
 from nbagrid_api_app.auth import basic_auth_required
@@ -44,15 +43,6 @@ def secured_metrics_registry_view(request):
     return HttpResponse(exports.ExportToDjangoPrometheusDjangoMetrics(request))
 
 
-def serve_entity_image(request, filename):
-    """Serve entity image files from staticfiles directory"""
-    file_path = os.path.join(settings.STATIC_ROOT, 'entity_images', filename)
-    if os.path.exists(file_path):
-        return FileResponse(open(file_path, 'rb'), content_type='image/png')
-    else:
-        from django.http import Http404
-        raise Http404("Image not found")
-
 
 urlpatterns = [
     path("", nbagrid_api_app.views.index, name="index"),
@@ -70,6 +60,5 @@ urlpatterns = [
     path("prometheus/metrics", secured_metrics_registry_view, name="prometheus-django-metrics"),
     # Serve favicon.ico
     path("favicon.ico", serve, {"path": "favicon.ico", "document_root": settings.STATIC_ROOT}),
-    # Serve entity_images for player portraits
-    path("entity_images/<str:filename>", serve_entity_image, name="entity-image"),
+
 ]

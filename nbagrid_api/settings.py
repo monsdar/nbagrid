@@ -91,6 +91,11 @@ STORAGES = {
     },
 }
 
+# WhiteNoise configuration
+WHITENOISE_INDEX_FILE = True
+WHITENOISE_USE_FINDERS = True
+WHITENOISE_AUTOREFRESH = True
+
 ROOT_URLCONF = "nbagrid_api.urls"
 
 TEMPLATES = [
