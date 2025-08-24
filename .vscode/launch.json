@@ -29,6 +29,17 @@
             ]
         },
         {
+            "name": "Python Debugger: Optimize entity images",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/batch_process_images.py",
+            "console": "integratedTerminal",
+            "args": [
+                "-o",
+                "staticfiles/entity_images"
+            ]
+        },
+        {
             "name": "Python Debugger: Django",
             "type": "debugpy",
             "request": "launch",
