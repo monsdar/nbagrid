@@ -18,6 +18,7 @@ class Player(ExportModelOperationsMixin("player"), models.Model):
     last_name = models.CharField(max_length=100, default="")
     display_name = models.CharField(max_length=200, default="")
     teams = models.ManyToManyField("Team")
+    teammates = models.ManyToManyField("self", blank=True, help_text="Players this player has played with on the same team")
     draft_year = models.IntegerField(default=0)
     draft_round = models.IntegerField(default=0)
     draft_number = models.IntegerField(default=0)
@@ -271,7 +272,109 @@ class Player(ExportModelOperationsMixin("player"), models.Model):
         inches = int(height_str.split("-")[1])
         return (feet * 12 + inches) * 2.54
 
-
+    def populate_teammates(self):
+        """
+        Populate the teammates field using NBA API LeagueDashLineups data to get accurate teammate information
+        with proper timeframes. This method uses actual lineup data to determine who played together.
+        
+        APPROACH:
+        1. Get the player's career stats to see which teams they played for in each season
+        2. For each team/season, call LeagueDashLineups API to get all lineup combinations
+        3. Parse GROUP_ID to extract player IDs who played together in lineups
+        4. This gives us actual teammates who were on the court together
+        
+        ADVANTAGES:
+        - Uses actual lineup data (who played together on court)
+        - More accurate than roster-based approaches
+        - Handles trades and mid-season roster changes
+        
+        Returns:
+            A list of actual teammates found
+        """
+        from .nba_api_wrapper import get_player_career_stats, get_league_dash_lineups
+        
+        # Get the player's career stats to see which teams they played for in each season
+        career_data = get_player_career_stats(self.stats_id, per_mode36="PerGame")
+        
+        if 'SeasonTotalsRegularSeason' not in career_data:
+            logger.warning(f"No season totals found for {self.name}")
+            return []
+        
+        all_teammates = set()
+        
+        # Process each season
+        for season_data in career_data['SeasonTotalsRegularSeason']:
+            season_id = season_data.get('SEASON_ID', '')
+            team_id = season_data.get('TEAM_ID', '')
+            team_abbr = season_data.get('TEAM_ABBREVIATION', '')
+            games_played = season_data.get('GP', 0)
+            
+            # Skip total entries and seasons with no games
+            if team_id == 0 or games_played == 0:
+                continue
+            
+            logger.debug(f"Processing {self.name} - Season {season_id}, Team {team_abbr}, Games: {games_played}")
+            
+            try:
+                # Get team lineups for this season using LeagueDashLineups API (returns more lineups)
+                lineups_data = get_league_dash_lineups(
+                    team_id=int(team_id), 
+                    season=season_id,
+                    group_quantity="5",
+                    per_mode_detailed="PerGame"
+                )
+                
+                lineups = lineups_data.get('Lineups', [])
+                logger.debug(f"Found {len(lineups)} lineups for {team_abbr} in {season_id}")
+                
+                # Process each lineup to find teammates
+                for lineup in lineups:
+                    group_id = lineup.get('GROUP_ID', '')
+                    games_played_together = lineup.get('GP', 0)
+                    
+                    # Skip lineups with no games played together
+                    if games_played_together == 0:
+                        continue
+                    
+                    # Parse GROUP_ID to extract player IDs
+                    if group_id and group_id.startswith('-') and group_id.endswith('-'):
+                        # Remove leading and trailing dashes, then split by dash
+                        player_ids_str = group_id[1:-1]
+                        player_ids = player_ids_str.split('-')
+                        
+                        # Convert to integers and filter out invalid IDs
+                        valid_player_ids = []
+                        for pid in player_ids:
+                            if pid.isdigit():
+                                valid_player_ids.append(int(pid))
+                        
+                        # Check if our player is in this lineup
+                        if self.stats_id in valid_player_ids:
+                            # Add all other players in this lineup as teammates
+                            for teammate_id in valid_player_ids:
+                                if teammate_id != self.stats_id:
+                                    try:
+                                        teammate = Player.objects.get(stats_id=teammate_id)
+                                        all_teammates.add(teammate)
+                                        logger.debug(f"Found teammate: {teammate.name} (played {games_played_together} games together in {season_id})")
+                                    except Player.DoesNotExist:
+                                        #logger.debug(f"Teammate with stats_id {teammate_id} not found in database")
+                                        continue
+                                    
+            except Exception as e:
+                logger.warning(f"Error getting lineups for {team_abbr} in {season_id}: {e}")
+                continue
+        
+        # Clear existing teammates and add new ones
+        self.teammates.clear()
+        if all_teammates:
+            self.teammates.add(*all_teammates)
+            logger.info(f"Found {len(all_teammates)} teammates for {self.name}")
+        else:
+            logger.warning(f"No teammates found for {self.name}")
+                    
+        return list(all_teammates)
+           
 class Team(ExportModelOperationsMixin("team"), models.Model):
     stats_id = models.IntegerField()
     name = models.CharField(max_length=200)

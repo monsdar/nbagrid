@@ -92,6 +92,7 @@ staticfiles/*
 !staticfiles/favicon.ico
 !staticfiles/entity_images/
 .grids/
+nba_api_cache/
 
 # Testing and Coverage
 .coverage
