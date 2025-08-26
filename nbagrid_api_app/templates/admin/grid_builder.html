@@ -365,19 +365,19 @@ function updateCellDisplay(type, index, filterClass, filterName) {
     const filterControlButton = cell.querySelectorAll('.filter-control-button');
     const randomizeButton = cell.querySelector('.randomize-button');
     
-    if (filterClass.includes('DynamicGameFilter') || filterClass === 'TeamCountFilter') {
-        controls.style.display = 'flex';
-        randomizeButton.style.display = 'none';
-        filterControlButton.forEach(button => button.style.display = 'inline-block');
-    } else if (filterClass === 'TeamFilter' || filterClass === 'PositionFilter' || filterClass === 'LastNameFilter') {
-        controls.style.display = 'flex';
-        randomizeButton.style.display = 'inline-block';
-        filterControlButton.forEach(button => button.style.display = 'none');
-    } else {
-        controls.style.display = 'none';
-        randomizeButton.style.display = 'none';
-        filterControlButton.forEach(button => button.style.display = 'none');
-    }
+                    if (filterClass.includes('DynamicGameFilter') || filterClass === 'TeamCountFilter') {
+                    controls.style.display = 'flex';
+                    randomizeButton.style.display = 'none';
+                    filterControlButton.forEach(button => button.style.display = 'inline-block');
+                } else if (filterClass === 'TeamFilter' || filterClass === 'PositionFilter' || filterClass === 'LastNameFilter' || filterClass === 'PlayedWithPlayerFilter') {
+                    controls.style.display = 'flex';
+                    randomizeButton.style.display = 'inline-block';
+                    filterControlButton.forEach(button => button.style.display = 'none');
+                } else {
+                    controls.style.display = 'none';
+                    randomizeButton.style.display = 'none';
+                    filterControlButton.forEach(button => button.style.display = 'none');
+                }
 }
 
 // Initialize cell displays on page load
@@ -659,7 +659,7 @@ function importGrid(event) {
                     controls.style.display = 'flex';
                     randomizeButton.style.display = 'none';
                     filterControlButton.forEach(button => button.style.display = 'inline-block');
-                } else if (filterData.class === 'TeamFilter' || filterData.class === 'PositionFilter' || filterData.class === 'LastNameFilter') {
+                } else if (filterData.class === 'TeamFilter' || filterData.class === 'PositionFilter' || filterData.class === 'LastNameFilter' || filterData.class === 'PlayedWithPlayerFilter') {
                     controls.style.display = 'flex';
                     randomizeButton.style.display = 'inline-block';
                     filterControlButton.forEach(button => button.style.display = 'none');
@@ -688,7 +688,7 @@ function importGrid(event) {
                     controls.style.display = 'flex';
                     randomizeButton.style.display = 'none';
                     filterControlButton.forEach(button => button.style.display = 'inline-block');
-                } else if (filterData.class === 'TeamFilter' || filterData.class === 'PositionFilter' || filterData.class === 'LastNameFilter') {
+                } else if (filterData.class === 'TeamFilter' || filterData.class === 'PositionFilter' || filterData.class === 'LastNameFilter' || filterData.class === 'PlayedWithPlayerFilter') {
                     controls.style.display = 'flex';
                     randomizeButton.style.display = 'inline-block';
                     filterControlButton.forEach(button => button.style.display = 'none');

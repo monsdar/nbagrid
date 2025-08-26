@@ -14,6 +14,7 @@ from django.views.decorators.csrf import csrf_exempt
 
 from nbagrid_api_app.GameFilter import (
     LastNameFilter,
+    PlayedWithPlayerFilter,
     PositionFilter,
     TeamFilter,
     gamefilter_from_json,
@@ -202,7 +203,7 @@ class GridBuilderAdmin(admin.ModelAdmin):
 
     @method_decorator(csrf_exempt)
     def randomize_filter(self, request):
-        """Randomize a TeamFilter or PositionFilter"""
+        """Randomize a TeamFilter, PositionFilter, LastNameFilter, or PlayedWithPlayerFilter"""
         if request.method != "POST":
             return JsonResponse({"error": "Invalid request method"}, status=400)
 
@@ -257,6 +258,63 @@ class GridBuilderAdmin(admin.ModelAdmin):
                     next_index = (current_index + 1) % len(valid_letters)
                     filter_instance.selected_letter = valid_letters[next_index]
                     filter_data["config"]["selected_letter"] = filter_instance.selected_letter
+            elif isinstance(filter_instance, PlayedWithPlayerFilter):
+                # Get all All-Star players who have teammates
+                all_star_players_with_teammates = Player.objects.filter(
+                    is_award_all_star=True,
+                    teammates__isnull=False
+                ).distinct()
+                
+                logger.info(f"Found {all_star_players_with_teammates.count()} All-Star players with teammates")
+                
+                if all_star_players_with_teammates.exists():
+                    # Find current target player and get next one
+                    current_target_name = filter_data["config"].get("target_player", "")
+                    current_index = 0
+                    players_list = list(all_star_players_with_teammates)
+                    
+                    logger.info(f"Current target player: {current_target_name}")
+                    logger.info(f"Available players: {[p.name for p in players_list[:5]]}...")  # Log first 5 for debugging
+                    
+                    for index, player in enumerate(players_list):
+                        if player.name == current_target_name:
+                            current_index = index
+                            break
+                    
+                    # Get next player in the list
+                    next_index = (current_index + 1) % len(players_list)
+                    next_player = players_list[next_index]
+                    
+                    logger.info(f"Switching from {current_target_name} to {next_player.name}")
+                    
+                    # Update the filter
+                    filter_instance.target_player = next_player
+                    filter_data["config"]["target_player"] = next_player.name
+                else:
+                    # Fallback to any All-Star player if no teammates data exists
+                    all_star_players = Player.objects.filter(is_award_all_star=True)
+                    logger.info(f"Fallback: Found {all_star_players.count()} All-Star players")
+                    
+                    if all_star_players.exists():
+                        current_target_name = filter_data["config"].get("target_player", "")
+                        current_index = 0
+                        players_list = list(all_star_players)
+                        
+                        for index, player in enumerate(players_list):
+                            if player.name == current_target_name:
+                                current_index = index
+                                break
+                        
+                        next_index = (current_index + 1) % len(players_list)
+                        next_player = players_list[next_index]
+                        
+                        logger.info(f"Fallback: Switching from {current_target_name} to {next_player.name}")
+                        
+                        filter_instance.target_player = next_player
+                        filter_data["config"]["target_player"] = next_player.name
+                    else:
+                        logger.error("No suitable players found for PlayedWithPlayerFilter")
+                        return JsonResponse({"error": "No suitable players found for PlayedWithPlayerFilter"}, status=400)
             else:
                 return JsonResponse({"error": "Filter type does not support randomization"}, status=400)
 

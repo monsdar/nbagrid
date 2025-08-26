@@ -874,6 +874,15 @@ def gamefilter_from_json(filter_instance, filter_data):
         filter_instance.country_name = filter_data["config"]["country_name"]
     if hasattr(filter_instance, "selected_letter"):
         filter_instance.selected_letter = filter_data["config"]["selected_letter"]
+    if hasattr(filter_instance, "target_player"):
+        target_player_name = filter_data["config"].get("target_player")
+        if target_player_name:
+            try:
+                from nbagrid_api_app.models import Player
+                filter_instance.target_player = Player.objects.get(name=target_player_name)
+            except Player.DoesNotExist:
+                # If target player doesn't exist, keep the current one
+                pass
     return filter_instance
 
 
