@@ -40,6 +40,9 @@ class GridBuilderAdmin(admin.ModelAdmin):
             path("export_grid/", self.export_grid, name="nbagrid_api_app_gamegrid_export_grid"),
             path("submit_game/", self.submit_game, name="nbagrid_api_app_gamegrid_submit_game"),
             path("get_valid_players/", self.get_valid_players, name="nbagrid_api_app_gamegrid_get_valid_players"),
+            path("get_available_teams/", self.get_available_teams, name="nbagrid_api_app_gamegrid_get_available_teams"),
+            path("get_available_players/", self.get_available_players, name="nbagrid_api_app_gamegrid_get_available_players"),
+            path("select_filter_option/", self.select_filter_option, name="nbagrid_api_app_gamegrid_select_filter_option"),
         ]
         return my_urls + urls
 
@@ -489,4 +492,117 @@ class GridBuilderAdmin(admin.ModelAdmin):
 
         except Exception as e:
             logger.error(f"Error getting valid players: {str(e)}")
+            return JsonResponse({"error": str(e)}, status=500)
+
+    @method_decorator(csrf_exempt)
+    def get_available_teams(self, request):
+        """Get the list of available teams for selection"""
+        if request.method != "GET":
+            return JsonResponse({"error": "Invalid request method"}, status=400)
+
+        try:
+            # Get all teams sorted alphabetically
+            teams = Team.objects.all().order_by('name')
+            
+            teams_data = []
+            for team in teams:
+                teams_data.append({
+                    "id": team.id,
+                    "name": team.name,
+                    "abbr": team.abbr
+                })
+
+            return JsonResponse({"teams": teams_data})
+
+        except Exception as e:
+            logger.error(f"Error getting available teams: {str(e)}")
+            return JsonResponse({"error": str(e)}, status=500)
+
+    @method_decorator(csrf_exempt)
+    def get_available_players(self, request):
+        """Get the list of available players for PlayedWithPlayerFilter selection"""
+        if request.method != "GET":
+            return JsonResponse({"error": "Invalid request method"}, status=400)
+
+        try:
+            # Get All-Star players who have teammates, sorted alphabetically
+            all_star_players_with_teammates = Player.objects.filter(
+                is_award_all_star=True,
+                teammates__isnull=False
+            ).distinct().order_by('name')
+            
+            players_data = []
+            for player in all_star_players_with_teammates:
+                players_data.append({
+                    "id": player.id,
+                    "name": player.name,
+                    "teams": [team.abbr for team in player.teams.all()]
+                })
+
+            # If no players with teammates, fallback to all All-Star players
+            if not players_data:
+                all_star_players = Player.objects.filter(is_award_all_star=True).order_by('name')
+                for player in all_star_players:
+                    players_data.append({
+                        "id": player.id,
+                        "name": player.name,
+                        "teams": [team.abbr for team in player.teams.all()]
+                    })
+
+            return JsonResponse({"players": players_data})
+
+        except Exception as e:
+            logger.error(f"Error getting available players: {str(e)}")
+            return JsonResponse({"error": str(e)}, status=500)
+
+    @method_decorator(csrf_exempt)
+    def select_filter_option(self, request):
+        """Handle selection of team or player for filters"""
+        if request.method != "POST":
+            return JsonResponse({"error": "Invalid request method"}, status=400)
+
+        try:
+            data = json.loads(request.body)
+            filter_data = data.get("filter")
+            selection_type = data.get("selection_type")  # "team" or "player"
+            selection_id = data.get("selection_id")
+
+            if not filter_data or not selection_type or not selection_id:
+                return JsonResponse({"error": "Missing required parameters"}, status=400)
+
+            # Find the filter instance
+            filter_class_name = filter_data["class"]
+            filter_instance = None
+
+            for filter in get_static_filters() + get_dynamic_filters():
+                if filter.__class__.__name__ == filter_class_name:
+                    logger.info(f"Found filter to update: {filter.__class__.__name__}")
+                    filter_instance = copy.deepcopy(filter)
+                    filter_instance = gamefilter_from_json(
+                        filter_instance, {"class": filter_data["class"], "config": filter_data["config"]}
+                    )
+                    break
+
+            if not filter_instance:
+                return JsonResponse({"error": "Filter not found"}, status=400)
+
+            # Update the filter based on selection type
+            if selection_type == "team" and isinstance(filter_instance, TeamFilter):
+                team = Team.objects.get(id=selection_id)
+                filter_instance.team_name = team.name
+                filter_data["config"]["team_name"] = team.name
+            elif selection_type == "player" and isinstance(filter_instance, PlayedWithPlayerFilter):
+                player = Player.objects.get(id=selection_id)
+                filter_instance.target_player = player
+                filter_data["config"]["target_player"] = player.name
+            else:
+                return JsonResponse({"error": "Invalid selection type for this filter"}, status=400)
+
+            return JsonResponse({
+                "new_name": filter_instance.get_desc().replace("'", ""), 
+                "new_config": filter_data["config"]
+            })
+
+        except Exception as e:
+            logger.error(f"Error selecting filter option: {str(e)}")
             return JsonResponse({"error": str(e)}, status=500)
