@@ -29,6 +29,16 @@
             ]
         },
         {
+            "name": "Python Debugger: Populate Teammates",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/manage.py",
+            "console": "integratedTerminal",
+            "args": [
+                "populate_teammates"
+            ]
+        },
+        {
             "name": "Python Debugger: Optimize entity images",
             "type": "debugpy",
             "request": "launch",

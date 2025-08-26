@@ -3,6 +3,7 @@ from typing import Optional
 
 from ninja import NinjaAPI, Schema
 from ninja.security import APIKeyHeader
+from django.http import JsonResponse
 
 from django.conf import settings
 
@@ -199,10 +200,11 @@ def update_player(request, stats_id: int, data: PlayerSchema):
             )
 
             # Handle teammates separately since it's a ManyToManyField
-            teammates_data = data.dict().pop('teammates', None)
+            data_dict = data.dict()
+            teammates_data = data_dict.pop('teammates', None)
             
             # Update all fields from the schema (excluding teammates)
-            for field in data.dict():
+            for field in data_dict:
                 if field != "name" or not created:  # Don't update name if we just created the player
                     setattr(player, field, getattr(data, field))
 
@@ -228,7 +230,7 @@ def update_player(request, stats_id: int, data: PlayerSchema):
                                 teammate.teammates.add(player)
                         
                     except Player.DoesNotExist as e:
-                        return {"status": "error", "message": f"One or more teammate players not found: {str(e)}"}, 404
+                        return JsonResponse({"status": "error", "message": f"One or more teammate players not found: {str(e)}"}, status=404)
 
             # Record the update timestamp
             LastUpdated.update_timestamp(
@@ -243,7 +245,7 @@ def update_player(request, stats_id: int, data: PlayerSchema):
 
         except Exception as e:
             timer_stop(status="error")
-            return {"status": "error", "message": str(e)}, 500
+            return JsonResponse({"status": "error", "message": str(e)}, status=500)
     finally:
         timer_stop()
 
@@ -280,7 +282,7 @@ def get_update_timestamp(request, data_type: str):
             "notes": update.notes,
         }
     except LastUpdated.DoesNotExist:
-        return {"error": f"No update record found for '{data_type}'"}, 404
+        return JsonResponse({"error": f"No update record found for '{data_type}'"}, status=404)
     finally:
         timer_stop()
 
@@ -299,7 +301,7 @@ def record_update(request, data: LastUpdatedSchema):
             "notes": update.notes,
         }
     except Exception as e:
-        return {"status": "error", "message": str(e)}, 500
+        return JsonResponse({"status": "error", "message": str(e)}, status=500)
     finally:
         timer_stop()
 
@@ -436,12 +438,12 @@ def add_player_team_relationship(request, stats_id: int, team_stats_id: int):
             return {"status": "success", "message": f"Added relationship between {player.name} and {team.name}"}
 
         except Player.DoesNotExist:
-            return {"status": "error", "message": f"Player with stats_id {stats_id} not found"}, 404
+            return JsonResponse({"status": "error", "message": f"Player with stats_id {stats_id} not found"}, status=404)
         except Team.DoesNotExist:
-            return {"status": "error", "message": f"Team with stats_id {team_stats_id} not found"}, 404
+            return JsonResponse({"status": "error", "message": f"Team with stats_id {team_stats_id} not found"}, status=404)
         except Exception as e:
             timer_stop(status="error")
-            return {"status": "error", "message": str(e)}, 500
+            return JsonResponse({"status": "error", "message": str(e)}, status=500)
     finally:
         timer_stop()
 
@@ -477,7 +479,7 @@ def update_player_teammates(request, stats_id: int, data: TeammateSchema):
                             teammate.teammates.add(player)
                     
                 except Player.DoesNotExist as e:
-                    return {"status": "error", "message": f"One or more teammate players not found: {str(e)}"}, 404
+                    return JsonResponse({"status": "error", "message": f"One or more teammate players not found: {str(e)}"}, status=404)
 
             # Record the update timestamp
             LastUpdated.update_timestamp(
@@ -489,10 +491,10 @@ def update_player_teammates(request, stats_id: int, data: TeammateSchema):
             return {"status": "success", "message": f"Updated teammates for {player.name} with {len(data.teammate_stats_ids)} teammates"}
 
         except Player.DoesNotExist:
-            return {"status": "error", "message": f"Player with stats_id {stats_id} not found"}, 404
+            return JsonResponse({"status": "error", "message": f"Player with stats_id {stats_id} not found"}, status=404)
         except Exception as e:
             timer_stop(status="error")
-            return {"status": "error", "message": str(e)}, 500
+            return JsonResponse({"status": "error", "message": str(e)}, status=500)
     finally:
         timer_stop()
 
@@ -525,10 +527,10 @@ def get_player_teammates(request, stats_id: int):
             }
 
         except Player.DoesNotExist:
-            return {"status": "error", "message": f"Player with stats_id {stats_id} not found"}, 404
+            return JsonResponse({"status": "error", "message": f"Player with stats_id {stats_id} not found"}, status=404)
         except Exception as e:
             timer_stop(status="error")
-            return {"status": "error", "message": str(e)}, 500
+            return JsonResponse({"status": "error", "message": str(e)}, status=500)
     finally:
         timer_stop()
 
