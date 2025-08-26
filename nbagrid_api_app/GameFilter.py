@@ -504,6 +504,50 @@ class LastNameFilter(GameFilter):
         return f"This filter selects players whose last name starts with the letter '{self.selected_letter}'. "
 
 
+class PlayedWithPlayerFilter(GameFilter):
+    def __init__(self, seed: int = 0):
+        rng = random.Random(seed)
+        # Get a random player who has been an All-Star and has teammates
+        all_star_players_with_teammates = Player.objects.filter(
+            is_award_all_star=True,
+            teammates__isnull=False
+        ).distinct()
+        
+        if all_star_players_with_teammates.exists():
+            self.target_player = rng.choice(all_star_players_with_teammates)
+        else:
+            # Fallback to any All-Star player if no teammates data exists yet
+            all_star_players = Player.objects.filter(is_award_all_star=True)
+            if all_star_players.exists():
+                self.target_player = rng.choice(all_star_players)
+            else:
+                # Ultimate fallback to any player if no All-Stars exist
+                self.target_player = rng.choice(list(Player.objects.all()))
+
+    def apply_filter(self, players: Manager[Player]) -> Manager[Player]:
+        # Get players who have played with the target player
+        return players.filter(teammates=self.target_player)
+
+    def get_desc(self) -> str:
+        return f"Played with {self.target_player.name}"
+
+    def get_player_stats_str(self, player: Player) -> str:
+        # Show which teams they played together on
+        common_teams = player.teams.intersection(self.target_player.teams.all())
+        team_abbrs = [team.abbr for team in common_teams]
+        if team_abbrs:
+            return f"Played together on: {', '.join(team_abbrs)}"
+        else:
+            return f"Teammate of {self.target_player.name}"
+
+    def get_detailed_desc(self) -> str:
+        return (
+            f"This filter selects players who have played together with {self.target_player.name} "
+            f"at any point during their careers. This only counts players who have been part of the same "
+            f"lineup, not just players who were on the same team but never played together."
+        )
+
+
 class TeamCountFilter(DynamicGameFilter):
     def apply_filter(self, players: Manager[Player]) -> Manager[Player]:
         # Use a subquery to count all teams, not just the ones in the current filtered queryset
@@ -791,6 +835,7 @@ def get_static_filters(seed: int = 0) -> list[GameFilter]:
         Top10DraftpickFilter(),
         PositionFilter(seed),
         LastNameFilter(seed),
+        PlayedWithPlayerFilter(seed),
     ]
 
 
@@ -809,6 +854,8 @@ def gamefilter_to_json(filter):
         config["country_name"] = filter.country_name
     if hasattr(filter, "selected_letter"):
         config["selected_letter"] = filter.selected_letter
+    if hasattr(filter, "target_player"):
+        config["target_player"] = filter.target_player.name
 
     return {"class_name": filter.__class__.__name__, "name": filter.get_desc(), "config": config}
 
@@ -827,6 +874,15 @@ def gamefilter_from_json(filter_instance, filter_data):
         filter_instance.country_name = filter_data["config"]["country_name"]
     if hasattr(filter_instance, "selected_letter"):
         filter_instance.selected_letter = filter_data["config"]["selected_letter"]
+    if hasattr(filter_instance, "target_player"):
+        target_player_name = filter_data["config"].get("target_player")
+        if target_player_name:
+            try:
+                from nbagrid_api_app.models import Player
+                filter_instance.target_player = Player.objects.get(name=target_player_name)
+            except Player.DoesNotExist:
+                # If target player doesn't exist, keep the current one
+                pass
     return filter_instance
 
 
@@ -868,6 +924,16 @@ def create_filter_from_db(db_filter):
         filter_obj = filter_class(0)  # Seed doesn't matter for reconstruction
         if letter is not None:
             filter_obj.selected_letter = letter
+        return filter_obj
+    elif filter_class == PlayedWithPlayerFilter:
+        target_player_name = config.pop("target_player", None)
+        filter_obj = filter_class(0)  # Seed doesn't matter for reconstruction
+        if target_player_name is not None:
+            try:
+                filter_obj.target_player = Player.objects.get(name=target_player_name)
+            except Player.DoesNotExist:
+                # If target player doesn't exist, keep the randomly selected one
+                pass
         return filter_obj
     elif filter_class == USAFilter:
         return filter_class()

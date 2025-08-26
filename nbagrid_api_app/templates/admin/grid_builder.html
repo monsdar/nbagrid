@@ -150,6 +150,66 @@
         overflow-y: auto;
     }
     
+    .selection-modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.5);
+        z-index: 1000;
+    }
+    
+    .selection-modal-content {
+        background-color: #424242;
+        margin: 10% auto;
+        padding: 20px;
+        width: 60%;
+        max-width: 600px;
+        border-radius: 5px;
+        max-height: 80vh;
+        overflow-y: auto;
+    }
+    
+    .selection-list {
+        max-height: 400px;
+        overflow-y: auto;
+        margin-top: 15px;
+    }
+    
+    .selection-item {
+        padding: 10px;
+        border-bottom: 1px solid #ccc;
+        cursor: pointer;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .selection-item:hover {
+        background-color: #7e7e7e;
+    }
+    
+    .selection-item:last-child {
+        border-bottom: none;
+    }
+    
+    .selection-info {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+    }
+    
+    .selection-name {
+        font-weight: bold;
+    }
+    
+    .selection-details {
+        color: #aaa;
+        font-size: 0.9em;
+    }
+    
     .player-list {
         margin-top: 15px;
     }
@@ -236,7 +296,7 @@
                 <div class="filter-controls" style="display: none;">
                     <button class="filter-control-button" onclick="adjustFilter('narrow', 'col', '{{ col }}')">-</button>
                     <button class="filter-control-button" onclick="adjustFilter('widen', 'col', '{{ col }}')">+</button>
-                    <button class="randomize-button" onclick="randomizeFilter('col', '{{ col }}')" style="display: none;">🔄</button>
+                    <button class="randomize-button" onclick="randomizeFilter('col', '{{ col }}')" style="display: none;">Select</button>
                 </div>
             </div>
         {% endfor %}
@@ -255,7 +315,7 @@
                 <div class="filter-controls" style="display: none;">
                     <button class="filter-control-button" onclick="adjustFilter('narrow', 'row', '{{ row }}')">-</button>
                     <button class="filter-control-button" onclick="adjustFilter('widen', 'row', '{{ row }}')">+</button>
-                    <button class="randomize-button" onclick="randomizeFilter('row', '{{ row }}')" style="display: none;">🔄</button>
+                    <button class="randomize-button" onclick="randomizeFilter('row', '{{ row }}')" style="display: none;">Select</button>
                 </div>
             </div>
             
@@ -317,10 +377,27 @@
     </div>
 </div>
 
+<div id="teamSelectionModal" class="selection-modal">
+    <div class="selection-modal-content">
+        <h2>Select Team</h2>
+        <div id="teamList" class="selection-list"></div>
+        <button onclick="closeTeamSelectionModal()" class="button">Cancel</button>
+    </div>
+</div>
+
+<div id="playerSelectionModal" class="selection-modal">
+    <div class="selection-modal-content">
+        <h2>Select Player</h2>
+        <div id="playerSelectionList" class="selection-list"></div>
+        <button onclick="closePlayerSelectionModal()" class="button">Cancel</button>
+    </div>
+</div>
+
 <script>
 // Initialize filters from template data
 const initialFilters = {{ filters|safe }};
 let currentCell = null;
+let currentSelectionCell = null;
 let selectedFilters = {
     row: {},
     col: {}
@@ -365,19 +442,23 @@ function updateCellDisplay(type, index, filterClass, filterName) {
     const filterControlButton = cell.querySelectorAll('.filter-control-button');
     const randomizeButton = cell.querySelector('.randomize-button');
     
-    if (filterClass.includes('DynamicGameFilter') || filterClass === 'TeamCountFilter') {
-        controls.style.display = 'flex';
-        randomizeButton.style.display = 'none';
-        filterControlButton.forEach(button => button.style.display = 'inline-block');
-    } else if (filterClass === 'TeamFilter' || filterClass === 'PositionFilter' || filterClass === 'LastNameFilter') {
-        controls.style.display = 'flex';
-        randomizeButton.style.display = 'inline-block';
-        filterControlButton.forEach(button => button.style.display = 'none');
-    } else {
-        controls.style.display = 'none';
-        randomizeButton.style.display = 'none';
-        filterControlButton.forEach(button => button.style.display = 'none');
-    }
+                    if (filterClass.includes('DynamicGameFilter') || filterClass === 'TeamCountFilter') {
+                    controls.style.display = 'flex';
+                    randomizeButton.style.display = 'none';
+                    filterControlButton.forEach(button => button.style.display = 'inline-block');
+                } else if (filterClass === 'TeamFilter' || filterClass === 'PlayedWithPlayerFilter') {
+                    controls.style.display = 'flex';
+                    randomizeButton.style.display = 'inline-block';
+                    filterControlButton.forEach(button => button.style.display = 'none');
+                } else if (filterClass === 'PositionFilter' || filterClass === 'LastNameFilter') {
+                    controls.style.display = 'flex';
+                    randomizeButton.style.display = 'inline-block';
+                    filterControlButton.forEach(button => button.style.display = 'none');
+                } else {
+                    controls.style.display = 'none';
+                    randomizeButton.style.display = 'none';
+                    filterControlButton.forEach(button => button.style.display = 'none');
+                }
 }
 
 // Initialize cell displays on page load
@@ -445,6 +526,21 @@ function randomizeFilter(type, index) {
     const filter = selectedFilters[type][index];
     if (!filter) return;
     
+    // Check if this is a TeamFilter or PlayedWithPlayerFilter
+    if (filter.class === 'TeamFilter') {
+        openTeamSelectionModal(type, index);
+    } else if (filter.class === 'PlayedWithPlayerFilter') {
+        openPlayerSelectionModal(type, index);
+    } else {
+        // For other filters, use the original randomization logic
+        sendRandomizeRequest(type, index);
+    }
+}
+
+function sendRandomizeRequest(type, index) {
+    const filter = selectedFilters[type][index];
+    if (!filter) return;
+    
     // Send the randomization request to the backend
     fetch('{% url "admin:nbagrid_api_app_gamegrid_randomize_filter" %}', {
         method: 'POST',
@@ -479,6 +575,190 @@ function randomizeFilter(type, index) {
     .catch(error => {
         console.error('Error:', error);
     });
+}
+
+function openTeamSelectionModal(type, index) {
+    currentSelectionCell = { type, index };
+    
+    // Fetch available teams
+    fetch('{% url "admin:nbagrid_api_app_gamegrid_get_available_teams" %}', {
+        method: 'GET',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken')
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            console.error('Server error:', data.error);
+            return;
+        }
+        
+        // Populate team list
+        const teamList = document.getElementById('teamList');
+        teamList.innerHTML = '';
+        
+        data.teams.forEach(team => {
+            const teamItem = document.createElement('div');
+            teamItem.className = 'selection-item';
+            teamItem.onclick = () => selectTeam(team.id, team.name);
+            teamItem.innerHTML = `
+                <div class="selection-info">
+                    <div class="selection-name">${team.name}</div>
+                    <div class="selection-details">${team.abbr}</div>
+                </div>
+            `;
+            teamList.appendChild(teamItem);
+        });
+        
+        // Show modal
+        document.getElementById('teamSelectionModal').style.display = 'block';
+    })
+    .catch(error => {
+        console.error('Error:', error);
+    });
+}
+
+function openPlayerSelectionModal(type, index) {
+    currentSelectionCell = { type, index };
+    
+    // Fetch available players
+    fetch('{% url "admin:nbagrid_api_app_gamegrid_get_available_players" %}', {
+        method: 'GET',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken')
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            console.error('Server error:', data.error);
+            return;
+        }
+        
+        // Populate player list
+        const playerList = document.getElementById('playerSelectionList');
+        playerList.innerHTML = '';
+        
+        data.players.forEach(player => {
+            const playerItem = document.createElement('div');
+            playerItem.className = 'selection-item';
+            playerItem.onclick = () => selectPlayer(player.id, player.name);
+            playerItem.innerHTML = `
+                <div class="selection-info">
+                    <div class="selection-name">${player.name}</div>
+                    <div class="selection-details">Teams: ${player.teams.join(', ')}</div>
+                </div>
+            `;
+            playerList.appendChild(playerItem);
+        });
+        
+        // Show modal
+        document.getElementById('playerSelectionModal').style.display = 'block';
+    })
+    .catch(error => {
+        console.error('Error:', error);
+    });
+}
+
+function selectTeam(teamId, teamName) {
+    if (!currentSelectionCell) return;
+    
+    const { type, index } = currentSelectionCell;
+    const filter = selectedFilters[type][index];
+    
+    // Send selection request
+    fetch('{% url "admin:nbagrid_api_app_gamegrid_select_filter_option" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            filter: filter,
+            selection_type: 'team',
+            selection_id: teamId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            console.error('Server error:', data.error);
+            return;
+        }
+        
+        // Update the filter
+        if (data.new_name) {
+            filter.name = data.new_name;
+            const cell = document.querySelector(`[data-type="${type}"][data-index="${index}"]`);
+            cell.querySelector('.cell-content').textContent = data.new_name;
+        }
+        if (data.new_config) {
+            filter.config = data.new_config;
+        }
+        
+        // Close modal and recalculate stats
+        closeTeamSelectionModal();
+        calculateStats();
+    })
+    .catch(error => {
+        console.error('Error:', error);
+    });
+}
+
+function selectPlayer(playerId, playerName) {
+    if (!currentSelectionCell) return;
+    
+    const { type, index } = currentSelectionCell;
+    const filter = selectedFilters[type][index];
+    
+    // Send selection request
+    fetch('{% url "admin:nbagrid_api_app_gamegrid_select_filter_option" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            filter: filter,
+            selection_type: 'player',
+            selection_id: playerId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            console.error('Server error:', data.error);
+            return;
+        }
+        
+        // Update the filter
+        if (data.new_name) {
+            filter.name = data.new_name;
+            const cell = document.querySelector(`[data-type="${type}"][data-index="${index}"]`);
+            cell.querySelector('.cell-content').textContent = data.new_name;
+        }
+        if (data.new_config) {
+            filter.config = data.new_config;
+        }
+        
+        // Close modal and recalculate stats
+        closePlayerSelectionModal();
+        calculateStats();
+    })
+    .catch(error => {
+        console.error('Error:', error);
+    });
+}
+
+function closeTeamSelectionModal() {
+    document.getElementById('teamSelectionModal').style.display = 'none';
+    currentSelectionCell = null;
+}
+
+function closePlayerSelectionModal() {
+    document.getElementById('playerSelectionModal').style.display = 'none';
+    currentSelectionCell = null;
 }
 
 function calculateStats() {
@@ -659,7 +939,11 @@ function importGrid(event) {
                     controls.style.display = 'flex';
                     randomizeButton.style.display = 'none';
                     filterControlButton.forEach(button => button.style.display = 'inline-block');
-                } else if (filterData.class === 'TeamFilter' || filterData.class === 'PositionFilter' || filterData.class === 'LastNameFilter') {
+                } else if (filterData.class === 'TeamFilter' || filterData.class === 'PlayedWithPlayerFilter') {
+                    controls.style.display = 'flex';
+                    randomizeButton.style.display = 'inline-block';
+                    filterControlButton.forEach(button => button.style.display = 'none');
+                } else if (filterData.class === 'PositionFilter' || filterData.class === 'LastNameFilter') {
                     controls.style.display = 'flex';
                     randomizeButton.style.display = 'inline-block';
                     filterControlButton.forEach(button => button.style.display = 'none');
@@ -688,7 +972,11 @@ function importGrid(event) {
                     controls.style.display = 'flex';
                     randomizeButton.style.display = 'none';
                     filterControlButton.forEach(button => button.style.display = 'inline-block');
-                } else if (filterData.class === 'TeamFilter' || filterData.class === 'PositionFilter' || filterData.class === 'LastNameFilter') {
+                } else if (filterData.class === 'TeamFilter' || filterData.class === 'PlayedWithPlayerFilter') {
+                    controls.style.display = 'flex';
+                    randomizeButton.style.display = 'inline-block';
+                    filterControlButton.forEach(button => button.style.display = 'none');
+                } else if (filterData.class === 'PositionFilter' || filterData.class === 'LastNameFilter') {
                     controls.style.display = 'flex';
                     randomizeButton.style.display = 'inline-block';
                     filterControlButton.forEach(button => button.style.display = 'none');

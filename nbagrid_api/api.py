@@ -3,6 +3,7 @@ from typing import Optional
 
 from ninja import NinjaAPI, Schema
 from ninja.security import APIKeyHeader
+from django.http import JsonResponse
 
 from django.conf import settings
 
@@ -134,6 +135,7 @@ class PlayerSchema(Schema):
     is_award_olympic_gold_medal: bool = False
     is_award_olympic_silver_medal: bool = False
     is_award_olympic_bronze_medal: bool = False
+    teammates: Optional[list[int]] = None  # List of player stats_ids who are teammates
 
 
 class TeamSchema(Schema):
@@ -197,26 +199,53 @@ def update_player(request, stats_id: int, data: PlayerSchema):
                 stats_id=stats_id, defaults={"name": data.name or f"Player {stats_id}"}  # Use provided name or generate one
             )
 
-            # Update all fields from the schema
-            for field in data.dict():
+            # Handle teammates separately since it's a ManyToManyField
+            data_dict = data.dict()
+            teammates_data = data_dict.pop('teammates', None)
+            
+            # Update all fields from the schema (excluding teammates)
+            for field in data_dict:
                 if field != "name" or not created:  # Don't update name if we just created the player
                     setattr(player, field, getattr(data, field))
 
             player.save()
 
+            # Handle teammates if provided
+            if teammates_data is not None:
+                # Clear existing teammates
+                player.teammates.clear()
+                
+                # Add new teammates
+                if teammates_data:
+                    try:
+                        # Get all teammate players by stats_id
+                        teammate_players = Player.objects.filter(stats_id__in=teammates_data)
+                        
+                        # Add them to the player's teammates
+                        player.teammates.add(*teammate_players)
+                        
+                        # Also add the reverse relationship (bidirectional)
+                        for teammate in teammate_players:
+                            if player not in teammate.teammates.all():
+                                teammate.teammates.add(player)
+                        
+                    except Player.DoesNotExist as e:
+                        return JsonResponse({"status": "error", "message": f"One or more teammate players not found: {str(e)}"}, status=404)
+
             # Record the update timestamp
             LastUpdated.update_timestamp(
                 data_type="player_data",
                 updated_by=f"API update for player {stats_id}",
-                notes=f"{'Created' if created else 'Updated'} player {player.name}",
+                notes=f"{'Created' if created else 'Updated'} player {player.name}" + (f" with {len(teammates_data) if teammates_data else 0} teammates" if teammates_data is not None else ""),
             )
 
             action = "created" if created else "updated"
-            return {"status": "success", "message": f"Player {player.name} {action} successfully"}
+            teammate_info = f" with {len(teammates_data) if teammates_data else 0} teammates" if teammates_data is not None else ""
+            return {"status": "success", "message": f"Player {player.name} {action} successfully{teammate_info}"}
 
         except Exception as e:
             timer_stop(status="error")
-            return {"status": "error", "message": str(e)}, 500
+            return JsonResponse({"status": "error", "message": str(e)}, status=500)
     finally:
         timer_stop()
 
@@ -253,7 +282,7 @@ def get_update_timestamp(request, data_type: str):
             "notes": update.notes,
         }
     except LastUpdated.DoesNotExist:
-        return {"error": f"No update record found for '{data_type}'"}, 404
+        return JsonResponse({"error": f"No update record found for '{data_type}'"}, status=404)
     finally:
         timer_stop()
 
@@ -272,7 +301,7 @@ def record_update(request, data: LastUpdatedSchema):
             "notes": update.notes,
         }
     except Exception as e:
-        return {"status": "error", "message": str(e)}, 500
+        return JsonResponse({"status": "error", "message": str(e)}, status=500)
     finally:
         timer_stop()
 
@@ -409,12 +438,99 @@ def add_player_team_relationship(request, stats_id: int, team_stats_id: int):
             return {"status": "success", "message": f"Added relationship between {player.name} and {team.name}"}
 
         except Player.DoesNotExist:
-            return {"status": "error", "message": f"Player with stats_id {stats_id} not found"}, 404
+            return JsonResponse({"status": "error", "message": f"Player with stats_id {stats_id} not found"}, status=404)
         except Team.DoesNotExist:
-            return {"status": "error", "message": f"Team with stats_id {team_stats_id} not found"}, 404
+            return JsonResponse({"status": "error", "message": f"Team with stats_id {team_stats_id} not found"}, status=404)
         except Exception as e:
             timer_stop(status="error")
-            return {"status": "error", "message": str(e)}, 500
+            return JsonResponse({"status": "error", "message": str(e)}, status=500)
+    finally:
+        timer_stop()
+
+
+class TeammateSchema(Schema):
+    teammate_stats_ids: list[int]  # List of player stats_ids to add as teammates
+
+
+@api.post("/player/{stats_id}/teammates", auth=header_key)
+def update_player_teammates(request, stats_id: int, data: TeammateSchema):
+    """Update a player's teammates."""
+    timer_stop = track_request_latency("update_player_teammates")
+    try:
+        try:
+            # Get the player
+            player = Player.objects.get(stats_id=stats_id)
+
+            # Clear existing teammates
+            player.teammates.clear()
+            
+            # Add new teammates
+            if data.teammate_stats_ids:
+                try:
+                    # Get all teammate players by stats_id
+                    teammate_players = Player.objects.filter(stats_id__in=data.teammate_stats_ids)
+                    
+                    # Add them to the player's teammates
+                    player.teammates.add(*teammate_players)
+                    
+                    # Also add the reverse relationship (bidirectional)
+                    for teammate in teammate_players:
+                        if player not in teammate.teammates.all():
+                            teammate.teammates.add(player)
+                    
+                except Player.DoesNotExist as e:
+                    return JsonResponse({"status": "error", "message": f"One or more teammate players not found: {str(e)}"}, status=404)
+
+            # Record the update timestamp
+            LastUpdated.update_timestamp(
+                data_type="player_teammate_relationship",
+                updated_by=f"API update for player {stats_id} teammates",
+                notes=f"Updated teammates for {player.name} with {len(data.teammate_stats_ids)} teammates",
+            )
+
+            return {"status": "success", "message": f"Updated teammates for {player.name} with {len(data.teammate_stats_ids)} teammates"}
+
+        except Player.DoesNotExist:
+            return JsonResponse({"status": "error", "message": f"Player with stats_id {stats_id} not found"}, status=404)
+        except Exception as e:
+            timer_stop(status="error")
+            return JsonResponse({"status": "error", "message": str(e)}, status=500)
+    finally:
+        timer_stop()
+
+
+@api.get("/player/{stats_id}/teammates")
+def get_player_teammates(request, stats_id: int):
+    """Get a player's teammates."""
+    timer_stop = track_request_latency("get_player_teammates")
+    try:
+        try:
+            # Get the player
+            player = Player.objects.get(stats_id=stats_id)
+            
+            # Get teammates
+            teammates = player.teammates.all()
+            
+            return {
+                "player_name": player.name,
+                "player_stats_id": stats_id,
+                "teammates": [
+                    {
+                        "name": teammate.name,
+                        "stats_id": teammate.stats_id,
+                        "position": teammate.position,
+                        "team_abbrs": [team.abbr for team in teammate.teams.all()]
+                    }
+                    for teammate in teammates
+                ],
+                "teammate_count": len(teammates)
+            }
+
+        except Player.DoesNotExist:
+            return JsonResponse({"status": "error", "message": f"Player with stats_id {stats_id} not found"}, status=404)
+        except Exception as e:
+            timer_stop(status="error")
+            return JsonResponse({"status": "error", "message": str(e)}, status=500)
     finally:
         timer_stop()
 
