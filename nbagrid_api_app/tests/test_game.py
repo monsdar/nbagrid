@@ -7,7 +7,7 @@ from django.db.models import F
 from django.test import TestCase, tag
 
 from nbagrid_api_app.GameBuilder import GameBuilder
-from nbagrid_api_app.GameFilter import create_filter_from_db
+
 from nbagrid_api_app.models import GameFilterDB, GameResult, Player, Team
 
 
@@ -285,7 +285,7 @@ class GameFilterTests(TestCase):
 
         # Verify filter configurations are stored correctly
         for db_filter in db_filters:
-            filter_obj = create_filter_from_db(db_filter)
+            filter_obj = db_filter.to_filter()
 
             # Verify the filter can be reconstructed and works
             players = Player.objects.all()
@@ -307,9 +307,52 @@ class GameFilterTests(TestCase):
 
         # Verify the filters are the same as what we got back
         for db_filter in db_filters:
-            filter_obj = create_filter_from_db(db_filter)
+            filter_obj = db_filter.to_filter()
 
             if db_filter.filter_type == "static":
                 self.assertTrue(any(f.get_desc() == filter_obj.get_desc() for f in static_filters2))
             else:
                 self.assertTrue(any(f.get_desc() == filter_obj.get_desc() for f in dynamic_filters2))
+
+    def test_filter_json_serialization(self):
+        """Test that filters can be serialized to JSON and deserialized correctly."""
+        from nbagrid_api_app.GameFilter import GameFilter, get_static_filters, get_dynamic_filters
+        
+        # Test static filters
+        static_filters = get_static_filters()
+        for filter_obj in static_filters:
+            # Serialize to JSON
+            filter_json = filter_obj.to_json()
+            
+            # Deserialize from JSON
+            reconstructed_filter = GameFilter.from_json(filter_json)
+            
+            # Verify they have the same description
+            self.assertEqual(filter_obj.get_desc(), reconstructed_filter.get_desc(),
+                           f"Filter descriptions don't match for {filter_obj.__class__.__name__}")
+            
+            # Verify they have the same type description
+            self.assertEqual(filter_obj.get_filter_type_description(), reconstructed_filter.get_filter_type_description(),
+                           f"Filter type descriptions don't match for {filter_obj.__class__.__name__}")
+        
+        # Test dynamic filters
+        dynamic_filters = get_dynamic_filters()
+        for filter_obj in dynamic_filters:
+            # Serialize to JSON
+            filter_json = filter_obj.to_json()
+            
+            # Deserialize from JSON
+            reconstructed_filter = GameFilter.from_json(filter_json)
+            
+            # Verify they have the same description
+            self.assertEqual(filter_obj.get_desc(), reconstructed_filter.get_desc(),
+                           f"Filter descriptions don't match for {filter_obj.__class__.__name__}")
+            
+            # Verify they have the same type description
+            self.assertEqual(filter_obj.get_filter_type_description(), reconstructed_filter.get_filter_type_description(),
+                           f"Filter type descriptions don't match for {filter_obj.__class__.__name__}")
+            
+            # For dynamic filters, verify the current_value is preserved
+            if hasattr(filter_obj, 'current_value') and hasattr(reconstructed_filter, 'current_value'):
+                self.assertEqual(filter_obj.current_value, reconstructed_filter.current_value,
+                               f"Current values don't match for {filter_obj.__class__.__name__}")

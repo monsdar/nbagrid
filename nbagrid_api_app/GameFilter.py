@@ -45,6 +45,59 @@ class GameFilter(object):
         """
         return self.__class__.__name__
 
+    def to_json(self) -> dict:
+        """Convert this filter to a JSON-serializable dictionary.
+        
+        Returns:
+            A dictionary containing the filter's class name and configuration
+        """
+        return {
+            "class_name": self.__class__.__name__,
+            "name": self.get_desc(),
+            "config": self._get_config()
+        }
+    
+    def _get_config(self) -> dict:
+        """Get the configuration dictionary for this filter.
+        
+        This method should be overridden by subclasses to return their specific configuration.
+        
+        Returns:
+            A dictionary containing the filter's configuration
+        """
+        return {}
+    
+    @abstractmethod
+    def _from_config(cls, config: dict) -> 'GameFilter':
+        pass
+    
+    @classmethod
+    def from_json(cls, filter_data: dict) -> 'GameFilter':
+        """Create a filter instance from JSON data.
+        
+        Args:
+            filter_data: A dictionary containing filter data with 'class_name' and 'config' keys
+            
+        Returns:
+            A GameFilter instance of the appropriate type
+            
+        Raises:
+            ValueError: If the filter class is not found or invalid
+        """
+        class_name = filter_data.get("class_name", None)
+        config = filter_data.get("config", {})
+        
+        if not class_name:
+            raise ValueError("Filter data must contain 'class_name'")
+        
+        # Get the filter class from globals
+        filter_class = globals().get(class_name)
+        if not filter_class:
+            raise ValueError(f"Filter class '{class_name}' not found")
+        
+        # Create the filter instance
+        return filter_class._from_config(config)
+
     def __str__(self) -> str:
         return self.get_desc()
 
@@ -132,6 +185,21 @@ class DynamicGameFilter(GameFilter):
         if "initial_max_value" in self.config and self.current_value > self.config["initial_max_value"]:
             self.current_value = self.config["initial_max_value"]
 
+    def _get_config(self) -> dict:
+        """Get the configuration dictionary for this dynamic filter."""
+        config = self.config.copy()
+        config["current_value"] = self.current_value
+        return config
+    
+    @classmethod
+    def _from_config(cls, config: dict) -> 'DynamicGameFilter':
+        """Create a DynamicGameFilter instance from configuration."""
+        current_value = config.pop("current_value", None)
+        filter_obj = cls(config)
+        if current_value is not None:
+            filter_obj.current_value = current_value
+        return filter_obj
+
     def get_filter_type_description(self) -> str:
         """Return a normalized type description for this dynamic filter."""
         if 'field' not in self.config:
@@ -164,6 +232,18 @@ class PositionFilter(GameFilter):
     def get_player_stats_str(self, player: Player) -> str:
         return f"Position: {player.position}"
 
+    def _get_config(self) -> dict:
+        """Get the configuration dictionary for this position filter."""
+        return {"selected_position": self.selected_position}
+    
+    @classmethod
+    def _from_config(cls, config: dict) -> 'PositionFilter':
+        """Create a PositionFilter instance from configuration."""
+        filter_obj = cls(0)  # Seed doesn't matter for reconstruction
+        if "selected_position" in config:
+            filter_obj.selected_position = config["selected_position"]
+        return filter_obj
+
     def get_detailed_desc(self) -> str:
         return (
             f"This filter selects players who are listed as {self.selected_position}s in their position. "
@@ -189,6 +269,11 @@ class USAFilter(GameFilter):
             "Players born in U.S. territories like Puerto Rico are considered international players and are excluded by this filter.\n\n"
             "Players who gained U.S. citizenship after being born elsewhere are also excluded."
         )
+    
+    @classmethod
+    def _from_config(cls, config: dict) -> 'USAFilter':
+        """Create a USAFilter instance from configuration."""
+        return cls()
 
 
 class InternationalFilter(GameFilter):
@@ -206,6 +291,11 @@ class InternationalFilter(GameFilter):
             "This filter selects players who were born outside the USA, like Canada, Greenland, Mexico, Panama, etc."
             "This also includes players born in US territories like Puerto Rico."
         )
+    
+    @classmethod
+    def _from_config(cls, config: dict) -> 'InternationalFilter':
+        """Create an InternationalFilter instance from configuration."""
+        return cls()
 
 
 class EuropeanUnionFilter(GameFilter):
@@ -256,6 +346,11 @@ class EuropeanUnionFilter(GameFilter):
             "Greece, Hungary, Ireland, Italy, Latvia, Lithuania, Luxembourg, Malta, "
             "Netherlands, Poland, Portugal, Romania, Slovakia, Slovenia, Spain, and Sweden."
         )
+    
+    @classmethod
+    def _from_config(cls, config: dict) -> 'EuropeanUnionFilter':
+        """Create a EuropeanUnionFilter instance from configuration."""
+        return cls()
 
 
 class CountryFilter(GameFilter):
@@ -286,6 +381,18 @@ class CountryFilter(GameFilter):
     def get_player_stats_str(self, player: Player) -> str:
         return f"Birthplace: {player.country}"
 
+    def _get_config(self) -> dict:
+        """Get the configuration dictionary for this country filter."""
+        return {"country_name": self.country_name}
+    
+    @classmethod
+    def _from_config(cls, config: dict) -> 'CountryFilter':
+        """Create a CountryFilter instance from configuration."""
+        filter_obj = cls(0)  # Seed doesn't matter for reconstruction
+        if "country_name" in config:
+            filter_obj.country_name = config["country_name"]
+        return filter_obj
+
     def get_detailed_desc(self) -> str:
         return f"This filter selects players who were born in {self.country_name}."
 
@@ -305,6 +412,18 @@ class TeamFilter(GameFilter):
     def get_player_stats_str(self, player: Player) -> str:
         team_abbrs = [team.abbr for team in player.teams.all()]
         return f"Teams: {', '.join(team_abbrs)}"
+
+    def _get_config(self) -> dict:
+        """Get the configuration dictionary for this team filter."""
+        return {"team_name": self.team_name}
+    
+    @classmethod
+    def _from_config(cls, config: dict) -> 'TeamFilter':
+        """Create a TeamFilter instance from configuration."""
+        filter_obj = cls(0)  # Seed doesn't matter for reconstruction
+        if "team_name" in config:
+            filter_obj.team_name = config["team_name"]
+        return filter_obj
 
     def get_detailed_desc(self) -> str:
         return (
@@ -332,6 +451,11 @@ class BooleanFilter(GameFilter):
             "This filter selects players who were chosen within the top 10 picks of any NBA draft. "
             "Players who were drafted 11th or lower, or went undrafted, are excluded. "
         )
+    
+    @classmethod
+    def _from_config(cls, config: dict) -> 'BooleanFilter':
+        """Create a BooleanFilter instance from configuration."""
+        return Top10DraftpickFilter()
 
 
 class Top10DraftpickFilter(GameFilter):
@@ -352,6 +476,11 @@ class Top10DraftpickFilter(GameFilter):
             "This filter selects players who were chosen within the top 10 picks of any NBA draft. "
             "Players who were drafted 11th or lower, or went undrafted, are excluded. "
         )
+    
+    @classmethod
+    def _from_config(cls, config: dict) -> 'Top10DraftpickFilter':
+        """Create a Top10DraftpickFilter instance from configuration."""
+        return cls()
 
 
 class AllNbaFilter(GameFilter):
@@ -373,6 +502,11 @@ class AllNbaFilter(GameFilter):
             "This filter selects players who have been named to at least one All-NBA Team (First, Second, or Third team) "
             "during their career. Players on multiple different teams are valid as well."
         )
+    
+    @classmethod
+    def _from_config(cls, config: dict) -> 'AllNbaFilter':
+        """Create an AllNbaFilter instance from configuration."""
+        return cls()
 
 
 class AllDefensiveFilter(GameFilter):
@@ -390,6 +524,11 @@ class AllDefensiveFilter(GameFilter):
             "This filter selects players who have been named to at least one NBA All-Defensive Team "
             "(First or Second) during their career."
         )
+    
+    @classmethod
+    def _from_config(cls, config: dict) -> 'AllDefensiveFilter':
+        """Create an AllDefensiveFilter instance from configuration."""
+        return cls()
 
 
 class AllRookieFilter(GameFilter):
@@ -406,6 +545,11 @@ class AllRookieFilter(GameFilter):
         return (
             "This filter selects players who were named to an NBA All-Rookie Team (First or Second) " "in their debut season."
         )
+    
+    @classmethod
+    def _from_config(cls, config: dict) -> 'AllRookieFilter':
+        """Create an AllRookieFilter instance from configuration."""
+        return cls()
 
 
 class NbaChampFilter(GameFilter):
@@ -425,6 +569,11 @@ class NbaChampFilter(GameFilter):
             "or playing time during the championship run.\n\n"
             "'World Champion of what...?!' - Noah Lyles, World Champion"
         )
+    
+    @classmethod
+    def _from_config(cls, config: dict) -> 'NbaChampFilter':
+        """Create a NbaChampFilter instance from configuration."""
+        return cls()
 
 
 class AllStarFilter(GameFilter):
@@ -442,6 +591,11 @@ class AllStarFilter(GameFilter):
             "This filter selects players who have been selected to at least one NBA All-Star Game during their career. "
             "This is regardless of how they were selected, whether it was by fan vote, player vote, or coach vote."
         )
+    
+    @classmethod
+    def _from_config(cls, config: dict) -> 'AllStarFilter':
+        """Create an AllStarFilter instance from configuration."""
+        return cls()
 
 
 class OlympicMedalFilter(GameFilter):
@@ -464,6 +618,11 @@ class OlympicMedalFilter(GameFilter):
             "while representing their country in Olympic basketball. This includes players who competed "
             "for Team USA as well as players who represented other countries in Olympic competition."
         )
+    
+    @classmethod
+    def _from_config(cls, config: dict) -> 'OlympicMedalFilter':
+        """Create an OlympicMedalFilter instance from configuration."""
+        return cls()
 
 
 class LastNameFilter(GameFilter):
@@ -499,6 +658,18 @@ class LastNameFilter(GameFilter):
 
     def get_player_stats_str(self, player: Player) -> str:
         return f"Name: {player.last_name}"
+
+    def _get_config(self) -> dict:
+        """Get the configuration dictionary for this last name filter."""
+        return {"selected_letter": self.selected_letter}
+    
+    @classmethod
+    def _from_config(cls, config: dict) -> 'LastNameFilter':
+        """Create a LastNameFilter instance from configuration."""
+        filter_obj = cls(0)  # Seed doesn't matter for reconstruction
+        if "selected_letter" in config:
+            filter_obj.selected_letter = config["selected_letter"]
+        return filter_obj
 
     def get_detailed_desc(self) -> str:
         return f"This filter selects players whose last name starts with the letter '{self.selected_letter}'. "
@@ -539,6 +710,22 @@ class PlayedWithPlayerFilter(GameFilter):
             return f"Played together on: {', '.join(team_abbrs)}"
         else:
             return f"Teammate of {self.target_player.name}"
+
+    def _get_config(self) -> dict:
+        """Get the configuration dictionary for this played with player filter."""
+        return {"target_player": self.target_player.name}
+    
+    @classmethod
+    def _from_config(cls, config: dict) -> 'PlayedWithPlayerFilter':
+        """Create a PlayedWithPlayerFilter instance from configuration."""
+        filter_obj = cls(0)  # Seed doesn't matter for reconstruction
+        if "target_player" in config:
+            try:
+                filter_obj.target_player = Player.objects.get(name=config["target_player"])
+            except Player.DoesNotExist:
+                # If target player doesn't exist, keep the randomly selected one
+                pass
+        return filter_obj
 
     def get_detailed_desc(self) -> str:
         return (
@@ -584,6 +771,21 @@ class TeamCountFilter(DynamicGameFilter):
             f"This filter selects players who have played for {comparison_str} {self.current_value} different NBA teams "
             f"during their career. This includes all franchises a player has at least one game for."
         )
+
+    def _get_config(self) -> dict:
+        """Get the configuration dictionary for this team count filter."""
+        config = self.config.copy()
+        config["current_value"] = self.current_value
+        return config
+    
+    @classmethod
+    def _from_config(cls, config: dict) -> 'TeamCountFilter':
+        """Create a TeamCountFilter instance from configuration."""
+        current_value = config.pop("current_value", None)
+        filter_obj = cls(config)
+        if current_value is not None:
+            filter_obj.current_value = current_value
+        return filter_obj
 
     def get_filter_type_description(self) -> str:
         """Return a normalized type description for team count filters."""
@@ -839,118 +1041,4 @@ def get_static_filters(seed: int = 0) -> list[GameFilter]:
     ]
 
 
-def gamefilter_to_json(filter):
-    """Convert a GameFilter instance to a JSON-serializable dictionary"""
-    config = {}
-    if hasattr(filter, "config"):
-        config = filter.config
-    if hasattr(filter, "current_value"):
-        config["current_value"] = filter.current_value
-    if hasattr(filter, "team_name"):
-        config["team_name"] = filter.team_name
-    if hasattr(filter, "selected_position"):
-        config["selected_position"] = filter.selected_position
-    if hasattr(filter, "country_name"):
-        config["country_name"] = filter.country_name
-    if hasattr(filter, "selected_letter"):
-        config["selected_letter"] = filter.selected_letter
-    if hasattr(filter, "target_player"):
-        config["target_player"] = filter.target_player.name
 
-    return {"class_name": filter.__class__.__name__, "name": filter.get_desc(), "config": config}
-
-
-def gamefilter_from_json(filter_instance, filter_data):
-    """Update a GameFilter instance with data from a JSON dictionary"""
-    if hasattr(filter_instance, "config"):
-        filter_instance.config = filter_data["config"]
-    if hasattr(filter_instance, "current_value"):
-        filter_instance.current_value = filter_data["config"]["current_value"]
-    if hasattr(filter_instance, "team_name"):
-        filter_instance.team_name = filter_data["config"]["team_name"]
-    if hasattr(filter_instance, "selected_position"):
-        filter_instance.selected_position = filter_data["config"]["selected_position"]
-    if hasattr(filter_instance, "country_name"):
-        filter_instance.country_name = filter_data["config"]["country_name"]
-    if hasattr(filter_instance, "selected_letter"):
-        filter_instance.selected_letter = filter_data["config"]["selected_letter"]
-    if hasattr(filter_instance, "target_player"):
-        target_player_name = filter_data["config"].get("target_player")
-        if target_player_name:
-            try:
-                from nbagrid_api_app.models import Player
-                filter_instance.target_player = Player.objects.get(name=target_player_name)
-            except Player.DoesNotExist:
-                # If target player doesn't exist, keep the current one
-                pass
-    return filter_instance
-
-
-def create_filter_from_db(db_filter):
-    """Create a GameFilter object from a database record.
-
-    Args:
-        db_filter: A GameFilterDB model instance from the database
-
-    Returns:
-        A GameFilter object of the appropriate type with the stored configuration
-    """
-    filter_class = globals()[db_filter.filter_class]
-    config = db_filter.filter_config.copy()
-
-    # Handle special cases for different filter types
-    if filter_class == DynamicGameFilter or filter_class == TeamCountFilter:
-        # For dynamic filters, we need to preserve the config and current_value
-        current_value = config.pop("current_value", None)
-        config_data = config.pop("config", config)  # Use remaining config if no 'config' key
-        filter_obj = filter_class(config_data)
-        if current_value is not None:
-            filter_obj.current_value = current_value
-        return filter_obj
-    elif filter_class == TeamFilter:
-        team_name = config.pop("team_name", None)
-        filter_obj = filter_class(0)  # Seed doesn't matter for reconstruction
-        if team_name is not None:
-            filter_obj.team_name = team_name
-        return filter_obj
-    elif filter_class == PositionFilter:
-        position = config.pop("selected_position", None)
-        filter_obj = filter_class(0)  # Seed doesn't matter for reconstruction
-        if position is not None:
-            filter_obj.selected_position = position
-        return filter_obj
-    elif filter_class == LastNameFilter:
-        letter = config.pop("selected_letter", None)
-        filter_obj = filter_class(0)  # Seed doesn't matter for reconstruction
-        if letter is not None:
-            filter_obj.selected_letter = letter
-        return filter_obj
-    elif filter_class == PlayedWithPlayerFilter:
-        target_player_name = config.pop("target_player", None)
-        filter_obj = filter_class(0)  # Seed doesn't matter for reconstruction
-        if target_player_name is not None:
-            try:
-                filter_obj.target_player = Player.objects.get(name=target_player_name)
-            except Player.DoesNotExist:
-                # If target player doesn't exist, keep the randomly selected one
-                pass
-        return filter_obj
-    elif filter_class == USAFilter:
-        return filter_class()
-    elif filter_class == InternationalFilter:
-        return filter_class()
-    elif filter_class == EuropeanUnionFilter:
-        return filter_class()
-    elif filter_class == CountryFilter:
-        country = config.pop("country_name", None)
-        filter_obj = filter_class(0)  # Seed doesn't matter for reconstruction
-        if country is not None:
-            filter_obj.country_name = country
-        return filter_obj
-    elif filter_class == BooleanFilter:
-        return Top10DraftpickFilter()
-    elif filter_class == Top10DraftpickFilter:
-        return filter_class()
-
-    # For any other filter type, just pass the config as is
-    return filter_class(**config)

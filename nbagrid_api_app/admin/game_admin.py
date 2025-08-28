@@ -235,8 +235,7 @@ class GameAdmin(GridBuilderAdmin):
 
             # Get all available filters from GameFilter
             from nbagrid_api_app.GameFilter import (
-                gamefilter_from_json,
-                gamefilter_to_json,
+                GameFilter,
                 get_dynamic_filters,
                 get_static_filters,
             )
@@ -248,7 +247,7 @@ class GameAdmin(GridBuilderAdmin):
 
             # Add filters to available_filters
             for filter in all_filters:
-                filter_json = gamefilter_to_json(filter)
+                filter_json = filter.to_json()
                 filter_json["name"] = filter.get_desc()  # Add display name
                 available_filters.append(filter_json)
 
@@ -269,16 +268,12 @@ class GameAdmin(GridBuilderAdmin):
             for filter in static_filters_db:
                 row_index = str(filter.filter_index)
                 if row_index not in filters["row"]:
-                    # Find the matching filter class
-                    filter_instance = None
-                    for f in all_filters:
-                        if f.__class__.__name__ == filter.filter_class:
-                            filter_instance = copy.deepcopy(f)
-                            # Initialize the filter with its config
-                            filter_instance = gamefilter_from_json(
-                                filter_instance, {"class": filter.filter_class, "config": filter.filter_config}
-                            )
-                            break
+                    # Create the filter instance from database
+                    filter_data = {
+                        "class_name": filter.filter_class,
+                        "config": filter.filter_config
+                    }
+                    filter_instance = GameFilter.from_json(filter_data)
 
                     if filter_instance:
                         filters["row"][row_index] = {
@@ -291,16 +286,12 @@ class GameAdmin(GridBuilderAdmin):
             for filter in dynamic_filters_db:
                 col_index = str(filter.filter_index)
                 if col_index not in filters["col"]:
-                    # Find the matching filter class
-                    filter_instance = None
-                    for f in all_filters:
-                        if f.__class__.__name__ == filter.filter_class:
-                            filter_instance = copy.deepcopy(f)
-                            # Initialize the filter with its config
-                            filter_instance = gamefilter_from_json(
-                                filter_instance, {"class": filter.filter_class, "config": filter.filter_config}
-                            )
-                            break
+                    # Create the filter instance from database
+                    filter_data = {
+                        "class_name": filter.filter_class,
+                        "config": filter.filter_config
+                    }
+                    filter_instance = GameFilter.from_json(filter_data)
 
                     if filter_instance:
                         filters["col"][col_index] = {
@@ -377,7 +368,7 @@ class GameAdmin(GridBuilderAdmin):
     
     def _extract_filter_type_description(self, filter_class, filter_config):
         """Extract a normalized filter type description from filter configuration"""
-        from nbagrid_api_app.GameFilter import create_filter_from_db
+        
         
         # Create a temporary GameFilterDB object to reconstruct the filter
         temp_filter_db = type('TempFilter', (), {
@@ -388,7 +379,7 @@ class GameAdmin(GridBuilderAdmin):
         
         try:
             # Reconstruct the filter to get its type description
-            filter_obj = create_filter_from_db(temp_filter_db)
+            filter_obj = temp_filter_db.to_filter()
             
             # Use the filter's own method to get the type description
             return filter_obj.get_filter_type_description()

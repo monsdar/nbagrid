@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 from django.db.models import Manager
 
-from nbagrid_api_app.GameFilter import GameFilter, create_filter_from_db, get_dynamic_filters, get_static_filters
+from nbagrid_api_app.GameFilter import GameFilter, get_dynamic_filters, get_static_filters
 from nbagrid_api_app.models import GameFilterDB, GameGrid, Player, GridMetadata
 from nbagrid_api_app.metrics import record_cached_grid_usage, record_tuning_iterations
 
@@ -97,7 +97,7 @@ class GameBuilder(object):
             for usage_record in recent_usage:
                 # Create a temporary filter to get its type description
                 try:
-                    temp_filter = create_filter_from_db(usage_record)
+                    temp_filter = usage_record.to_filter()
                     if temp_filter.get_filter_type_description() == filter_type_desc:
                         usage_count += 1
                 except:
@@ -114,7 +114,7 @@ class GameBuilder(object):
                 very_recent_usage = recent_usage.filter(date__gte=reference_date - timedelta(days=2))
                 for usage_record in very_recent_usage:
                     try:
-                        temp_filter = create_filter_from_db(usage_record)
+                        temp_filter = usage_record.to_filter()
                         if temp_filter.get_filter_type_description() == filter_type_desc:
                             very_recent_count += 1
                     except:
@@ -210,7 +210,7 @@ class GameBuilder(object):
             dynamic_filters = []
 
             for db_filter in existing_filters.order_by("filter_index"):
-                filter_obj = create_filter_from_db(db_filter)
+                filter_obj = db_filter.to_filter()
                 if db_filter.filter_type == "static":
                     static_filters.append(filter_obj)
                 else:
@@ -225,21 +225,23 @@ class GameBuilder(object):
     def store_filters_in_db(self, requested_date, static_filters, dynamic_filters):
         # Save filters to database
         for idx, filter_obj in enumerate(static_filters):
-            GameFilterDB.objects.create(
+            db_filter = GameFilterDB.objects.create(
                 date=requested_date,
                 filter_type="static",
                 filter_class=filter_obj.__class__.__name__,
-                filter_config=filter_obj.__dict__,
+                filter_config={},  # Will be set by save_filter
                 filter_index=idx,
             )
+            db_filter.save_filter(filter_obj)
         for idx, filter_obj in enumerate(dynamic_filters):
-            GameFilterDB.objects.create(
+            db_filter = GameFilterDB.objects.create(
                 date=requested_date,
                 filter_type="dynamic",
                 filter_class=filter_obj.__class__.__name__,
-                filter_config=filter_obj.__dict__,
+                filter_config={},  # Will be set by save_filter
                 filter_index=idx,
             )
+            db_filter.save_filter(filter_obj)
         # Create/update the GameGrid for this date
         self.update_game_grid(requested_date, static_filters, dynamic_filters)
         

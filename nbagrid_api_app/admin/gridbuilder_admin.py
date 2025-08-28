@@ -13,12 +13,11 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 
 from nbagrid_api_app.GameFilter import (
+    GameFilter,
     LastNameFilter,
     PlayedWithPlayerFilter,
     PositionFilter,
     TeamFilter,
-    gamefilter_from_json,
-    gamefilter_to_json,
     get_dynamic_filters,
     get_static_filters,
 )
@@ -53,13 +52,13 @@ class GridBuilderAdmin(admin.ModelAdmin):
 
         # Add static filters
         for filter in get_static_filters():
-            filter_json = gamefilter_to_json(filter)
+            filter_json = filter.to_json()
             filter_json["name"] = filter.get_desc().replace("'", "")  # Add display name
             available_filters.append(filter_json)
 
         # Add dynamic filters
         for filter in get_dynamic_filters():
-            filter_json = gamefilter_to_json(filter)
+            filter_json = filter.to_json()
             filter_json["name"] = filter.get_desc()  # Add display name
             available_filters.append(filter_json)
 
@@ -104,19 +103,20 @@ class GridBuilderAdmin(admin.ModelAdmin):
                         # Create filter instances from the data
                         row_filter = None
                         col_filter = None
-                        for filter in all_filters:
-                            if filter.__class__.__name__ == row_filter_data["class"]:
-                                logger.info(f"Found row filter: {filter.__class__.__name__}")
-                                row_filter = copy.deepcopy(filter)
-                                row_filter = gamefilter_from_json(
-                                    row_filter, {"class": row_filter_data["class"], "config": row_filter_data["config"]}
-                                )
-                            if filter.__class__.__name__ == col_filter_data["class"]:
-                                logger.info(f"Found col filter: {filter.__class__.__name__}")
-                                col_filter = copy.deepcopy(filter)
-                                col_filter = gamefilter_from_json(
-                                    col_filter, {"class": col_filter_data["class"], "config": col_filter_data["config"]}
-                                )
+                        
+                        # Create row filter
+                        row_filter_data_for_json = {
+                            "class_name": row_filter_data["class"],
+                            "config": row_filter_data["config"]
+                        }
+                        row_filter = GameFilter.from_json(row_filter_data_for_json)
+                        
+                        # Create col filter
+                        col_filter_data_for_json = {
+                            "class_name": col_filter_data["class"],
+                            "config": col_filter_data["config"]
+                        }
+                        col_filter = GameFilter.from_json(col_filter_data_for_json)
 
                         if row_filter and col_filter:
                             # Get players that match both filters
@@ -172,18 +172,12 @@ class GridBuilderAdmin(admin.ModelAdmin):
             if not filter_data or not action:
                 return JsonResponse({"error": "Missing filter data or action"}, status=400)
 
-            # Find the filter instance
-            filter_class_name = filter_data["class"]
-            filter_instance = None
-
-            for filter in get_static_filters() + get_dynamic_filters():
-                if filter.__class__.__name__ == filter_class_name:
-                    logger.info(f"Found filter to adjust: {filter.__class__.__name__}")
-                    filter_instance = copy.deepcopy(filter)
-                    filter_instance = gamefilter_from_json(
-                        filter_instance, {"class": filter_data["class"], "config": filter_data["config"]}
-                    )
-                    break
+            # Create the filter instance from JSON data
+            filter_data_for_json = {
+                "class_name": filter_data["class"],
+                "config": filter_data["config"]
+            }
+            filter_instance = GameFilter.from_json(filter_data_for_json)
             if filter_instance:
                 if action == "widen":
                     filter_instance.widen_filter()
@@ -197,7 +191,7 @@ class GridBuilderAdmin(admin.ModelAdmin):
                 return JsonResponse({"error": "Invalid filter or filter does not support range adjustment"}, status=400)
 
             return JsonResponse(
-                {"new_name": filter_instance.get_desc(), "new_config": gamefilter_to_json(filter_instance)["config"]}
+                {"new_name": filter_instance.get_desc(), "new_config": filter_instance.to_json()["config"]}
             )
 
         except Exception as e:
@@ -217,17 +211,12 @@ class GridBuilderAdmin(admin.ModelAdmin):
             if not filter_data:
                 return JsonResponse({"error": "Missing filter data"}, status=400)
 
-            # Find the filter instance
-            filter_class_name = filter_data["class"]
-            filter_instance = None
-
-            for filter in get_static_filters() + get_dynamic_filters():
-                if filter.__class__.__name__ == filter_class_name:
-                    filter_instance = copy.deepcopy(filter)
-                    filter_instance = gamefilter_from_json(
-                        filter_instance, {"class": filter_data["class"], "config": filter_data["config"]}
-                    )
-                    break
+            # Create the filter instance from JSON data
+            filter_data_for_json = {
+                "class_name": filter_data["class"],
+                "config": filter_data["config"]
+            }
+            filter_instance = GameFilter.from_json(filter_data_for_json)
 
             if not filter_instance:
                 return JsonResponse({"error": "Filter not found"}, status=400)
@@ -459,21 +448,17 @@ class GridBuilderAdmin(admin.ModelAdmin):
                 return JsonResponse({"error": "No filters found for this cell"}, status=400)
 
             # Create filter instances
-            row_filter = None
-            col_filter = None
-            all_filters = get_static_filters() + get_dynamic_filters()
-
-            for filter in all_filters:
-                if filter.__class__.__name__ == row_filter_data["class"]:
-                    row_filter = copy.deepcopy(filter)
-                    row_filter = gamefilter_from_json(
-                        row_filter, {"class": row_filter_data["class"], "config": row_filter_data["config"]}
-                    )
-                if filter.__class__.__name__ == col_filter_data["class"]:
-                    col_filter = copy.deepcopy(filter)
-                    col_filter = gamefilter_from_json(
-                        col_filter, {"class": col_filter_data["class"], "config": col_filter_data["config"]}
-                    )
+            row_filter_data_for_json = {
+                "class_name": row_filter_data["class"],
+                "config": row_filter_data["config"]
+            }
+            row_filter = GameFilter.from_json(row_filter_data_for_json)
+            
+            col_filter_data_for_json = {
+                "class_name": col_filter_data["class"],
+                "config": col_filter_data["config"]
+            }
+            col_filter = GameFilter.from_json(col_filter_data_for_json)
 
             if not row_filter or not col_filter:
                 return JsonResponse({"error": "Could not create filter instances"}, status=400)
@@ -570,18 +555,12 @@ class GridBuilderAdmin(admin.ModelAdmin):
             if not filter_data or not selection_type or not selection_id:
                 return JsonResponse({"error": "Missing required parameters"}, status=400)
 
-            # Find the filter instance
-            filter_class_name = filter_data["class"]
-            filter_instance = None
-
-            for filter in get_static_filters() + get_dynamic_filters():
-                if filter.__class__.__name__ == filter_class_name:
-                    logger.info(f"Found filter to update: {filter.__class__.__name__}")
-                    filter_instance = copy.deepcopy(filter)
-                    filter_instance = gamefilter_from_json(
-                        filter_instance, {"class": filter_data["class"], "config": filter_data["config"]}
-                    )
-                    break
+            # Create the filter instance from JSON data
+            filter_data_for_json = {
+                "class_name": filter_data["class"],
+                "config": filter_data["config"]
+            }
+            filter_instance = GameFilter.from_json(filter_data_for_json)
 
             if not filter_instance:
                 return JsonResponse({"error": "Filter not found"}, status=400)

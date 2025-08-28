@@ -834,6 +834,32 @@ class GameFilterDB(ExportModelOperationsMixin("gamefilterdb"), models.Model):
             models.Index(fields=["date"]),
         ]
 
+    def to_filter(self):
+        """Convert this database record to a GameFilter instance.
+        
+        Returns:
+            A GameFilter instance of the appropriate type with the stored configuration
+        """
+        from nbagrid_api_app.GameFilter import GameFilter
+        
+        filter_data = {
+            "class_name": self.filter_class,
+            "config": self.filter_config
+        }
+        
+        return GameFilter.from_json(filter_data)
+    
+    def save_filter(self, filter_obj):
+        """Save a GameFilter instance to this database record.
+        
+        Args:
+            filter_obj: A GameFilter instance to save
+        """
+        filter_json = filter_obj.to_json()
+        self.filter_class = filter_json["class_name"]
+        self.filter_config = filter_json["config"]
+        self.save()
+
     def __str__(self):
         return f"{self.date} - {self.filter_type} - {self.filter_class} ({self.filter_index})"
 

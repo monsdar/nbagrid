@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 from django.test import TestCase
 
 from nbagrid_api_app.GameBuilder import GameBuilder
-from nbagrid_api_app.GameFilter import get_dynamic_filters, get_static_filters, create_filter_from_db
+from nbagrid_api_app.GameFilter import get_dynamic_filters, get_static_filters
 from nbagrid_api_app.models import GameFilterDB, Player, Team
 
 
@@ -92,12 +92,13 @@ class GridGenerationTest(TestCase):
             date=test_date,
             filter_type="dynamic",
             filter_class=original_filter.__class__.__name__,
-            filter_config=original_filter.__dict__,
+            filter_config={},  # Will be set by save_filter
             filter_index=0,
         )
+        db_filter.save_filter(original_filter)
         
         # Reconstruct from database
-        reconstructed_filter = create_filter_from_db(db_filter)
+        reconstructed_filter = db_filter.to_filter()
         reconstructed_type = reconstructed_filter.get_filter_type_description()
         
         # Check if they match
@@ -166,13 +167,14 @@ class GridGenerationTest(TestCase):
         dynamic_filters = get_dynamic_filters(seed=42)
         used_filter = dynamic_filters[0]
         
-        GameFilterDB.objects.create(
+        db_filter = GameFilterDB.objects.create(
             date=test_date,
             filter_type="dynamic",
             filter_class=used_filter.__class__.__name__,
-            filter_config=used_filter.__dict__,
+            filter_config={},  # Will be set by save_filter
             filter_index=0,
         )
+        db_filter.save_filter(used_filter)
         
         # Calculate weights
         weights = builder.get_filter_weights(dynamic_filters, 'dynamic')
