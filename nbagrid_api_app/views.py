@@ -318,8 +318,10 @@ def get_ranking_data(requested_date, session_key):
 @trace_operation("get_longest_streaks_ranking_data")
 def get_longest_streaks_ranking_data(session_key):
     """Get longest streaks ranking data for the current user."""
-    longest_streaks_ranking = GameCompletion.get_longest_streaks_ranking_with_neighbors(session_key)
-    return longest_streaks_ranking
+    # Temporarily disabled - return empty list instead of querying database
+    # longest_streaks_ranking = GameCompletion.get_longest_streaks_ranking_with_neighbors(session_key)
+    # return longest_streaks_ranking
+    return []
 
 
 @trace_operation("get_player_stats")
