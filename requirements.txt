@@ -6,3 +6,14 @@ requests
 bs4
 whitenoise[brotli]
 psycopg2-binary
+
+# OpenTelemetry for tracing and observability
+opentelemetry-api
+opentelemetry-sdk
+opentelemetry-instrumentation-django
+opentelemetry-instrumentation-sqlite3
+opentelemetry-instrumentation-psycopg2
+opentelemetry-exporter-otlp-proto-http
+opentelemetry-exporter-prometheus
+opentelemetry-instrumentation-logging
+opentelemetry-instrumentation-requests

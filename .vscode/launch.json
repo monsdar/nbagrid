@@ -62,7 +62,10 @@
             "justMyCode": true,
             "env": {
                 "NBAGRID_SHOW_IMPRESSUM": "1",
-                "IMPORT_TEST_DATA": "1"
+                "IMPORT_TEST_DATA": "1",
+                "OTEL_SERVICE_NAME": "nbagrid-api",
+                "OTEL_ENVIRONMENT": "development",
+                "OTEL_EXPORTER_OTLP_ENDPOINT": "http://localhost:4318"
             }
         }
     ]

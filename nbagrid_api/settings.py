@@ -65,6 +65,20 @@ INSTALLED_APPS = [
     "django_prometheus",
 ]
 
+# Initialize OpenTelemetry early in the Django startup process
+print("Attempting to initialize OpenTelemetry...")
+try:
+    from opentelemetry_config import initialize
+    print("OpenTelemetry config imported successfully")
+    initialize()
+    print("OpenTelemetry initialized successfully")
+except ImportError as e:
+    print(f"OpenTelemetry import error: {e}")
+    # OpenTelemetry not available, continue without it
+except Exception as e:
+    print(f"OpenTelemetry initialization error: {e}")
+    # OpenTelemetry failed to initialize, continue without it
+
 MIDDLEWARE = [
     "django_prometheus.middleware.PrometheusBeforeMiddleware",
     "django.middleware.security.SecurityMiddleware",
