@@ -789,6 +789,79 @@ class GameCompletion(ExportModelOperationsMixin("gamecompletion"), models.Model)
         return ranking[start_idx:end_idx]
 
     @classmethod
+    def get_longest_streaks_ranking_with_neighbors(cls, session_key):
+        """Get a ranking of longest streaks that includes the current user and their 4 nearest neighbors.
+        Returns a list of tuples (rank, display_name, streak) where rank is 1-based."""
+        # Get all users with their longest streaks (most recent completion for each user)
+        from django.db.models import Max
+        
+        # Get the most recent completion for each session to find their current streak
+        latest_completions = cls.objects.values('session_key').annotate(
+            latest_date=Max('date')
+        )
+        
+        # Build ranking of longest streaks
+        ranking = []
+        current_user_rank = None
+        
+        for completion_data in latest_completions:
+            try:
+                # Get the most recent completion for this session
+                latest_completion = cls.objects.get(
+                    session_key=completion_data['session_key'],
+                    date=completion_data['latest_date']
+                )
+                
+                # Only include users with active streaks (streak > 0)
+                if latest_completion.completion_streak > 0:
+                    display_name = UserData.get_display_name(latest_completion.session_key)
+                    ranking.append((latest_completion.completion_streak, display_name, latest_completion.session_key))
+                    
+                    if latest_completion.session_key == session_key:
+                        current_user_rank = len(ranking)  # Will be updated after sorting
+                        
+            except Exception as e:
+                logger.error(f"Error getting display name for session {completion_data['session_key']}: {e}")
+                continue
+        
+        if not ranking:
+            return []
+        
+        # Sort by streak length (descending) and then by display name for ties
+        ranking.sort(key=lambda x: (-x[0], x[1]))
+        
+        # Find current user's rank after sorting
+        if current_user_rank is not None:
+            for rank, (streak, display_name, session) in enumerate(ranking, 1):
+                if session == session_key:
+                    current_user_rank = rank
+                    break
+        
+        # Convert to (rank, display_name, streak) format
+        final_ranking = []
+        for rank, (streak, display_name, session) in enumerate(ranking, 1):
+            final_ranking.append((rank, display_name, streak))
+        
+        if current_user_rank is None:
+            return final_ranking[:5]  # Just return top 5 if current user not found
+        
+        # Calculate start and end indices to show 5 entries
+        # Try to show 2 entries before and 2 entries after the current user
+        start_idx = max(0, current_user_rank - 3)  # Show 2 entries before current user
+        end_idx = min(len(final_ranking), start_idx + 5)  # Show 5 entries total
+        
+        # If we're near the end, adjust start_idx to show 5 entries
+        if end_idx - start_idx < 5:
+            start_idx = max(0, end_idx - 5)
+        
+        # If we're near the start, adjust end_idx to show 5 entries
+        if start_idx == 0 and len(final_ranking) >= 5:
+            end_idx = 5
+        
+        # Return the slice of ranking that includes the current user and their neighbors
+        return final_ranking[start_idx:end_idx]
+
+    @classmethod
     def get_first_unplayed_game(cls, session_key, current_date=None):
         """Find the first unplayed game for a user, going backwards from the current date.
         Returns a tuple of (date, has_unplayed_games) where date is the first unplayed game date,

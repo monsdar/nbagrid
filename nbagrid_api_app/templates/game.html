@@ -1568,7 +1568,13 @@
                 <div id="ranking-list"></div>
             </div>
 
-            <!-- Section 3: Player Stats -->
+            <!-- Section 3: Longest Streaks Ranking -->
+            <div class="ranking-container">
+                <h3 class="stats-section-title">Longest Streaks</h3>
+                <div id="longest-streaks-ranking-list"></div>
+            </div>
+
+            <!-- Section 4: Player Stats -->
             <div class="stats-container">
                 <h3 class="stats-section-title">Player Stats</h3>
                 <div class="stat-item">
@@ -1590,7 +1596,7 @@
             </div>
 
 
-            <!-- Display Name Section -->
+            <!-- Section 4: Settings -->
             <div class="stats-container">
                 <h3 class="stats-section-title">Settings</h3>
                 <div class="display-name-container">
@@ -2246,6 +2252,7 @@
                 streak: {{ streak|default:"0" }},
                 streak_rank: {% if streak_rank %}{{ streak_rank|to_json|safe }}{% else %}null{% endif %},
                 ranking_data: {% if ranking_data %}{{ ranking_data|to_json|safe }}{% else %}[]{% endif %},
+                longest_streaks_ranking: {% if longest_streaks_ranking %}{{ longest_streaks_ranking|to_json|safe }}{% else %}[]{% endif %},
                 player_stats: {% if player_stats %}{{ player_stats|to_json|safe }}{% else %}{}{% endif %}
             };
             
@@ -2420,6 +2427,36 @@
                     rankingList.innerHTML = rankingHtml;
                 } else {
                     rankingList.innerHTML = '<div class="ranking-entry">No ranking data available</div>';
+                }
+            }
+
+            // Update longest streaks ranking
+            const longestStreaksRankingList = document.getElementById('longest-streaks-ranking-list');
+            const longestStreaksRankingData = data.longest_streaks_ranking || [];
+            
+            if (longestStreaksRankingList) {
+                if (longestStreaksRankingData.length > 0) {
+                    let longestStreaksRankingHtml = '';
+                    const currentUserDisplayName = '{{ user_data.display_name }}';
+                    
+                    longestStreaksRankingData.forEach(function(entry) {
+                        const rank = entry[0];
+                        const name = entry[1];
+                        const streak = entry[2];
+                        const isCurrentUser = name === currentUserDisplayName;
+                        
+                        const entryClass = isCurrentUser ? 'ranking-entry current-user' : 'ranking-entry';
+                        const streakText = streak === 1 ? '1 day' : streak + ' days';
+                        longestStreaksRankingHtml += 
+                            '<div class="' + entryClass + '">' +
+                            '<span class="ranking-rank">' + rank + '.</span>' +
+                            '<span class="ranking-name">' + name + '</span>' +
+                            '<span class="ranking-score">' + streakText + '</span>' +
+                            '</div>';
+                    });
+                    longestStreaksRankingList.innerHTML = longestStreaksRankingHtml;
+                } else {
+                    longestStreaksRankingList.innerHTML = '<div class="ranking-entry">No streak data available</div>';
                 }
             }
         }

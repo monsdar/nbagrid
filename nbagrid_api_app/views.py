@@ -304,6 +304,12 @@ def get_ranking_data(requested_date, session_key):
     return streak, streak_rank, ranking_data
 
 
+def get_longest_streaks_ranking_data(session_key):
+    """Get longest streaks ranking data for the current user."""
+    longest_streaks_ranking = GameCompletion.get_longest_streaks_ranking_with_neighbors(session_key)
+    return longest_streaks_ranking
+
+
 def get_player_stats(session_key):
     """Get player statistics including total completions, perfect completions, and streaks."""
     try:
@@ -479,6 +485,9 @@ def handle_player_guess(request, game_grid, game_state: GameState, requested_dat
         if game_state.is_finished:
             unplayed_game_data = get_unplayed_game_data(request.session.session_key, requested_date.date())
 
+        # Get longest streaks ranking data
+        longest_streaks_ranking = get_longest_streaks_ranking_data(request.session.session_key)
+
         return JsonResponse(
             {
                 "is_correct": is_correct,
@@ -498,6 +507,7 @@ def handle_player_guess(request, game_grid, game_state: GameState, requested_dat
                 "ranking_data": ranking_data,
                 "player_stats": player_stats,
                 "unplayed_game_data": unplayed_game_data,
+                "longest_streaks_ranking": longest_streaks_ranking,
             }
         )
     except Exception as e:
@@ -696,6 +706,9 @@ def game(request, year, month, day):
         # Get unplayed game data
         unplayed_game_data = get_unplayed_game_data(request.session.session_key, requested_date.date())
 
+        # Get longest streaks ranking data
+        longest_streaks_ranking = get_longest_streaks_ranking_data(request.session.session_key)
+
         # Check if impressum should be shown based on environment variable
         show_impressum = settings.NBAGRID_SHOW_IMPRESSUM
 
@@ -735,6 +748,7 @@ def game(request, year, month, day):
                 "player_stats": player_stats,
                 "unplayed_game_data": unplayed_game_data,
                 "show_impressum": show_impressum,
+                "longest_streaks_ranking": longest_streaks_ranking,
             },
         )
     finally:
