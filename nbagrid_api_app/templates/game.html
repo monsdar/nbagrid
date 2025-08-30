@@ -2252,7 +2252,7 @@
                 total_score: {{ total_score|default:"0" }},
                 perfect_games: {{ perfect_games|default:"0" }},
                 streak: {{ streak|default:"0" }},
-                streak_rank: {% if streak_rank %}{{ streak_rank|to_json|safe }}{% else %}null{% endif %},
+
                 ranking_data: {% if ranking_data %}{{ ranking_data|to_json|safe }}{% else %}[]{% endif %},
                 longest_streaks_ranking: {% if longest_streaks_ranking %}{{ longest_streaks_ranking|to_json|safe }}{% else %}[]{% endif %},
                 player_stats: {% if player_stats %}{{ player_stats|to_json|safe }}{% else %}{}{% endif %}

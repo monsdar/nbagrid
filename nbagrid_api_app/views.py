@@ -310,10 +310,9 @@ def handle_game_completion(request, requested_date, game_state, correct_cells_co
 @trace_operation("views.get_ranking_data")
 def get_ranking_data(requested_date, session_key):
     """Get ranking data for the current user."""
-    streak, streak_rank, total_completions = GameCompletion.get_current_streak(session_key, requested_date.date())
-    streak_rank = (streak_rank, total_completions) if streak > 0 else None
+    streak = GameCompletion.get_current_streak(session_key, requested_date.date())
     ranking_data = GameCompletion.get_ranking_with_neighbors(requested_date.date(), session_key)
-    return streak, streak_rank, ranking_data
+    return streak, ranking_data
 
 @trace_operation("views.get_longest_streaks_ranking_data")
 def get_longest_streaks_ranking_data(session_key):
@@ -490,8 +489,8 @@ def handle_player_guess(request, game_grid, game_state: GameState, requested_dat
         stats = get_game_stats(requested_date)
 
         # Get ranking data if game is finished
-        streak, streak_rank, ranking_data = (
-            get_ranking_data(requested_date, request.session.session_key) if game_state.is_finished else (0, None, None)
+        streak, ranking_data = (
+            get_ranking_data(requested_date, request.session.session_key) if game_state.is_finished else (0, None)
         )
 
         # Get player stats
@@ -519,7 +518,7 @@ def handle_player_guess(request, game_grid, game_state: GameState, requested_dat
                 "perfect_games": stats["perfect_games"],
                 "average_score": stats["average_score"],
                 "streak": streak,
-                "streak_rank": streak_rank,
+
                 "selected_cells": {k: [cd for cd in v] for k, v in game_state.selected_cells.items()},
                 "ranking_data": ranking_data,
                 "player_stats": player_stats,
@@ -718,8 +717,8 @@ def game(request, year, month, day):
             logger.info(f"New game started for date {date_str} with session key: {request.session.session_key}")
 
         # Get ranking data if game is finished
-        streak, streak_rank, ranking_data = (
-            get_ranking_data(requested_date, request.session.session_key) if game_state.is_finished else (0, None, None)
+        streak, ranking_data = (
+            get_ranking_data(requested_date, request.session.session_key) if game_state.is_finished else (0, None)
         )
 
         # Get player stats
@@ -759,7 +758,7 @@ def game(request, year, month, day):
                 "perfect_games": stats["perfect_games"],
                 "average_score": stats["average_score"],
                 "streak": streak,
-                "streak_rank": streak_rank,
+
                 "show_prev": show_prev,
                 "show_next": show_next,
                 "prev_date": prev_date,

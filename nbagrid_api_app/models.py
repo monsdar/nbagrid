@@ -707,51 +707,13 @@ class GameCompletion(ExportModelOperationsMixin("gamecompletion"), models.Model)
     @trace_operation("GameCompletion.get_current_streak")
     def get_current_streak(cls, session_key, current_date):
         """Get the current streak for a user.
-        Returns a tuple of (completion_streak, streak_rank, total_completions) where streak_rank is the user's position
-        among all users' active streaks."""
+        Returns the completion_streak for the current user."""
         try:
             # Get the user's current completion
             completion = cls.objects.get(session_key=session_key, date=current_date)
-            streak = completion.completion_streak
-
-            # Get all completions for this date that are part of an active streak
-            # A completion is part of an active streak if it's the most recent completion for that session
-            active_completions = []
-            all_sessions = cls.objects.values("session_key").distinct()
-
-            for session in all_sessions:
-                try:
-                    # Get the most recent completion for this session
-                    latest_completion = cls.objects.filter(session_key=session["session_key"], date=current_date).first()
-
-                    # Only include if it's from today and has a streak
-                    if latest_completion and latest_completion.completion_streak > 0:
-                        active_completions.append(latest_completion.completion_streak)
-                except cls.DoesNotExist:
-                    continue
-
-            total_completions = len(active_completions)
-
-            # If there's only one player with a streak, they're rank 1 of 1
-            if total_completions == 1:
-                return (streak, 1, 1)
-
-            # Sort streaks in descending order
-            active_completions.sort(reverse=True)
-
-            # Find the rank of the current user's streak
-            streak_rank = 1
-            for rank in active_completions:
-                if rank < streak:
-                    break
-                if rank == streak:
-                    return (streak, streak_rank, total_completions)
-                streak_rank += 1
-
-            return (streak, streak_rank, total_completions)
-
+            return completion.completion_streak
         except cls.DoesNotExist:
-            return (0, 0, 0)
+            return 0
 
     @classmethod
     @trace_operation("GameCompletion.get_top_scores")
