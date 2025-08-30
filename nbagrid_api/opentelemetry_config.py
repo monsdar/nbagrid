@@ -11,6 +11,7 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
+from opentelemetry.sdk.resources import Resource
 from opentelemetry.instrumentation.django import DjangoInstrumentor
 from opentelemetry.instrumentation.sqlite3 import SQLite3Instrumentor
 from opentelemetry.instrumentation.psycopg2 import Psycopg2Instrumentor
@@ -53,7 +54,15 @@ def setup_opentelemetry():
     # Set up tracing with sampling
     from opentelemetry.sdk.trace.sampling import ALWAYS_ON
     sampler = ALWAYS_ON
-    trace_provider = TracerProvider(sampler=sampler)
+    
+    # Create resource with service name and environment attributes
+    resource = Resource.create({
+        "service.name": service_name,
+        "service.environment": environment,
+        "deployment.environment": environment,  # Alternative standard attribute
+    })
+    
+    trace_provider = TracerProvider(sampler=sampler, resource=resource)
     
     try:
         otlp_trace_exporter = OTLPSpanExporter(
@@ -90,8 +99,8 @@ def setup_opentelemetry():
         except Exception as e:
             logger.error(f"Failed to create OTLP metric exporter: {e}")
     
-    # Create meter provider
-    meter_provider = MeterProvider(metric_readers=metric_readers)
+    # Create meter provider with same resource
+    meter_provider = MeterProvider(metric_readers=metric_readers, resource=resource)
     metrics.set_meter_provider(meter_provider)
     
     # Get tracer and meter
