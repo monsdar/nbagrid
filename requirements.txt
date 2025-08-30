@@ -13,7 +13,7 @@ opentelemetry-sdk
 opentelemetry-instrumentation-django
 opentelemetry-instrumentation-sqlite3
 opentelemetry-instrumentation-psycopg2
-opentelemetry-exporter-otlp-proto-http
+opentelemetry-exporter-otlp-proto-grpc
 opentelemetry-exporter-prometheus
 opentelemetry-instrumentation-logging
 opentelemetry-instrumentation-requests

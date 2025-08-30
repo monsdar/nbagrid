@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 import os
 from pathlib import Path
+import nbagrid_api.opentelemetry_config as opentelemetry_config
 
 from dotenv import load_dotenv
 
@@ -66,18 +67,7 @@ INSTALLED_APPS = [
 ]
 
 # Initialize OpenTelemetry early in the Django startup process
-print("Attempting to initialize OpenTelemetry...")
-try:
-    from opentelemetry_config import initialize
-    print("OpenTelemetry config imported successfully")
-    initialize()
-    print("OpenTelemetry initialized successfully")
-except ImportError as e:
-    print(f"OpenTelemetry import error: {e}")
-    # OpenTelemetry not available, continue without it
-except Exception as e:
-    print(f"OpenTelemetry initialization error: {e}")
-    # OpenTelemetry failed to initialize, continue without it
+opentelemetry_config.initialize()
 
 MIDDLEWARE = [
     "django_prometheus.middleware.PrometheusBeforeMiddleware",

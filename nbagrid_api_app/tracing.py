@@ -5,11 +5,50 @@ This module provides easy-to-use decorators and context managers for adding
 OpenTelemetry tracing to your application code.
 """
 
+import os
 import time
 from functools import wraps
 from contextlib import contextmanager
 from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
+
+
+# Cache for tracing enabled status
+_TRACING_ENABLED = None
+
+
+def is_tracing_enabled():
+    """
+    Check if OpenTelemetry tracing is configured and enabled.
+    
+    Returns:
+        bool: True if tracing is enabled, False otherwise
+    """
+    global _TRACING_ENABLED
+    
+    # Return cached result if available
+    if _TRACING_ENABLED is not None:
+        return _TRACING_ENABLED
+    
+    # Check if OTLP endpoint is configured
+    otlp_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+    
+    # Check if we're in development mode (console exporter)
+    environment = os.getenv("OTEL_ENVIRONMENT", "development")
+    
+    # Tracing is enabled if we have an OTLP endpoint or we're in development mode
+    _TRACING_ENABLED = bool(otlp_endpoint) or environment == "development"
+    
+    return _TRACING_ENABLED
+
+
+def reset_tracing_cache():
+    """
+    Reset the tracing enabled cache. Useful for testing or when environment
+    variables change during runtime.
+    """
+    global _TRACING_ENABLED
+    _TRACING_ENABLED = None
 
 
 def trace_function(operation_name, **attributes):
@@ -29,6 +68,10 @@ def trace_function(operation_name, **attributes):
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
+            # If tracing is not enabled, just call the function
+            if not is_tracing_enabled():
+                return func(*args, **kwargs)
+            
             tracer = trace.get_tracer(__name__)
             
             with tracer.start_as_current_span(operation_name, attributes=attributes) as span:
@@ -89,16 +132,25 @@ def trace_operation(operation_name, **attributes):
             # Database operation code
             players = Player.objects.filter(name__icontains=name)
     """
-    print(f"Creating trace operation: {operation_name}")
+    # If tracing is not enabled, just yield a dummy span
+    if not is_tracing_enabled():
+        class DummySpan:
+            def set_attribute(self, key, value):
+                pass
+            def set_status(self, status):
+                pass
+            def record_exception(self, exception):
+                pass
+        
+        try:
+            yield DummySpan()
+        except Exception as e:
+            raise
+        return
+    
     tracer = trace.get_tracer(__name__)
     
-    with tracer.start_as_current_span(operation_name, attributes=attributes) as span:
-        # Check if this is a real span or a NonRecordingSpan
-        if hasattr(span, 'name') and span.name:
-            print(f"Operation span created: {span.name} with ID: {span.get_span_context().span_id}")
-        else:
-            print(f"NonRecordingSpan created for operation: {operation_name}")
-        
+    with tracer.start_as_current_span(operation_name, attributes=attributes) as span:        
         start_time = time.time()
         try:
             yield span
@@ -109,8 +161,6 @@ def trace_operation(operation_name, **attributes):
                 span.set_attribute("operation.success", True)
                 span.set_attribute("operation.execution_time_ms", execution_time * 1000)
                 span.set_status(Status(StatusCode.OK))
-            
-            print(f"Operation {operation_name} completed successfully in {execution_time*1000:.2f}ms")
             
         except Exception as e:
             execution_time = time.time() - start_time
@@ -123,8 +173,6 @@ def trace_operation(operation_name, **attributes):
                 span.set_attribute("operation.error_type", type(e).__name__)
                 span.record_exception(e)
                 span.set_status(Status(StatusCode.ERROR, str(e)))
-            
-            print(f"Operation {operation_name} failed: {e}")
             raise
 
 
@@ -145,6 +193,10 @@ def trace_database_query(query_type, table=None, **attributes):
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
+            # If tracing is not enabled, just call the function
+            if not is_tracing_enabled():
+                return func(*args, **kwargs)
+            
             tracer = trace.get_tracer(__name__)
             
             # Create database-specific attributes
@@ -155,13 +207,7 @@ def trace_database_query(query_type, table=None, **attributes):
                 **attributes
             }
             
-            with tracer.start_as_current_span(f"db.{query_type}", attributes=db_attributes) as span:
-                # Check if this is a real span or a NonRecordingSpan
-                if hasattr(span, 'name') and span.name:
-                    print(f"Database span created: {span.name} with ID: {span.get_span_context().span_id}")
-                else:
-                    print(f"NonRecordingSpan created for database operation: {query_type}")
-                
+            with tracer.start_as_current_span(f"db.{query_type}", attributes=db_attributes) as span:                
                 start_time = time.time()
                 try:
                     result = func(*args, **kwargs)
@@ -173,8 +219,6 @@ def trace_database_query(query_type, table=None, **attributes):
                         span.set_attribute("operation.execution_time_ms", execution_time * 1000)
                         span.set_attribute("db.result_count", len(result) if hasattr(result, '__len__') else 1)
                         span.set_status(Status(StatusCode.OK))
-                    
-                    print(f"Database operation {query_type} completed successfully in {execution_time*1000:.2f}ms")
                     return result
                     
                 except Exception as e:
@@ -188,8 +232,6 @@ def trace_database_query(query_type, table=None, **attributes):
                         span.set_attribute("operation.error_type", type(e).__name__)
                         span.record_exception(e)
                         span.set_status(Status(StatusCode.ERROR, str(e)))
-                    
-                    print(f"Database operation {query_type} failed: {e}")
                     raise
                     
         return wrapper
@@ -213,7 +255,9 @@ def trace_view(view_name, **attributes):
     def decorator(func):
         @wraps(func)
         def wrapper(request, *args, **kwargs):
-            print(f"Creating trace for view: {view_name}")
+            # If tracing is not enabled, just call the function
+            if not is_tracing_enabled():
+                return func(request, *args, **kwargs)
             tracer = trace.get_tracer(__name__)
             
             # Create view-specific attributes
@@ -226,15 +270,7 @@ def trace_view(view_name, **attributes):
                 **attributes
             }
             
-            print(f"View attributes: {view_attributes}")
-            
-            with tracer.start_as_current_span(f"view.{view_name}", attributes=view_attributes) as span:
-                # Check if this is a real span or a NonRecordingSpan
-                if hasattr(span, 'name') and span.name:
-                    print(f"Span created: {span.name} with ID: {span.get_span_context().span_id}")
-                else:
-                    print(f"NonRecordingSpan created for view: {view_name}")
-                
+            with tracer.start_as_current_span(f"view.{view_name}", attributes=view_attributes) as span:                
                 start_time = time.time()
                 try:
                     result = func(request, *args, **kwargs)
@@ -246,8 +282,6 @@ def trace_view(view_name, **attributes):
                         span.set_attribute("operation.execution_time_ms", execution_time * 1000)
                         span.set_attribute("http.status_code", getattr(result, 'status_code', 200))
                         span.set_status(Status(StatusCode.OK))
-                    
-                    print(f"View {view_name} completed successfully in {execution_time*1000:.2f}ms")
                     return result
                     
                 except Exception as e:
@@ -261,8 +295,6 @@ def trace_view(view_name, **attributes):
                         span.set_attribute("operation.error_type", type(e).__name__)
                         span.record_exception(e)
                         span.set_status(Status(StatusCode.ERROR, str(e)))
-                    
-                    print(f"View {view_name} failed: {e}")
                     raise
                     
         return wrapper
@@ -281,6 +313,10 @@ def add_span_attribute(key, value):
         add_span_attribute("user.action", "player_selection")
         add_span_attribute("game.date", "2025-04-01")
     """
+    # If tracing is not enabled, do nothing
+    if not is_tracing_enabled():
+        return
+    
     current_span = trace.get_current_span()
     if current_span:
         current_span.set_attribute(key, value)
@@ -302,6 +338,10 @@ def record_exception(exception, **attributes):
             record_exception(e, operation="player_search", user_id=123)
             raise
     """
+    # If tracing is not enabled, do nothing
+    if not is_tracing_enabled():
+        return
+    
     current_span = trace.get_current_span()
     if current_span:
         for key, value in attributes.items():
