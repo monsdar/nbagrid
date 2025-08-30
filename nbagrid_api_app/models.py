@@ -6,6 +6,8 @@ from nba_api.stats.endpoints import commonplayerinfo, playerawards, playercareer
 
 from django.db import models
 
+from nbagrid_api_app.tracing import trace_operation
+
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
@@ -416,11 +418,13 @@ class GameResult(ExportModelOperationsMixin("gameresult"), models.Model):
         return cls.objects.filter(date=date, cell_key=cell_key).select_related("player").order_by("guess_count")[:limit]
 
     @classmethod
+    @trace_operation("GameResult.get_total_guesses")
     def get_total_guesses(cls, date):
         """Get the total number of correct guesses for a specific date."""
         return cls.objects.filter(date=date).aggregate(total=models.Sum("guess_count"))["total"] or 0
 
     @classmethod
+    @trace_operation("GameResult.get_total_user_guesses")
     def get_total_user_guesses(cls, date):
         """Get the total number of user guesses (excluding initial guesses) for a specific date."""
         results = cls.objects.filter(date=date).values('guess_count', 'initial_guesses')
@@ -431,11 +435,13 @@ class GameResult(ExportModelOperationsMixin("gameresult"), models.Model):
         return total_user_guesses
 
     @classmethod
+    @trace_operation("GameResult.get_total_wrong_guesses")
     def get_total_wrong_guesses(cls, date):
         """Get the total number of wrong guesses for a specific date."""
         return cls.objects.filter(date=date).aggregate(total=models.Sum("wrong_guesses"))["total"] or 0
 
     @classmethod
+    @trace_operation("GameResult.record_wrong_guess")
     def record_wrong_guess(cls, date, cell_key, player):
         """Record a wrong guess for a player in a specific cell on a specific date."""
         result, created = cls.objects.get_or_create(
@@ -452,6 +458,7 @@ class GameResult(ExportModelOperationsMixin("gameresult"), models.Model):
         return result
 
     @classmethod
+    @trace_operation("GameResult.get_player_rarity_score")
     def get_player_rarity_score(cls, date, cell_key, player):
         """Calculate a rarity score for a player in a specific cell on a specific date.
         Score is between 0 and 1, where 1 is the rarest (least guessed) and 0 is the most common.
@@ -471,6 +478,7 @@ class GameResult(ExportModelOperationsMixin("gameresult"), models.Model):
             return 1.0  # Player hasn't been guessed yet for this cell on this date
 
     @classmethod
+    @trace_operation("GameResult.initialize_scores_from_recent_games")
     def initialize_scores_from_recent_games(cls, date, cell_key, num_games=5, game_factor=5, filters=[]):
         """Initialize GameResult entries for players based on their historical pick frequency.
         For each cell, we:
@@ -543,6 +551,7 @@ class GameResult(ExportModelOperationsMixin("gameresult"), models.Model):
         return f"{self.date} - {self.cell_key} - {self.player.name} ({self.guess_count} correct, {self.initial_guesses} initial, {self.user_guesses} user, {self.wrong_guesses} wrong)"
 
     @classmethod
+    @trace_operation("GameResult.get_player_ranking_by_guesses")
     def get_player_ranking_by_guesses(cls):
         """Get a ranking of all players sorted by their total guess count across all games.
         Returns a list of tuples (player, total_guesses, total_user_guesses, total_wrong_guesses)."""
@@ -575,6 +584,7 @@ class GameResult(ExportModelOperationsMixin("gameresult"), models.Model):
         return ranking
 
     @classmethod
+    @trace_operation("GameResult.get_player_ranking_by_user_guesses")
     def get_player_ranking_by_user_guesses(cls):
         """Get a ranking of all players sorted by their total user guess count (excluding initial guesses).
         Returns a list of tuples (player, total_user_guesses, total_guesses, total_wrong_guesses)."""
@@ -668,28 +678,33 @@ class GameCompletion(ExportModelOperationsMixin("gamecompletion"), models.Model)
         super().save(*args, **kwargs)
 
     @classmethod
+    @trace_operation("GameCompletion.get_completion_count")
     def get_completion_count(cls, date):
         """Get the number of unique sessions that have completed this game."""
         return cls.objects.filter(date=date).count()
 
     @classmethod
+    @trace_operation("GameCompletion.get_average_score")
     def get_average_score(cls, date):
         """Get the average score for a specific date."""
         result = cls.objects.filter(date=date).aggregate(avg_score=models.Avg("final_score"))
         return result["avg_score"] or 0
 
     @classmethod
+    @trace_operation("GameCompletion.get_average_correct_cells")
     def get_average_correct_cells(cls, date):
         """Get the average number of correct cells for a specific date."""
         result = cls.objects.filter(date=date).aggregate(avg_cells=models.Avg("correct_cells"))
         return result["avg_cells"] or 0
 
     @classmethod
+    @trace_operation("GameCompletion.get_perfect_games")
     def get_perfect_games(cls, date):
         """Get the number of games where all cells were correctly filled."""
         return cls.objects.filter(date=date, correct_cells=9).count()
 
     @classmethod
+    @trace_operation("GameCompletion.get_current_streak")
     def get_current_streak(cls, session_key, current_date):
         """Get the current streak for a user.
         Returns a tuple of (completion_streak, streak_rank, total_completions) where streak_rank is the user's position
@@ -739,11 +754,13 @@ class GameCompletion(ExportModelOperationsMixin("gamecompletion"), models.Model)
             return (0, 0, 0)
 
     @classmethod
+    @trace_operation("GameCompletion.get_top_scores")
     def get_top_scores(cls, date, limit=10):
         """Get the top scores for a specific date."""
         return cls.objects.filter(date=date).order_by("-final_score")[:limit]
 
     @classmethod
+    @trace_operation("GameCompletion.get_ranking_with_neighbors")
     def get_ranking_with_neighbors(cls, date, session_key):
         """Get a ranking that includes the current user and their 4 nearest neighbors.
         Returns a list of tuples (rank, display_name, score) where rank is 1-based."""
@@ -789,6 +806,7 @@ class GameCompletion(ExportModelOperationsMixin("gamecompletion"), models.Model)
         return ranking[start_idx:end_idx]
 
     @classmethod
+    @trace_operation("GameCompletion.get_longest_streaks_ranking_with_neighbors")
     def get_longest_streaks_ranking_with_neighbors(cls, session_key):
         """Get a ranking of longest streaks that includes the current user and their 4 nearest neighbors.
         Returns a list of tuples (rank, display_name, streak) where rank is 1-based."""
@@ -862,6 +880,7 @@ class GameCompletion(ExportModelOperationsMixin("gamecompletion"), models.Model)
         return final_ranking[start_idx:end_idx]
 
     @classmethod
+    @trace_operation("GameCompletion.get_first_unplayed_game")
     def get_first_unplayed_game(cls, session_key, current_date=None):
         """Find the first unplayed game for a user, going backwards from the current date.
         Returns a tuple of (date, has_unplayed_games) where date is the first unplayed game date,

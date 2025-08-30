@@ -7,6 +7,7 @@ from django.db.models import Manager
 from nbagrid_api_app.GameFilter import GameFilter, create_filter_from_db, get_dynamic_filters, get_static_filters
 from nbagrid_api_app.models import GameFilterDB, GameGrid, Player, GridMetadata
 from nbagrid_api_app.metrics import record_cached_grid_usage, record_tuning_iterations
+from nbagrid_api_app.tracing import trace_operation
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -64,6 +65,7 @@ class GameBuilder(object):
                 return item
         return valid_items[-1]  # Fallback
 
+    @trace_operation("GameBuilder.get_filter_weights")
     def get_filter_weights(self, filter_pool, filter_type, days=7, game_date=None):
         """Calculate weights for filters based on recent usage from GameFilterDB.
 
@@ -131,6 +133,7 @@ class GameBuilder(object):
 
         return weights
 
+    @trace_operation("GameBuilder.select_filters")
     def select_filters(self, filter_pool, num_filters, filter_type, game_date=None):
         """Select filters using weighted random choice based on recent usage.
 
@@ -168,6 +171,7 @@ class GameBuilder(object):
 
         return selected_filters
 
+    @trace_operation("GameBuilder.tune_filter")
     def tune_filter(self, dynamic_filter: GameFilter, static_filters: list[GameFilter], all_players: Manager[Player]):
         num_results = []
         success = True
@@ -202,6 +206,7 @@ class GameBuilder(object):
             success = False
         return (success, dynamic_filter)
 
+    @trace_operation("GameBuilder.get_filters_from_db")
     def get_filters_from_db(self, requested_date):
         existing_filters = GameFilterDB.objects.filter(date=requested_date)
         if existing_filters.exists():
@@ -222,6 +227,7 @@ class GameBuilder(object):
                 return (static_filters, dynamic_filters)
         return (None, None)
 
+    @trace_operation("GameBuilder.store_filters_in_db")
     def store_filters_in_db(self, requested_date, static_filters, dynamic_filters):
         # Save filters to database
         for idx, filter_obj in enumerate(static_filters):
@@ -243,6 +249,7 @@ class GameBuilder(object):
         # Create/update the GameGrid for this date
         self.update_game_grid(requested_date, static_filters, dynamic_filters)
         
+    @trace_operation("GameBuilder.get_tuned_filters")
     def get_tuned_filters(self, requested_date, num_iterations: int = 10, reuse_cached_game: bool = False):
         
         # When there's already a game for the requested date, we can just return the filters
@@ -289,6 +296,7 @@ class GameBuilder(object):
             return (static_filters, dynamic_filters)
         raise Exception(f"Failed to generate a grid with {self.num_dynamics} dynamic filters and {self.num_statics} static filters")
 
+    @trace_operation("GameBuilder.update_game_grid")
     def update_game_grid(self, date, static_filters, dynamic_filters):
         """
         Create or update the GameGrid for the specified date with calculated player counts
@@ -330,6 +338,7 @@ class GameBuilder(object):
 
         return game_grid
 
+    @trace_operation("GameBuilder.generate_grid")
     def generate_grid(self, use_dynamic_filters_in_row: bool = False, game_date=None):
         # Get filters for rows using weighted selection
         row_filter_pool = self.static_filters

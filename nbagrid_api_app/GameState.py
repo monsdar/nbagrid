@@ -1,5 +1,7 @@
 from typing import Any, Dict, Optional, TypedDict
 
+from nbagrid_api_app.tracing import trace_operation
+
 
 class CellData(TypedDict, total=False):
     player_id: int
@@ -106,6 +108,7 @@ class GameState:
 
         return False
 
+    @trace_operation("GameState.get_total_score")
     def get_total_score(self) -> float:
         """Calculate the total score from all correct cells."""
         total = 0.0

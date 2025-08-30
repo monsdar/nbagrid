@@ -38,7 +38,7 @@ from nbagrid_api_app.metrics import (
 from nbagrid_api_app.models import GameCompletion, GameFilterDB, GameGrid, GameResult, GridMetadata, ImpressumContent, LastUpdated, Player, UserData
 from nbagrid_api_app.tracing import add_span_attribute, trace_operation, trace_view
 
-@trace_operation("user_has_made_guesses")
+@trace_operation("views.user_has_made_guesses")
 def user_has_made_guesses(request):
     """Check if the current user has made any guesses in any game."""
     try:
@@ -63,7 +63,7 @@ def user_has_made_guesses(request):
         return False
 
 
-@trace_operation("update_daily_active_users_metric")
+@trace_operation("views.update_daily_active_users_metric")
 def update_daily_active_users_metric():
     """Calculate and update the daily active users metric for users who have made guesses."""
     from datetime import datetime, timezone, timedelta
@@ -85,7 +85,7 @@ def update_daily_active_users_metric():
         return 0
 
 
-@trace_operation("get_valid_date")
+@trace_operation("views.get_valid_date")
 def get_valid_date(year, month, day):
     """Validate and return a valid date for the game."""
     current_date = datetime.now()
@@ -99,7 +99,7 @@ def get_valid_date(year, month, day):
     return requested_date
 
 
-@trace_operation("get_navigation_dates")
+@trace_operation("views.get_navigation_dates")
 def get_navigation_dates(requested_date: datetime) -> tuple[datetime, datetime, bool, bool]:
     """Calculate previous and next dates for navigation."""
     prev_date: datetime = requested_date - timedelta(days=1)
@@ -111,7 +111,7 @@ def get_navigation_dates(requested_date: datetime) -> tuple[datetime, datetime, 
 
     return prev_date, next_date, show_prev, show_next
 
-@trace_operation("get_random_past_game_filters")
+@trace_operation("views.get_random_past_game_filters")
 def get_random_past_game_filters(requested_date: datetime, builder: GameBuilder) -> tuple[list[GameFilter], list[GameFilter]]:
     """Final fallback method to copy a random past game when no cached games are available."""
     logger.warning(f"No cached games available for fallback. Attempting to copy random past game for {requested_date}.")
@@ -167,7 +167,7 @@ def get_random_past_game_filters(requested_date: datetime, builder: GameBuilder)
         logger.error(f"No games exist in the database at all. Cannot provide fallback.")
         raise Exception(f"No games exist in the database. Cannot provide fallback.")
 
-@trace_operation("get_game_filters")
+@trace_operation("views.get_game_filters")
 def get_game_filters(requested_date: datetime) -> tuple[list[GameFilter], list[GameFilter]]:
     """Get or create game filters for the requested date."""
     # Create a GameBuilder with the requested date's timestamp as seed
@@ -196,7 +196,7 @@ def get_game_filters(requested_date: datetime) -> tuple[list[GameFilter], list[G
     return filters
 
 
-@trace_operation("initialize_game_state")
+@trace_operation("views.initialize_game_state")
 def initialize_game_state(request, year, month, day) -> tuple[str, GameState]:
     """Initialize or get the current game state from session."""
     game_state_key = f"game_state_{year}_{month}_{day}"
@@ -210,7 +210,7 @@ def initialize_game_state(request, year, month, day) -> tuple[str, GameState]:
     return game_state_key, game_state
 
 
-@trace_operation("build_grid")
+@trace_operation("views.build_grid")
 def build_grid(static_filters: list[GameFilter], dynamic_filters: list[GameFilter]) -> list[list[dict]]:
     """Build the game grid with correct row/column structure."""
     grid = []
@@ -223,7 +223,7 @@ def build_grid(static_filters: list[GameFilter], dynamic_filters: list[GameFilte
     return grid
 
 
-@trace_operation("get_game_stats")
+@trace_operation("views.get_game_stats")
 def get_game_stats(requested_date):
     """Get common game statistics for a given date."""
     return {
@@ -236,7 +236,7 @@ def get_game_stats(requested_date):
     }
 
 
-@trace_operation("get_user_data")
+@trace_operation("views.get_user_data")
 def get_user_data(request, track_metrics=True):
     """Get or create user data for the current session."""
     try:
@@ -284,7 +284,7 @@ def get_user_data(request, track_metrics=True):
         return None
 
 
-@trace_operation("handle_game_completion")
+@trace_operation("views.handle_game_completion")
 def handle_game_completion(request, requested_date, game_state, correct_cells_count):
     """Handle game completion logic."""
     if not GameCompletion.objects.filter(date=requested_date.date(), session_key=request.session.session_key).exists():
@@ -307,7 +307,7 @@ def handle_game_completion(request, requested_date, game_state, correct_cells_co
     return False
 
 
-@trace_operation("get_ranking_data")
+@trace_operation("views.get_ranking_data")
 def get_ranking_data(requested_date, session_key):
     """Get ranking data for the current user."""
     streak, streak_rank, total_completions = GameCompletion.get_current_streak(session_key, requested_date.date())
@@ -315,7 +315,7 @@ def get_ranking_data(requested_date, session_key):
     ranking_data = GameCompletion.get_ranking_with_neighbors(requested_date.date(), session_key)
     return streak, streak_rank, ranking_data
 
-@trace_operation("get_longest_streaks_ranking_data")
+@trace_operation("views.get_longest_streaks_ranking_data")
 def get_longest_streaks_ranking_data(session_key):
     """Get longest streaks ranking data for the current user."""
     # Temporarily disabled - return empty list instead of querying database
@@ -324,7 +324,7 @@ def get_longest_streaks_ranking_data(session_key):
     return []
 
 
-@trace_operation("get_player_stats")
+@trace_operation("views.get_player_stats")
 def get_player_stats(session_key):
     """Get player statistics including total completions, perfect completions, and streaks."""
     try:
@@ -355,7 +355,7 @@ def get_player_stats(session_key):
         return {"total_completions": 0, "perfect_completions": 0, "current_streak": 0, "perfect_streak": 0}
 
 
-@trace_operation("get_unplayed_game_data")
+@trace_operation("views.get_unplayed_game_data")
 def get_unplayed_game_data(session_key, current_date=None):
     """Get data about the first unplayed game for a user."""
     try:
@@ -380,7 +380,7 @@ def get_unplayed_game_data(session_key, current_date=None):
         return {"has_unplayed_games": False, "unplayed_date": None, "unplayed_date_str": None, "unplayed_date_display": None}
 
 
-@trace_operation("handle_player_guess")
+@trace_operation("views.handle_player_guess")
 def handle_player_guess(request, game_grid, game_state: GameState, requested_date: datetime):
     """Handle a player's guess."""
     if game_state.is_finished or game_state.attempts_remaining <= 0:
@@ -532,7 +532,7 @@ def handle_player_guess(request, game_grid, game_state: GameState, requested_dat
         return JsonResponse({"error": "Server error"}, status=500)
 
 
-@trace_operation("handle_correct_guess")
+@trace_operation("views.handle_correct_guess")
 def handle_correct_guess(requested_date, cell_key, player, cell_data, game_state):
     """Handle the logic for a correct guess."""
     try:
@@ -573,7 +573,7 @@ def handle_correct_guess(requested_date, cell_key, player, cell_data, game_state
         logger.error(f"Failed to store game result: {e}")
 
 
-@trace_operation("update_total_score")
+@trace_operation("views.update_total_score")
 def update_total_score(game_state, requested_date):
     """Calculate the total score for all correct cells."""
     total_score = 0
@@ -584,7 +584,7 @@ def update_total_score(game_state, requested_date):
     game_state.total_score = total_score
 
 
-@trace_operation("index")
+@trace_operation("views.index")
 def index(request):
     """Render today's game directly."""
     timer_stop = track_request_latency("index")
@@ -595,7 +595,7 @@ def index(request):
         timer_stop()
 
 
-@trace_operation("get_correct_players")
+@trace_operation("views.get_correct_players")
 def get_correct_players(game_grid, game_state):
     """Get the correct players for each cell."""
     correct_players = {}
@@ -641,7 +641,7 @@ def get_correct_players(game_grid, game_state):
     return correct_players
 
 
-@trace_operation("game")
+@trace_operation("views.game")
 def game(request, year, month, day):
     """Main game view function."""
     timer_stop = track_request_latency("game")
@@ -777,7 +777,7 @@ def game(request, year, month, day):
         timer_stop()
 
 
-@trace_view("search_players", endpoint="/search-players/")
+@trace_view("views.search_players", endpoint="/search-players/")
 def search_players(request):
     """Search for players by name."""
     name = request.GET.get("name", "")
@@ -800,7 +800,7 @@ def search_players(request):
     return JsonResponse([{"stats_id": player.stats_id, "name": player.name} for player in players], safe=False)
 
 
-@trace_operation("update_display_name")
+@trace_operation("views.update_display_name")
 def update_display_name(request):
     """Update the user's display name."""
     if request.method != "POST":
@@ -837,7 +837,7 @@ def update_display_name(request):
         return JsonResponse({"error": "Server error"}, status=500)
 
 
-@trace_operation("generate_random_name")
+@trace_operation("views.generate_random_name")
 def generate_random_name(request):
     """Generate a random display name for the user."""
     if request.method != "GET":
@@ -867,7 +867,6 @@ def generate_random_name(request):
 
 
 @basic_auth_required
-@trace_operation("metrics_view")
 def metrics_view(request):
     """Custom metrics view that adds application-specific metrics."""
     timer_stop = track_request_latency("metrics")
