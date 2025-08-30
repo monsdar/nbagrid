@@ -1064,7 +1064,7 @@ class UserData(ExportModelOperationsMixin("userdata"), models.Model):
         return f"{self.display_name} ({self.session_key})"
 
     @classmethod
-    def get_or_create_user(cls, session_key):
+    def get_or_create_user(cls, session_key, update_last_active=True):
         """
         Get or create user data for a given session key.
         If user data already exists for this session, return it.
@@ -1072,14 +1072,16 @@ class UserData(ExportModelOperationsMixin("userdata"), models.Model):
 
         Args:
             session_key: The session key to get/create user data for
+            update_last_active: Whether to update the last_active timestamp (default: True)
 
         Returns:
             The UserData instance
         """
         try:
             user_data = cls.objects.get(session_key=session_key)
-            # Update last_active timestamp
-            user_data.save()  # This will trigger auto_now=True for last_active
+            # Only update last_active timestamp if requested
+            if update_last_active:
+                user_data.save()  # This will trigger auto_now=True for last_active
             return user_data
         except cls.DoesNotExist:
             # Generate new display name and create user data
@@ -1098,7 +1100,7 @@ class UserData(ExportModelOperationsMixin("userdata"), models.Model):
         Returns:
             The display name string
         """
-        return cls.get_or_create_user(session_key).display_name
+        return cls.get_or_create_user(session_key, update_last_active=False).display_name
 
 
 class ImpressumContent(ExportModelOperationsMixin("impressum_content"), models.Model):
