@@ -566,9 +566,11 @@ def get_cell_correct_players(request, year: int, month: int, day: int, row: int,
     """Get correct players for a specific cell in a finished game."""
     timer_stop = track_request_latency("get_cell_correct_players")
     try:
-        from datetime import date, timedelta
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        from datetime import date
         from django.core.cache import cache
-        from nbagrid_api_app.GameBuilder import GameBuilder
         
         # Rate limiting: Allow max 10 requests per minute per IP
         client_ip = request.META.get('REMOTE_ADDR', 'unknown')
@@ -576,6 +578,7 @@ def get_cell_correct_players(request, year: int, month: int, day: int, row: int,
         request_count = cache.get(cache_key, 0)
         
         if request_count >= 10:
+            logger.warning(f"Rate limit exceeded for IP {client_ip}")
             return JsonResponse({"error": "Rate limit exceeded. Please try again later."}, status=429)
         
         # Increment rate limit counter (expires in 60 seconds)
@@ -584,26 +587,33 @@ def get_cell_correct_players(request, year: int, month: int, day: int, row: int,
         # Validate date range - only allow dates from the last 2 years to prevent abuse
         try:
             requested_date = date(year, month, day)
-        except ValueError:
+        except ValueError as e:
+            logger.error(f"Invalid date: year={year}, month={month}, day={day}, error={e}")
             return JsonResponse({"error": "Invalid date"}, status=400)
         
         # Restrict to reasonable date range
         today = date.today()
-        two_years_ago = today - timedelta(days=730)
-        if requested_date < two_years_ago or requested_date > today:
+        first_game = date(2025, 4, 1)
+        
+        if requested_date < first_game:
+            logger.warning(f"Date too old: {requested_date} < {first_game}")
             return JsonResponse({"error": "Date out of range"}, status=400)
         
-        # Only allow access to finished games (past dates)
-        if requested_date >= today:
-            return JsonResponse({"error": "Game is not finished yet"}, status=400)
-        
+        if requested_date > today:
+            logger.warning(f"Date in future: {requested_date} > {today}")
+            return JsonResponse({"error": "Date out of range"}, status=400)
+                
         # Check if the game exists
         from nbagrid_api_app.models import GameFilterDB
-        if not GameFilterDB.objects.filter(date=requested_date).exists():
+        game_exists = GameFilterDB.objects.filter(date=requested_date).exists()
+        
+        if not game_exists:
+            logger.warning(f"Game not found for date: {requested_date}")
             return JsonResponse({"error": "Game not found for this date"}, status=404)
         
         # Validate cell coordinates (standard 3x3 grid)
         if row < 0 or row >= 3 or col < 0 or col >= 3:
+            logger.warning(f"Invalid cell coordinates: row={row}, col={col}")
             return JsonResponse({"error": "Invalid cell coordinates"}, status=400)
         
         # Build the game grid using the same approach as the main views
@@ -614,37 +624,55 @@ def get_cell_correct_players(request, year: int, month: int, day: int, row: int,
         requested_datetime = datetime.combine(requested_date, datetime.min.time())
         
         # Get the filters for this date
-        static_filters, dynamic_filters = get_game_filters(requested_datetime)
+        try:
+            static_filters, dynamic_filters = get_game_filters(requested_datetime)
+        except Exception as e:
+            logger.error(f"Error getting game filters: {e}")
+            return JsonResponse({"error": "Failed to get game filters"}, status=500)
         
         # Build the grid
-        game_grid = build_grid(static_filters, dynamic_filters)
+        try:
+            game_grid = build_grid(static_filters, dynamic_filters)
+        except Exception as e:
+            logger.error(f"Error building game grid: {e}")
+            return JsonResponse({"error": "Failed to build game grid"}, status=500)
         
         if not game_grid:
+            logger.error("Failed to build game grid")
             return JsonResponse({"error": "Failed to build game grid"}, status=500)
         
         # Get correct players for the specific cell
         cell_key = f"{row}_{col}"
-        cell = game_grid[row][col]
+        try:
+            cell = game_grid[row][col]
+        except Exception as e:
+            logger.error(f"Error accessing cell {cell_key}: {e}")
+            return JsonResponse({"error": "Failed to access cell"}, status=500)
         
         # Initialize the list for this cell
         correct_players = []
         
         # Add correct players (no wrong guesses for API since we don't have game state)
-        matching_players = Player.objects.all()
-        for f in cell["filters"]:
-            matching_players = f.apply_filter(matching_players)
-        
-        # Limit results to prevent huge responses (max 50 players per cell)
-        matching_players = matching_players[:50]
-        
-        # Include player stats for each matching player
-        for p in matching_players:
-            correct_players.append({
-                "name": p.name, 
-                "stats": [f.get_player_stats_str(p) for f in cell["filters"]], 
-                "is_wrong_guess": False,
-                "player_id": p.stats_id
-            })
+        try:
+            matching_players = Player.objects.all()
+            for f in cell["filters"]:
+                matching_players = f.apply_filter(matching_players)
+            
+            # Limit results to prevent huge responses (max 50 players per cell)
+            matching_players = matching_players[:50]
+            
+            # Include player stats for each matching player
+            for p in matching_players:
+                correct_players.append({
+                    "name": p.name, 
+                    "stats": [f.get_player_stats_str(p) for f in cell["filters"]], 
+                    "is_wrong_guess": False,
+                    "player_id": p.stats_id
+                })
+            
+        except Exception as e:
+            logger.error(f"Error processing players: {e}")
+            return JsonResponse({"error": "Failed to process players"}, status=500)
         
         return {
             "cell_key": cell_key,
@@ -655,6 +683,9 @@ def get_cell_correct_players(request, year: int, month: int, day: int, row: int,
         }
         
     except Exception as e:
+        logger.error(f"Unexpected error in get_cell_correct_players: {e}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
         timer_stop(status="error")
         return JsonResponse({"error": "Internal server error"}, status=500)
     finally:
