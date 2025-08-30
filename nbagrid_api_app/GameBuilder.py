@@ -311,6 +311,11 @@ class GameBuilder(object):
             date=date, defaults={"grid_size": self.num_statics}  # Assuming grid_size is the number of rows
         )
 
+        # Check if GameGrid already has cell_correct_players data
+        if game_grid.cell_correct_players:
+            logger.debug(f"GameGrid for {date} already contains cell_correct_players data, skipping update")
+            return game_grid
+
         # Get all players
         all_players = Player.objects.all()
 
