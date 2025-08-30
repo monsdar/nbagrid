@@ -692,10 +692,8 @@ def game(request, year, month, day):
             request.session[game_state_key] = game_state.to_dict()
             return response
 
-        # Get correct players for each cell only if game is finished
+        # No longer loading correct_players here - using API endpoint instead
         correct_players = {}
-        if game_state.is_finished:
-            correct_players = get_correct_players(game_grid, game_state)
 
         # Get stats data
         stats = get_game_stats(requested_date)

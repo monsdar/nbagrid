@@ -559,3 +559,103 @@ def get_impressum_content(request):
         }
         for item in content_items
     ]
+
+
+@api.get("/game/{year}/{month}/{day}/cell/{row}/{col}/players")
+def get_cell_correct_players(request, year: int, month: int, day: int, row: int, col: int):
+    """Get correct players for a specific cell in a finished game."""
+    timer_stop = track_request_latency("get_cell_correct_players")
+    try:
+        from datetime import date, timedelta
+        from django.core.cache import cache
+        from nbagrid_api_app.GameBuilder import GameBuilder
+        
+        # Rate limiting: Allow max 10 requests per minute per IP
+        client_ip = request.META.get('REMOTE_ADDR', 'unknown')
+        cache_key = f"cell_players_rate_limit_{client_ip}"
+        request_count = cache.get(cache_key, 0)
+        
+        if request_count >= 10:
+            return JsonResponse({"error": "Rate limit exceeded. Please try again later."}, status=429)
+        
+        # Increment rate limit counter (expires in 60 seconds)
+        cache.set(cache_key, request_count + 1, 60)
+        
+        # Validate date range - only allow dates from the last 2 years to prevent abuse
+        try:
+            requested_date = date(year, month, day)
+        except ValueError:
+            return JsonResponse({"error": "Invalid date"}, status=400)
+        
+        # Restrict to reasonable date range
+        today = date.today()
+        two_years_ago = today - timedelta(days=730)
+        if requested_date < two_years_ago or requested_date > today:
+            return JsonResponse({"error": "Date out of range"}, status=400)
+        
+        # Only allow access to finished games (past dates)
+        if requested_date >= today:
+            return JsonResponse({"error": "Game is not finished yet"}, status=400)
+        
+        # Check if the game exists
+        from nbagrid_api_app.models import GameFilterDB
+        if not GameFilterDB.objects.filter(date=requested_date).exists():
+            return JsonResponse({"error": "Game not found for this date"}, status=404)
+        
+        # Validate cell coordinates (standard 3x3 grid)
+        if row < 0 or row >= 3 or col < 0 or col >= 3:
+            return JsonResponse({"error": "Invalid cell coordinates"}, status=400)
+        
+        # Build the game grid using the same approach as the main views
+        from nbagrid_api_app.views import get_game_filters, build_grid
+        
+        # Convert date to datetime for get_game_filters
+        from datetime import datetime
+        requested_datetime = datetime.combine(requested_date, datetime.min.time())
+        
+        # Get the filters for this date
+        static_filters, dynamic_filters = get_game_filters(requested_datetime)
+        
+        # Build the grid
+        game_grid = build_grid(static_filters, dynamic_filters)
+        
+        if not game_grid:
+            return JsonResponse({"error": "Failed to build game grid"}, status=500)
+        
+        # Get correct players for the specific cell
+        cell_key = f"{row}_{col}"
+        cell = game_grid[row][col]
+        
+        # Initialize the list for this cell
+        correct_players = []
+        
+        # Add correct players (no wrong guesses for API since we don't have game state)
+        matching_players = Player.objects.all()
+        for f in cell["filters"]:
+            matching_players = f.apply_filter(matching_players)
+        
+        # Limit results to prevent huge responses (max 50 players per cell)
+        matching_players = matching_players[:50]
+        
+        # Include player stats for each matching player
+        for p in matching_players:
+            correct_players.append({
+                "name": p.name, 
+                "stats": [f.get_player_stats_str(p) for f in cell["filters"]], 
+                "is_wrong_guess": False,
+                "player_id": p.stats_id
+            })
+        
+        return {
+            "cell_key": cell_key,
+            "row": row,
+            "col": col,
+            "players": correct_players,
+            "player_count": len(correct_players)
+        }
+        
+    except Exception as e:
+        timer_stop(status="error")
+        return JsonResponse({"error": "Internal server error"}, status=500)
+    finally:
+        timer_stop()

@@ -1646,9 +1646,7 @@
         </div>
     </div>
 
-    {% if is_finished %}
-    {{ correct_players|json_script:"correct-players-data" }}
-    {% endif %}
+    <!-- Correct players are now loaded via API when needed -->
 
     <script>
         let currentCell = null;
@@ -1720,54 +1718,64 @@
 
         function showCorrectPlayers(cell) {
             const cellKey = cell.getAttribute('data-cell-key');
-            const correctPlayersDataElement = document.getElementById('correct-players-data');
-            
-            // If the correct-players-data element doesn't exist, create it
-            if (!correctPlayersDataElement) {
-                console.log('correct-players-data element not found, creating empty data');
-                const correctPlayersScript = document.createElement('script');
-                correctPlayersScript.id = 'correct-players-data';
-                correctPlayersScript.type = 'application/json';
-                correctPlayersScript.textContent = JSON.stringify({});
-                document.body.appendChild(correctPlayersScript);
-            }
-            
-            const correctPlayersData = JSON.parse(document.getElementById('correct-players-data').textContent);
-            const players = correctPlayersData[cellKey] || [];
+            const [row, col] = cellKey.split('_');
             const dialog = document.getElementById('correctPlayersModal');
             const content = document.getElementById('correct-players-list');
             
-            if (!players || players.length === 0) {
-                content.innerHTML = '<p>No players found for this cell.</p>';
-            } else {
-                let html = '';
-                
-                // Sort players to show wrong guesses first
-                const sortedPlayers = [...players].sort((a, b) => {
-                    if (a.is_wrong_guess && !b.is_wrong_guess) return -1;
-                    if (!a.is_wrong_guess && b.is_wrong_guess) return 1;
-                    return 0;
-                });
-                
-                sortedPlayers.forEach(function(player) {
-                    const wrongGuessClass = player.is_wrong_guess ? 'wrong-guess' : '';
-                    const wrongGuessCount = player.is_wrong_guess ? '<span class="wrong-guess-count">1 X</span>' : '';
-                    html += `<div class="correct-player ${wrongGuessClass}">
-                        ${wrongGuessCount}
-                        <div class="player-name">${player.name}</div>
-                        <div class="player-stats">${player.stats.join('<br>')}</div>
-                    </div>`;
-                });
-                
-                content.innerHTML = html;
-            }
-            
-            // Update the dialog title with the count of non-wrong-guess players
-            const title = dialog.querySelector('h2');
-            const validPlayers = players ? players.filter(p => !p.is_wrong_guess) : [];
-            title.textContent = `Possible Players: ${validPlayers.length}`;
-            
+            // Show loading state
+            content.innerHTML = '<p>Loading players...</p>';
             dialog.style.display = 'block';
+            
+            // Call the API to get correct players for this specific cell
+            fetch(`/api/game/{{ year }}/{{ month_num }}/{{ day }}/cell/${row}/${col}/players`, {
+                method: 'GET',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                const players = data.players || [];
+                
+                if (players.length === 0) {
+                    content.innerHTML = '<p>No players found for this cell.</p>';
+                } else {
+                    let html = '';
+                    
+                    // Sort players to show wrong guesses first (though API doesn't return wrong guesses)
+                    const sortedPlayers = [...players].sort((a, b) => {
+                        if (a.is_wrong_guess && !b.is_wrong_guess) return -1;
+                        if (!a.is_wrong_guess && b.is_wrong_guess) return 1;
+                        return 0;
+                    });
+                    
+                    sortedPlayers.forEach(function(player) {
+                        const wrongGuessClass = player.is_wrong_guess ? 'wrong-guess' : '';
+                        const wrongGuessCount = player.is_wrong_guess ? '<span class="wrong-guess-count">1 X</span>' : '';
+                        html += `<div class="correct-player ${wrongGuessClass}">
+                            ${wrongGuessCount}
+                            <div class="player-name">${player.name}</div>
+                            <div class="player-stats">${player.stats.join('<br>')}</div>
+                        </div>`;
+                    });
+                    
+                    content.innerHTML = html;
+                }
+                
+                // Update the dialog title with the count of non-wrong-guess players
+                const title = dialog.querySelector('h2');
+                const validPlayers = players ? players.filter(p => !p.is_wrong_guess) : [];
+                title.textContent = `Possible Players: ${validPlayers.length}`;
+            })
+            .catch(error => {
+                console.error('Error fetching correct players:', error);
+                content.innerHTML = '<p>Error loading players. Please try again.</p>';
+            });
         }
 
         function closeCorrectPlayersModal() {
@@ -1953,12 +1961,7 @@
                         // Add game-finished class to the game container for hover effects
                         document.querySelector('.game-container').classList.add('game-finished');
 
-                        // Create and add the correct players data script element
-                        const correctPlayersScript = document.createElement('script');
-                        correctPlayersScript.id = 'correct-players-data';
-                        correctPlayersScript.type = 'application/json';
-                        correctPlayersScript.textContent = JSON.stringify(data.cell_players);
-                        document.body.appendChild(correctPlayersScript);
+                        // Correct players are now loaded via API when needed
 
                         // Mark all cells as either correct or exhausted
                         document.querySelectorAll('.cell:not(.header-cell):not(.game-title-cell)').forEach(cell => {
