@@ -1019,14 +1019,13 @@ class UserData(ExportModelOperationsMixin("userdata"), models.Model):
     session_key = models.CharField(max_length=40, primary_key=True, help_text="Django session key as primary identifier")
     display_name = models.CharField(max_length=14, help_text="Generated display name for the user")
     created_at = models.DateTimeField(auto_now_add=True, help_text="When this user data was created")
-    last_active = models.DateTimeField(auto_now=True, help_text="When this user was last active")
     has_made_guesses = models.BooleanField(default=False, help_text="Whether this user has made at least one guess")
 
     def __str__(self):
         return f"{self.display_name} ({self.session_key})"
 
     @classmethod
-    def get_or_create_user(cls, session_key, update_last_active=True):
+    def get_or_create_user(cls, session_key):
         """
         Get or create user data for a given session key.
         If user data already exists for this session, return it.
@@ -1034,16 +1033,12 @@ class UserData(ExportModelOperationsMixin("userdata"), models.Model):
 
         Args:
             session_key: The session key to get/create user data for
-            update_last_active: Whether to update the last_active timestamp (default: True)
 
         Returns:
             The UserData instance
         """
         try:
             user_data = cls.objects.get(session_key=session_key)
-            # Only update last_active timestamp if requested
-            if update_last_active:
-                user_data.save()  # This will trigger auto_now=True for last_active
             return user_data
         except cls.DoesNotExist:
             # Generate new display name and create user data
@@ -1055,6 +1050,7 @@ class UserData(ExportModelOperationsMixin("userdata"), models.Model):
         """
         Get the display name for a given session key.
         If no user data exists, creates it first.
+        If display_name is empty or None, generates a new one.
 
         Args:
             session_key: The session key to get the display name for
@@ -1062,7 +1058,18 @@ class UserData(ExportModelOperationsMixin("userdata"), models.Model):
         Returns:
             The display name string
         """
-        return cls.get_or_create_user(session_key, update_last_active=False).display_name
+        try:
+            user_data = cls.get_or_create_user(session_key)
+            # Ensure display_name is not empty or None
+            if not user_data.display_name:
+                # Generate a new display name if the current one is empty
+                user_data.display_name = Player.generate_random_name(session_key)
+                user_data.save()
+            return user_data.display_name
+        except Exception as e:
+            # Fallback: generate a display name directly if there are any issues
+            logger.warning(f"Error getting display name for session {session_key}: {e}. Generating fallback name.")
+            return Player.generate_random_name(session_key)
 
 
 class ImpressumContent(ExportModelOperationsMixin("impressum_content"), models.Model):

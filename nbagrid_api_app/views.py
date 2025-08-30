@@ -65,19 +65,26 @@ def user_has_made_guesses(request):
 
 @trace_operation("views.update_daily_active_users_metric")
 def update_daily_active_users_metric():
-    """Calculate and update the daily active users metric for users who have made guesses."""
+    """Calculate and update the daily active users metric for users who completed games in the last 24 hours."""
     from datetime import datetime, timezone, timedelta
     
     try:
-        # Count unique users who have made guesses and were active in the last 24 hours
+        # Count unique users who completed games in the last 24 hours
         yesterday = datetime.now(timezone.utc) - timedelta(days=1)
+        
+        # Get unique session keys from GameCompletion in the last 24 hours
+        daily_active_sessions = GameCompletion.objects.filter(
+            completed_at__gte=yesterday
+        ).values_list('session_key', flat=True).distinct()
+        
+        # Count how many of these sessions belong to users who have made guesses
         daily_active_count = UserData.objects.filter(
-            last_active__gte=yesterday,
+            session_key__in=daily_active_sessions,
             has_made_guesses=True
         ).count()
         
         update_daily_active_users(daily_active_count)
-        logger.info(f"Updated daily active users metric (users who made guesses): {daily_active_count}")
+        logger.info(f"Updated daily active users metric (users who completed games in last 24h): {daily_active_count} users")
         
         return daily_active_count
     except Exception as e:
@@ -246,16 +253,17 @@ def get_user_data(request, track_metrics=True):
         try:
             existing_user = UserData.objects.get(session_key=request.session.session_key)
             is_new_user = False
-            days_since_last_visit = None
             
-            # Calculate days since last visit for returning user metrics
-            if existing_user.last_active:
-                days_since_last_visit = (datetime.now(timezone.utc) - existing_user.last_active).total_seconds() / 86400
+            # Calculate days since account creation for returning user metrics
+            days_since_account_creation = None
+            if existing_user.created_at:
+                days_since_account_creation = (datetime.now(timezone.utc) - existing_user.created_at).total_seconds() / 86400
                 
         except UserData.DoesNotExist:
             is_new_user = True
+            days_since_account_creation = None
             
-        # Now get or create the user data (this will update last_active)
+        # Now get or create the user data
         user_data = UserData.get_or_create_user(request.session.session_key)
         
         # Only record metrics if user has made guesses and tracking is enabled
@@ -265,8 +273,9 @@ def get_user_data(request, track_metrics=True):
                 record_new_user()
                 logger.info(f"New active user created with session {request.session.session_key} and display name {user_data.display_name}")
             else:
-                if days_since_last_visit is not None:
-                    record_returning_user(days_since_last_visit)
+                # Use account age for returning user metrics instead of last visit
+                if days_since_account_creation is not None:
+                    record_returning_user(days_since_account_creation)
                 else:
                     record_returning_user()
                 logger.info(f"Returning active user with session {request.session.session_key} and display name {user_data.display_name}")
