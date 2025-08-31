@@ -69,18 +69,6 @@
                 "GRAFANA_API_TOKEN": "${config:grafana.apiToken}",
                 "GRAFANA_INSTANCE_ID": "${config:grafana.instanceId}"
             }
-        },
-        {
-            "name": "Python Debugger: Test Tempo Connection",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/test_tempo.py",
-            "console": "integratedTerminal",
-            "env": {
-                "GRAFANA_API_TOKEN": "${config:grafana.apiToken}",
-                "GRAFANA_INSTANCE_ID": "${config:grafana.instanceId}",
-                "OTEL_EXPORTER_OTLP_ENDPOINT": "${config:otel.endpoint}"
-            }
         }
     ]
 }

@@ -16,31 +16,27 @@ from opentelemetry.trace import Status, StatusCode
 # Cache for tracing enabled status
 _TRACING_ENABLED = None
 
-
 def is_tracing_enabled():
     """
     Check if OpenTelemetry tracing is configured and enabled.
+    This includes checking if the configured endpoint is actually reachable.
     
     Returns:
-        bool: True if tracing is enabled, False otherwise
+        bool: True if tracing is enabled and endpoint is reachable, False otherwise
     """
     global _TRACING_ENABLED
     
     # Return cached result if available
     if _TRACING_ENABLED is not None:
         return _TRACING_ENABLED
-    
+        
     # Check if OTLP endpoint is configured
     otlp_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
-    
-    # Check if we're in development mode (console exporter)
-    environment = os.getenv("OTEL_ENVIRONMENT", "development")
-    
-    # Tracing is enabled if we have an OTLP endpoint or we're in development mode
-    _TRACING_ENABLED = bool(otlp_endpoint) or environment == "development"
+    if not otlp_endpoint:
+        _TRACING_ENABLED = False
+        return _TRACING_ENABLED
     
     return _TRACING_ENABLED
-
 
 def reset_tracing_cache():
     """
@@ -49,7 +45,6 @@ def reset_tracing_cache():
     """
     global _TRACING_ENABLED
     _TRACING_ENABLED = None
-
 
 def trace_function(operation_name, **attributes):
     """

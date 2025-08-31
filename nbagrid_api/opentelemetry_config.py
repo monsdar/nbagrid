@@ -26,9 +26,15 @@ def setup_opentelemetry():
     """Set up OpenTelemetry tracing and metrics."""
     
     # Get configuration from environment variables
+    otlp_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+    
+    # Skip OpenTelemetry setup if OTLP endpoint is not configured
+    if not otlp_endpoint:
+        logger.info("OTEL_EXPORTER_OTLP_ENDPOINT not set, skipping OpenTelemetry setup")
+        return None, None
+    
     service_name = os.getenv("OTEL_SERVICE_NAME", "nbagrid-api")
     environment = os.getenv("OTEL_ENVIRONMENT", "development")
-    otlp_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
     
     # Set sampling environment variables if not already set
     if not os.getenv("OTEL_TRACES_SAMPLER"):
@@ -114,6 +120,11 @@ def setup_opentelemetry():
 def instrument_django():
     """Instrument Django with OpenTelemetry."""
     
+    # Skip instrumentation if OpenTelemetry is not configured
+    if not os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"):
+        logger.info("OTEL_EXPORTER_OTLP_ENDPOINT not set, skipping Django instrumentation")
+        return
+    
     # Instrument Django
     DjangoInstrumentor().instrument(
         request_hook=lambda span, request: span.set_attribute("http.request_id", getattr(request, "id", None)),
@@ -140,6 +151,12 @@ def instrument_django():
 
 def create_custom_span(operation_name, **attributes):
     """Create a custom span for manual instrumentation."""
+    # Skip if OpenTelemetry is not configured
+    if not os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"):
+        def decorator(func):
+            return func  # Return function unchanged
+        return decorator
+    
     tracer = trace.get_tracer(__name__)
     
     def decorator(func):
@@ -160,6 +177,10 @@ def create_custom_span(operation_name, **attributes):
 
 def create_custom_metric(metric_name, metric_type="counter", **attributes):
     """Create a custom metric for manual instrumentation."""
+    # Skip if OpenTelemetry is not configured
+    if not os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"):
+        return None
+    
     meter = metrics.get_meter(__name__)
     
     if metric_type == "counter":
