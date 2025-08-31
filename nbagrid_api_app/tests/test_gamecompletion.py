@@ -63,36 +63,26 @@ class GameCompletionTests(TestCase):
         # Delete all completions except for session1
         GameCompletion.objects.exclude(session_key=self.session1).delete()
 
-        streak, rank, total = GameCompletion.get_current_streak(self.session1, self.today)
-        self.assertEqual(streak, 3)  # 3-day streak
-        self.assertEqual(rank, 1)  # Rank 1
-        self.assertEqual(total, 1)  # Only one player
+        streak = GameCompletion.get_current_streak(self.session1, self.today)
+        self.assertEqual(streak, 3)  # 3-day streak 
 
     def test_get_current_streak_multiple_players(self):
         """Test streak ranking with multiple players having different streaks."""
-        streak, rank, total = GameCompletion.get_current_streak(self.session1, self.today)
+        streak = GameCompletion.get_current_streak(self.session1, self.today)
         self.assertEqual(streak, 3)  # 3-day streak
-        self.assertEqual(rank, 1)  # Rank 1 (highest streak)
-        self.assertEqual(total, 3)  # Three players total
 
-        streak, rank, total = GameCompletion.get_current_streak(self.session2, self.today)
+        streak = GameCompletion.get_current_streak(self.session2, self.today)
         self.assertEqual(streak, 2)  # 2-day streak
-        self.assertEqual(rank, 2)  # Rank 2
-        self.assertEqual(total, 3)  # Three players total
 
-        streak, rank, total = GameCompletion.get_current_streak(self.session3, self.today)
+        streak = GameCompletion.get_current_streak(self.session3, self.today)
         self.assertEqual(streak, 1)  # 1-day streak
-        self.assertEqual(rank, 3)  # Rank 3
-        self.assertEqual(total, 3)  # Three players total
 
     def test_get_current_streak_no_streak(self):
         """Test streak ranking when the player has no streak."""
         # Create a new session with no completions
         new_session = "new_session"
-        streak, rank, total = GameCompletion.get_current_streak(new_session, self.today)
+        streak = GameCompletion.get_current_streak(new_session, self.today)
         self.assertEqual(streak, 0)  # No streak
-        self.assertEqual(rank, 0)  # No rank
-        self.assertEqual(total, 0)  # Not counted in total
 
     def test_get_current_streak_tied_streaks(self):
         """Test streak ranking when multiple players have the same streak."""
@@ -102,14 +92,11 @@ class GameCompletionTests(TestCase):
         completion.save()
 
         # Both players should be rank 1
-        streak1, rank1, total = GameCompletion.get_current_streak(self.session1, self.today)
-        streak2, rank2, total = GameCompletion.get_current_streak(self.session2, self.today)
+        streak1 = GameCompletion.get_current_streak(self.session1, self.today)
+        streak2 = GameCompletion.get_current_streak(self.session2, self.today)
 
         self.assertEqual(streak1, 3)
         self.assertEqual(streak2, 3)
-        self.assertEqual(rank1, 1)
-        self.assertEqual(rank2, 1)
-        self.assertEqual(total, 3)
 
     def test_get_ranking_with_neighbors(self):
         """Test the ranking with neighbors functionality."""
