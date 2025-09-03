@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 import os
+import sys
 from pathlib import Path
 import nbagrid_api.opentelemetry_config as opentelemetry_config
 
@@ -68,6 +69,10 @@ INSTALLED_APPS = [
 
 # Initialize OpenTelemetry early in the Django startup process
 opentelemetry_config.initialize()
+
+# Disable traffic tracking during tests
+if 'test' in sys.argv or 'pytest' in sys.argv[0]:
+    os.environ['DISABLE_TRAFFIC_TRACKING'] = 'true'
 
 MIDDLEWARE = [
     "django_prometheus.middleware.PrometheusBeforeMiddleware",

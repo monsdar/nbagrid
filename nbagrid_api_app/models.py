@@ -1159,6 +1159,17 @@ class TrafficSource(ExportModelOperationsMixin("traffic_source"), models.Model):
             The TrafficSource instance
         """
         try:
+            # Safety check: ensure we have a valid session key
+            if not hasattr(request, 'session') or not request.session.session_key:
+                logger.warning("Cannot record traffic source: no valid session key")
+                return None
+            
+            # Safety check: ensure database is available
+            from django.db import connection
+            if not connection.is_usable():
+                logger.warning("Database not available, skipping traffic source recording")
+                return None
+            
             # Extract referrer domain
             referrer_domain = None
             if traffic_source_data.get('referrer'):
@@ -1169,37 +1180,42 @@ class TrafficSource(ExportModelOperationsMixin("traffic_source"), models.Model):
                 except Exception:
                     pass
             
-            # Check if we already have a record for this session and source
-            existing = cls.objects.filter(
-                session_key=request.session.session_key,
-                source=traffic_source_data['source'],
-                referrer_domain=referrer_domain
-            ).first()
-            
-            if existing:
-                # Update existing record
-                existing.visit_count += 1
-                existing.last_visit = timezone.now()
-                existing.save()
-                return existing
-            else:
-                # Create new record
-                return cls.objects.create(
+            # Safety check: ensure the model table exists
+            try:
+                # Check if we already have a record for this session and source
+                existing = cls.objects.filter(
                     session_key=request.session.session_key,
-                    ip_address=cls._get_client_ip(request),
                     source=traffic_source_data['source'],
-                    referrer=traffic_source_data.get('referrer'),
-                    referrer_domain=referrer_domain,
-                    utm_source=traffic_source_data.get('utm_source'),
-                    utm_medium=traffic_source_data.get('utm_medium'),
-                    utm_campaign=traffic_source_data.get('utm_campaign'),
-                    utm_term=traffic_source_data.get('utm_term'),
-                    utm_content=traffic_source_data.get('utm_content'),
-                    path=traffic_source_data.get('path'),
-                    query_string=traffic_source_data.get('query_string'),
-                    user_agent=traffic_source_data.get('user_agent'),
-                    is_bot=traffic_source_data['source'] == 'bot'
-                )
+                    referrer_domain=referrer_domain
+                ).first()
+                
+                if existing:
+                    # Update existing record
+                    existing.visit_count += 1
+                    existing.last_visit = timezone.now()
+                    existing.save()
+                    return existing
+                else:
+                    # Create new record
+                    return cls.objects.create(
+                        session_key=request.session.session_key,
+                        ip_address=cls._get_client_ip(request),
+                        source=traffic_source_data['source'],
+                        referrer=traffic_source_data.get('referrer'),
+                        referrer_domain=referrer_domain,
+                        utm_source=traffic_source_data.get('utm_source'),
+                        utm_medium=traffic_source_data.get('utm_medium'),
+                        utm_campaign=traffic_source_data.get('utm_campaign'),
+                        utm_term=traffic_source_data.get('utm_term'),
+                        utm_content=traffic_source_data.get('utm_content'),
+                        path=traffic_source_data.get('path'),
+                        query_string=traffic_source_data.get('query_string'),
+                        user_agent=traffic_source_data.get('user_agent'),
+                        is_bot=traffic_source_data['source'] == 'bot'
+                    )
+            except Exception as table_error:
+                logger.warning(f"TrafficSource table not available: {table_error}")
+                return None
                 
         except Exception as e:
             logger.error(f"Error recording traffic source visit: {e}")
