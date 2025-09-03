@@ -55,6 +55,7 @@ class TrafficSourceTrackingMiddleware:
         # Record traffic source data after response (to ensure session is available)
         # Only record if we have valid traffic source data and a session key
         # Skip during tests to avoid interfering with test execution
+        # Only record on the FIRST visit from each session (not on every request)
         if (hasattr(request, 'traffic_source') and 
             request.traffic_source.get('source') not in ['unknown', 'test'] and
             hasattr(request, 'session') and 
@@ -64,7 +65,21 @@ class TrafficSourceTrackingMiddleware:
                 # Only import if the model exists (prevents import errors during tests)
                 try:
                     from nbagrid_api_app.models import TrafficSource
-                    TrafficSource.record_visit(request, request.traffic_source)
+                    
+                    # Check if we've already recorded a traffic source for this session
+                    # Only record if this is the first visit from this session
+                    if not request.session.get('traffic_source_recorded', False):
+                        result = TrafficSource.record_visit(request, request.traffic_source)
+                        if result:
+                            # Mark that we've recorded traffic source for this session
+                            request.session['traffic_source_recorded'] = True
+                            request.session.save()
+                            logger.info(f"Traffic source recorded for session {request.session.session_key}: {request.traffic_source['source']}")
+                        else:
+                            logger.warning(f"Failed to record traffic source for session {request.session.session_key}")
+                    else:
+                        logger.debug(f"Traffic source already recorded for session {request.session.session_key}")
+                        
                 except ImportError:
                     logger.warning("TrafficSource model not available, skipping traffic recording")
                 except Exception as e:

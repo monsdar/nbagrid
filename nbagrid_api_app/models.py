@@ -1182,21 +1182,18 @@ class TrafficSource(ExportModelOperationsMixin("traffic_source"), models.Model):
             
             # Safety check: ensure the model table exists
             try:
-                # Check if we already have a record for this session and source
+                # Check if we already have ANY record for this session
+                # We only want to record the FIRST visit from each session
                 existing = cls.objects.filter(
-                    session_key=request.session.session_key,
-                    source=traffic_source_data['source'],
-                    referrer_domain=referrer_domain
+                    session_key=request.session.session_key
                 ).first()
                 
                 if existing:
-                    # Update existing record
-                    existing.visit_count += 1
-                    existing.last_visit = timezone.now()
-                    existing.save()
+                    # We already have a record for this session, don't create another one
+                    logger.debug(f"Traffic source already recorded for session {request.session.session_key}")
                     return existing
                 else:
-                    # Create new record
+                    # Create new record for this session
                     return cls.objects.create(
                         session_key=request.session.session_key,
                         ip_address=cls._get_client_ip(request),
@@ -1279,3 +1276,41 @@ class TrafficSource(ExportModelOperationsMixin("traffic_source"), models.Model):
             'utm_campaigns': list(utm_stats),
             'period_days': days
         }
+    
+    @classmethod
+    def cleanup_duplicate_sessions(cls):
+        """
+        Clean up duplicate traffic source records for the same session.
+        This method keeps only the first record for each session.
+        """
+        try:
+            # Get all session keys that have multiple records
+            from django.db.models import Count
+            duplicate_sessions = cls.objects.values('session_key').annotate(
+                count=Count('session_key')
+            ).filter(count__gt=1)
+            
+            cleaned_count = 0
+            for session_data in duplicate_sessions:
+                session_key = session_data['session_key']
+                
+                # Get all records for this session, ordered by first_visit
+                records = cls.objects.filter(session_key=session_key).order_by('first_visit')
+                
+                # Keep the first record, delete the rest
+                first_record = records.first()
+                if first_record:
+                    # Delete all records except the first one
+                    records_to_delete = records.exclude(id=first_record.id)
+                    deleted_count = records_to_delete.count()
+                    records_to_delete.delete()
+                    cleaned_count += deleted_count
+                    
+                    logger.info(f"Cleaned up {deleted_count} duplicate records for session {session_key}")
+            
+            logger.info(f"Total duplicate records cleaned up: {cleaned_count}")
+            return cleaned_count
+            
+        except Exception as e:
+            logger.error(f"Error cleaning up duplicate sessions: {e}")
+            return 0

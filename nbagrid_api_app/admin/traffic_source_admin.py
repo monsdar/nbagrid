@@ -58,3 +58,33 @@ class TrafficSourceAdmin(admin.ModelAdmin):
     def has_delete_permission(self, request, obj=None):
         """Allow deletion for cleanup purposes."""
         return True
+    
+    def get_actions(self, request):
+        """Add custom actions for traffic source management."""
+        actions = super().get_actions(request)
+        
+        # Add cleanup action
+        actions['cleanup_duplicates'] = self.get_action('cleanup_duplicates')
+        
+        return actions
+    
+    def cleanup_duplicates(self, request, queryset):
+        """Clean up duplicate traffic source records for the same session."""
+        from nbagrid_api_app.models import TrafficSource
+        
+        cleaned_count = TrafficSource.cleanup_duplicate_sessions()
+        
+        if cleaned_count > 0:
+            self.message_user(
+                request,
+                f"Successfully cleaned up {cleaned_count} duplicate traffic source records.",
+                level='SUCCESS'
+            )
+        else:
+            self.message_user(
+                request,
+                "No duplicate traffic source records found.",
+                level='INFO'
+            )
+    
+    cleanup_duplicates.short_description = "Clean up duplicate records for the same session"
