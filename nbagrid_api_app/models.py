@@ -5,6 +5,7 @@ from django_prometheus.models import ExportModelOperationsMixin
 from nba_api.stats.endpoints import commonplayerinfo, playerawards, playercareerstats
 
 from django.db import models
+from django.utils import timezone
 
 from nbagrid_api_app.tracing import trace_operation
 
@@ -1088,3 +1089,177 @@ class ImpressumContent(ExportModelOperationsMixin("impressum_content"), models.M
 
     def __str__(self):
         return self.title
+
+
+class TrafficSource(ExportModelOperationsMixin("traffic_source"), models.Model):
+    """
+    Model to track traffic sources and referrer information for analytics.
+    This helps analyze where traffic comes from (SEO, social media, referrals, etc.)
+    """
+    
+    # Session and request information
+    session_key = models.CharField(max_length=40, help_text="Django session key for user identification")
+    ip_address = models.GenericIPAddressField(null=True, blank=True, help_text="IP address of the visitor")
+    
+    # Traffic source classification
+    source = models.CharField(max_length=50, help_text="Primary traffic source (search_engine, social_media, direct, etc.)")
+    referrer = models.URLField(max_length=500, null=True, blank=True, help_text="Full referrer URL")
+    referrer_domain = models.CharField(max_length=200, null=True, blank=True, help_text="Extracted referrer domain")
+    
+    # UTM parameters for campaign tracking
+    utm_source = models.CharField(max_length=100, null=True, blank=True, help_text="UTM source parameter")
+    utm_medium = models.CharField(max_length=100, null=True, blank=True, help_text="UTM medium parameter")
+    utm_campaign = models.CharField(max_length=100, null=True, blank=True, help_text="UTM campaign parameter")
+    utm_term = models.CharField(max_length=100, null=True, blank=True, help_text="UTM term parameter")
+    utm_content = models.CharField(max_length=100, null=True, blank=True, help_text="UTM content parameter")
+    
+    # Request details
+    path = models.CharField(max_length=200, help_text="Requested path/URL")
+    query_string = models.TextField(null=True, blank=True, help_text="Full query string")
+    user_agent = models.TextField(null=True, blank=True, help_text="User agent string")
+    
+    # Timestamps
+    first_visit = models.DateTimeField(auto_now_add=True, help_text="First time this source was recorded")
+    last_visit = models.DateTimeField(auto_now=True, help_text="Last time this source was recorded")
+    visit_count = models.PositiveIntegerField(default=1, help_text="Number of visits from this source")
+    
+    # Additional metadata
+    is_bot = models.BooleanField(default=False, help_text="Whether this traffic is from a bot/crawler")
+    country = models.CharField(max_length=100, null=True, blank=True, help_text="Country of origin (if available)")
+    
+    class Meta:
+        ordering = ['-last_visit']
+        verbose_name = "Traffic Source"
+        verbose_name_plural = "Traffic Sources"
+        indexes = [
+            models.Index(fields=['source']),
+            models.Index(fields=['referrer_domain']),
+            models.Index(fields=['utm_source']),
+            models.Index(fields=['utm_campaign']),
+            models.Index(fields=['first_visit']),
+            models.Index(fields=['last_visit']),
+            models.Index(fields=['session_key']),
+        ]
+    
+    def __str__(self):
+        return f"{self.source} - {self.referrer_domain or 'Direct'} ({self.visit_count} visits)"
+    
+    @classmethod
+    @trace_operation("TrafficSource.record_visit")
+    def record_visit(cls, request, traffic_source_data):
+        """
+        Record a visit from a traffic source.
+        Creates new record or updates existing one.
+        
+        Args:
+            request: Django request object
+            traffic_source_data: Dict containing traffic source information
+            
+        Returns:
+            The TrafficSource instance
+        """
+        try:
+            # Extract referrer domain
+            referrer_domain = None
+            if traffic_source_data.get('referrer'):
+                from urllib.parse import urlparse
+                try:
+                    parsed = urlparse(traffic_source_data['referrer'])
+                    referrer_domain = parsed.netloc
+                except Exception:
+                    pass
+            
+            # Check if we already have a record for this session and source
+            existing = cls.objects.filter(
+                session_key=request.session.session_key,
+                source=traffic_source_data['source'],
+                referrer_domain=referrer_domain
+            ).first()
+            
+            if existing:
+                # Update existing record
+                existing.visit_count += 1
+                existing.last_visit = timezone.now()
+                existing.save()
+                return existing
+            else:
+                # Create new record
+                return cls.objects.create(
+                    session_key=request.session.session_key,
+                    ip_address=cls._get_client_ip(request),
+                    source=traffic_source_data['source'],
+                    referrer=traffic_source_data.get('referrer'),
+                    referrer_domain=referrer_domain,
+                    utm_source=traffic_source_data.get('utm_source'),
+                    utm_medium=traffic_source_data.get('utm_medium'),
+                    utm_campaign=traffic_source_data.get('utm_campaign'),
+                    utm_term=traffic_source_data.get('utm_term'),
+                    utm_content=traffic_source_data.get('utm_content'),
+                    path=traffic_source_data.get('path'),
+                    query_string=traffic_source_data.get('query_string'),
+                    user_agent=traffic_source_data.get('user_agent'),
+                    is_bot=traffic_source_data['source'] == 'bot'
+                )
+                
+        except Exception as e:
+            logger.error(f"Error recording traffic source visit: {e}")
+            return None
+    
+    @classmethod
+    def _get_client_ip(cls, request):
+        """Extract client IP address from request."""
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            ip = x_forwarded_for.split(',')[0]
+        else:
+            ip = request.META.get('REMOTE_ADDR')
+        return ip
+    
+    @classmethod
+    def get_source_summary(cls, days=30):
+        """
+        Get summary statistics for traffic sources over the specified period.
+        
+        Args:
+            days: Number of days to look back
+            
+        Returns:
+            Dict with traffic source statistics
+        """
+        from django.utils import timezone
+        from django.db.models import Count, Sum
+        
+        cutoff_date = timezone.now() - timedelta(days=days)
+        
+        # Get source breakdown
+        source_stats = cls.objects.filter(
+            first_visit__gte=cutoff_date
+        ).values('source').annotate(
+            total_visits=Sum('visit_count'),
+            unique_sessions=Count('session_key', distinct=True)
+        ).order_by('-total_visits')
+        
+        # Get referrer domain breakdown
+        referrer_stats = cls.objects.filter(
+            first_visit__gte=cutoff_date,
+            referrer_domain__isnull=False
+        ).values('referrer_domain').annotate(
+            total_visits=Sum('visit_count'),
+            unique_sessions=Count('session_key', distinct=True)
+        ).order_by('-total_visits')[:20]  # Top 20 referrers
+        
+        # Get UTM campaign breakdown
+        utm_stats = cls.objects.filter(
+            first_visit__gte=cutoff_date,
+            utm_campaign__isnull=False
+        ).values('utm_campaign').annotate(
+            total_visits=Sum('visit_count'),
+            unique_sessions=Count('session_key', distinct=True)
+        ).order_by('-total_visits')
+        
+        return {
+            'source_breakdown': list(source_stats),
+            'top_referrers': list(referrer_stats),
+            'utm_campaigns': list(utm_stats),
+            'period_days': days
+        }

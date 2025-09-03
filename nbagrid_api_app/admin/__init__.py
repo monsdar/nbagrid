@@ -8,3 +8,4 @@ from nbagrid_api_app.admin.player_static_all_nba_admin import PlayerStaticAllNba
 from nbagrid_api_app.admin.player_static_olympians_admin import PlayerStaticOlympiansAdmin
 from nbagrid_api_app.admin.team_admin import TeamAdmin
 from nbagrid_api_app.admin.impressum_admin import ImpressumContentAdmin
+from nbagrid_api_app.admin.traffic_source_admin import TrafficSourceAdmin
