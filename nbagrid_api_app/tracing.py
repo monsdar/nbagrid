@@ -36,6 +36,8 @@ def is_tracing_enabled():
         _TRACING_ENABLED = False
         return _TRACING_ENABLED
     
+    # If OTLP endpoint is configured, tracing is enabled
+    _TRACING_ENABLED = True
     return _TRACING_ENABLED
 
 def reset_tracing_cache():
@@ -113,8 +115,75 @@ def trace_function(operation_name, **attributes):
     return decorator
 
 
-@contextmanager
 def trace_operation(operation_name, **attributes):
+    """
+    Decorator for tracing operations with OpenTelemetry.
+    
+    Args:
+        operation_name (str): Name of the operation being traced
+        **attributes: Additional attributes to add to the span
+    
+    Example:
+        @trace_operation("database_query", table="players", operation="select")
+        def get_players():
+            # Function implementation
+            pass
+    """
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            # If tracing is not enabled, just call the function
+            if not is_tracing_enabled():
+                return func(*args, **kwargs)
+            
+            tracer = trace.get_tracer(__name__)
+            
+            with tracer.start_as_current_span(operation_name, attributes=attributes) as span:
+                # Add function metadata
+                span.set_attribute("function.name", func.__name__)
+                span.set_attribute("function.module", func.__module__)
+                
+                # Add arguments as attributes (be careful with sensitive data)
+                if args:
+                    span.set_attribute("function.args_count", len(args))
+                if kwargs:
+                    # Only add non-sensitive kwargs
+                    safe_kwargs = {k: str(v) for k, v in kwargs.items() 
+                                 if not k.lower() in ['password', 'token', 'secret', 'key']}
+                    for k, v in safe_kwargs.items():
+                        span.set_attribute(f"function.kwarg.{k}", v)
+                
+                start_time = time.time()
+                try:
+                    result = func(*args, **kwargs)
+                    execution_time = time.time() - start_time
+                    
+                    # Record success
+                    span.set_attribute("operation.success", True)
+                    span.set_attribute("operation.execution_time_ms", execution_time * 1000)
+                    span.set_status(Status(StatusCode.OK))
+                    
+                    return result
+                    
+                except Exception as e:
+                    execution_time = time.time() - start_time
+                    
+                    # Record failure
+                    span.set_attribute("operation.success", False)
+                    span.set_attribute("operation.execution_time_ms", execution_time * 1000)
+                    span.set_attribute("operation.error", str(e))
+                    span.set_attribute("operation.error_type", type(e).__name__)
+                    span.record_exception(e)
+                    span.set_status(Status(StatusCode.ERROR, str(e)))
+                    
+                    raise
+                    
+        return wrapper
+    return decorator
+
+
+@contextmanager
+def trace_operation_context(operation_name, **attributes):
     """
     Context manager for tracing operations with OpenTelemetry.
     
@@ -123,7 +192,7 @@ def trace_operation(operation_name, **attributes):
         **attributes: Additional attributes to add to the span
     
     Example:
-        with trace_operation("database_query", table="players", operation="select"):
+        with trace_operation_context("database_query", table="players", operation="select"):
             # Database operation code
             players = Player.objects.filter(name__icontains=name)
     """

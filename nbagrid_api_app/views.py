@@ -36,7 +36,7 @@ from nbagrid_api_app.metrics import (
     record_random_fallback_usage,
 )
 from nbagrid_api_app.models import GameCompletion, GameFilterDB, GameGrid, GameResult, GridMetadata, ImpressumContent, LastUpdated, Player, UserData
-from nbagrid_api_app.tracing import add_span_attribute, trace_operation, trace_view
+from nbagrid_api_app.tracing import add_span_attribute, trace_operation, trace_operation_context, trace_view
 
 @trace_operation("views.user_has_made_guesses")
 def user_has_made_guesses(request):
@@ -798,7 +798,7 @@ def search_players(request):
         add_span_attribute("search.result", "query_too_short")
         return JsonResponse([], safe=False)
 
-    with trace_operation("database_query", table="players", operation="select", query_type="search"):
+    with trace_operation_context("database_query", table="players", operation="select", query_type="search"):
         players = Player.objects.filter(name__icontains=name)[:5]
     
     # Add result information to span
