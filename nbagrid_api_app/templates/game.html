@@ -2133,7 +2133,7 @@
             const total = totalCompletions ? totalCompletions.textContent : '-';
             result += '\nRank: ' + rank + ' of ' + total;
 
-            result += '\nPlay at: {{ request.scheme }}://{{ request.get_host }}{% url "game" year=year month=month_num day=day %}';
+            result += '\nPlay at: {{ request.scheme }}://{{ request.get_host }}{% url "game" year=year month=month_num day=day %}?utm_source=share';
 
             // Copy to clipboard
             navigator.clipboard.writeText(result).then(() => {

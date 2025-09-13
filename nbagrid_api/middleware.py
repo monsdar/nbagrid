@@ -158,12 +158,20 @@ class TrafficSourceTrackingMiddleware:
                 return 'email'
             elif utm_source.lower() in ['partner', 'affiliate']:
                 return 'partner'
+            elif utm_source.lower() == 'share':
+                return 'share'
             else:
                 return f'utm_{utm_source.lower()}'
         
         # Check referrer for search engines
         if referrer:
             referrer_lower = referrer.lower()
+            
+            # Check if referrer is from our own domain (internal traffic)
+            from django.conf import settings
+            allowed_hosts = getattr(settings, 'ALLOWED_HOSTS', [])
+            if any(host in referrer_lower for host in allowed_hosts):
+                return 'internal'
             
             # Search engines
             if any(engine in referrer_lower for engine in [

@@ -1,0 +1,132 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls static admin_modify %}
+
+{% block title %}{{ title }} | {{ site_title|default:_('Django site admin') }}{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+<a href="{% url 'admin:index' %}">{% trans 'Home' %}</a>
+&rsaquo; <a href="{% url 'admin:app_list' app_label='nbagrid_api_app' %}">Nbagrid api app</a>
+&rsaquo; <a href="{% url 'admin:nbagrid_api_app_trafficsource_changelist' %}">Traffic sources</a>
+&rsaquo; {{ title }}
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="module">    
+    <div class="module">
+        <h2>Human Traffic Summary</h2>
+        <p><strong>Total Human Visits:</strong> {{ total_human_visits|floatformat:0 }}</p>
+        
+        {% if human_stats %}
+        <div class="results">
+            <table id="result_list" class="results">
+                <thead>
+                    <tr>
+                        <th scope="col">Referrer Domain</th>
+                        <th scope="col">Source Type</th>
+                        <th scope="col">Total Visits</th>
+                        <th scope="col">Unique Sources</th>
+                        <th scope="col">Percentage</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for stat in human_stats %}
+                    <tr class="{% cycle 'row1' 'row2' %}">
+                        <td>
+                            {% if stat.referrer_domain %}
+                                <strong>{{ stat.referrer_domain }}</strong>
+                            {% else %}
+                                <em>Direct/Unknown</em>
+                            {% endif %}
+                        </td>
+                        <td>{{ stat.source|title }}</td>
+                        <td><strong>{{ stat.total_visits|floatformat:0 }}</strong></td>
+                        <td>{{ stat.unique_sources }}</td>
+                        <td>
+                            {% if total_human_visits > 0 %}
+                                {% widthratio stat.total_visits total_human_visits 100 %}%
+                            {% else %}
+                                0%
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p>No human traffic data available.</p>
+        {% endif %}
+    </div>
+    
+    <div class="module">
+        <h2>Bot Traffic Summary</h2>
+        <p><strong>Total Bot Visits:</strong> {{ total_bot_visits|floatformat:0 }}</p>
+        
+        {% if bot_stats %}
+        <div class="results">
+            <table id="result_list" class="results">
+                <thead>
+                    <tr>
+                        <th scope="col">Referrer Domain</th>
+                        <th scope="col">Source Type</th>
+                        <th scope="col">Total Visits</th>
+                        <th scope="col">Unique Sources</th>
+                        <th scope="col">Percentage</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for stat in bot_stats %}
+                    <tr class="{% cycle 'row1' 'row2' %}">
+                        <td>
+                            {% if stat.referrer_domain %}
+                                <strong>{{ stat.referrer_domain }}</strong>
+                            {% else %}
+                                <em>Direct/Unknown</em>
+                            {% endif %}
+                        </td>
+                        <td>{{ stat.source|title }}</td>
+                        <td><strong>{{ stat.total_visits|floatformat:0 }}</strong></td>
+                        <td>{{ stat.unique_sources }}</td>
+                        <td>
+                            {% if total_bot_visits > 0 %}
+                                {% widthratio stat.total_visits total_bot_visits 100 %}%
+                            {% else %}
+                                0%
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p>No bot traffic data available.</p>
+        {% endif %}
+    </div>
+    
+    <div class="module">
+        <h2>Overall Summary</h2>
+        <p><strong>Total Visits (Human + Bot):</strong> {{ total_visits|floatformat:0 }}</p>
+        <p><strong>Human Traffic Percentage:</strong> 
+            {% if total_visits > 0 %}
+                {% widthratio total_human_visits total_visits 100 %}%
+            {% else %}
+                0%
+            {% endif %}
+        </p>
+        <p><strong>Bot Traffic Percentage:</strong> 
+            {% if total_visits > 0 %}
+                {% widthratio total_bot_visits total_visits 100 %}%
+            {% else %}
+                0%
+            {% endif %}
+        </p>
+    </div>
+    
+    <div class="submit-row">
+        <a href="{% url 'admin:nbagrid_api_app_trafficsource_changelist' %}" class="default">Back to Traffic Sources</a>
+    </div>
+</div>
+{% endblock %}
