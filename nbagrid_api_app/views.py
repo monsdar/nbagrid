@@ -249,10 +249,11 @@ def get_user_data(request, track_metrics=True):
     try:
         from datetime import datetime, timezone
         
-        # Check if user already exists before calling get_or_create_user
+        # Check if user already exists and has made guesses before calling get_or_create_user
         try:
             existing_user = UserData.objects.get(session_key=request.session.session_key)
-            is_new_user = False
+            # A user is "new" if they exist but haven't made guesses yet
+            is_new_user = not existing_user.has_made_guesses
             
             # Calculate days since account creation for returning user metrics
             days_since_account_creation = None
