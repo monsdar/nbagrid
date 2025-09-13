@@ -319,7 +319,7 @@ def handle_game_completion(request, requested_date, game_state, correct_cells_co
             logger.error("Failed to get user data during game completion")
 
         # Record game completion metrics
-        result = "win" if correct_cells_count >= 9 else "lose"
+        result = "perfect" if correct_cells_count >= 9 else "partial"
         record_game_completion(game_state.total_score, result)
         return True
     return False
