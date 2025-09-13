@@ -274,15 +274,23 @@ def get_user_data(request, track_metrics=True):
                 record_new_user()
                 logger.info(f"New active user created with session {request.session.session_key} and display name {user_data.display_name}")
             else:
-                # Use account age for returning user metrics instead of last visit
-                if days_since_account_creation is not None:
-                    record_returning_user(days_since_account_creation)
-                else:
-                    record_returning_user()
-                logger.info(f"Returning active user with session {request.session.session_key} and display name {user_data.display_name}")
+                # Only record returning user metrics once per session
+                if not request.session.get("returning_user_counted", False):
+                    request.session["returning_user_counted"] = True
+                    request.session.save()
+                    
+                    # Use account age for returning user metrics instead of last visit
+                    if days_since_account_creation is not None:
+                        record_returning_user(days_since_account_creation)
+                    else:
+                        record_returning_user()
+                    logger.info(f"Returning active user with session {request.session.session_key} and display name {user_data.display_name}")
                 
-            # Record user session by account age
-            if user_data.created_at:
+            # Record user session by account age (only once per session)
+            if user_data.created_at and not request.session.get("user_session_by_age_counted", False):
+                request.session["user_session_by_age_counted"] = True
+                request.session.save()
+                
                 account_age_days = (datetime.now(timezone.utc) - user_data.created_at).total_seconds() / 86400
                 record_user_session_by_age(account_age_days)
         elif track_metrics:
