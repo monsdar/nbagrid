@@ -23,7 +23,6 @@ class GameAdmin(GridBuilderAdmin):
     change_list_template = "admin/game_changelist.html"
     list_display = (
         "date",
-        "grid_size",
         "completion_count",
         "total_correct_players",
         "total_guesses",
