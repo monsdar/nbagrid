@@ -1770,7 +1770,13 @@
                 // Update the dialog title with the count of non-wrong-guess players
                 const title = dialog.querySelector('h2');
                 const validPlayers = players ? players.filter(p => !p.is_wrong_guess) : [];
-                title.textContent = `Possible Players: ${validPlayers.length}`;
+                const wrongGuesses = players ? players.filter(p => p.is_wrong_guess) : [];
+                
+                let titleText = `Possible Players: ${validPlayers.length}`;
+                if (wrongGuesses.length > 0) {
+                    titleText += ` (Your wrong guesses: ${wrongGuesses.length})`;
+                }
+                title.textContent = titleText;
             })
             .catch(error => {
                 console.error('Error fetching correct players:', error);

@@ -563,7 +563,7 @@ def get_impressum_content(request):
 
 @api.get("/game/{year}/{month}/{day}/cell/{row}/{col}/players")
 def get_cell_correct_players(request, year: int, month: int, day: int, row: int, col: int):
-    """Get correct players for a specific cell in a finished game."""
+    """Get correct players for a specific cell in a finished game, including user's wrong guesses."""
     timer_stop = track_request_latency("get_cell_correct_players")
     try:
         import logging
@@ -650,9 +650,40 @@ def get_cell_correct_players(request, year: int, month: int, day: int, row: int,
             return JsonResponse({"error": "Failed to access cell"}, status=500)
         
         # Initialize the list for this cell
-        correct_players = []
+        all_players = []
         
-        # Add correct players (no wrong guesses for API since we don't have game state)
+        # Get user's wrong guesses from game state if available
+        game_state_key = f"game_state_{year}_{month}_{day}"
+        user_wrong_guesses = []
+        
+        if hasattr(request, 'session') and request.session.get(game_state_key):
+            try:
+                from nbagrid_api_app.GameState import GameState
+                game_state = GameState.from_dict(request.session[game_state_key])
+                cell_data_list = game_state.get_cell_data(cell_key)
+                
+                # Extract wrong guesses from user's game state
+                for cell_data in cell_data_list:
+                    if not cell_data.get("is_correct", False):
+                        # Get player info for wrong guess
+                        try:
+                            wrong_player = Player.objects.get(stats_id=cell_data["player_id"])
+                            user_wrong_guesses.append({
+                                "name": wrong_player.name,
+                                "stats": [f.get_player_stats_str(wrong_player) for f in cell["filters"]],
+                                "is_wrong_guess": True,
+                                "player_id": wrong_player.stats_id
+                            })
+                        except Player.DoesNotExist:
+                            logger.warning(f"Player {cell_data['player_id']} not found for wrong guess")
+                            continue
+            except Exception as e:
+                logger.warning(f"Error getting user's wrong guesses: {e}")
+        
+        # Add user's wrong guesses first (they should appear at the top)
+        all_players.extend(user_wrong_guesses)
+        
+        # Add correct players
         try:
             matching_players = Player.objects.all()
             for f in cell["filters"]:
@@ -663,7 +694,7 @@ def get_cell_correct_players(request, year: int, month: int, day: int, row: int,
             
             # Include player stats for each matching player
             for p in matching_players:
-                correct_players.append({
+                all_players.append({
                     "name": p.name, 
                     "stats": [f.get_player_stats_str(p) for f in cell["filters"]], 
                     "is_wrong_guess": False,
@@ -678,8 +709,9 @@ def get_cell_correct_players(request, year: int, month: int, day: int, row: int,
             "cell_key": cell_key,
             "row": row,
             "col": col,
-            "players": correct_players,
-            "player_count": len(correct_players)
+            "players": all_players,
+            "player_count": len(all_players),
+            "wrong_guesses_count": len(user_wrong_guesses)
         }
         
     except Exception as e:
