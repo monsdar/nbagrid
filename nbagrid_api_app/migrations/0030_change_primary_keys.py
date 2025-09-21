@@ -3,6 +3,111 @@
 from django.db import migrations, models
 
 
+def check_and_add_id_columns(apps, schema_editor):
+    """Check if id columns exist and add them if they don't"""
+    connection = schema_editor.connection
+    
+    # Check if id columns exist
+    gridmetadata_has_id = False
+    gamegrid_has_id = False
+    
+    with connection.cursor() as cursor:
+        if connection.vendor == 'postgresql':
+            # PostgreSQL uses information_schema
+            cursor.execute("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'nbagrid_api_app_gridmetadata' 
+                AND column_name = 'id'
+            """)
+            gridmetadata_has_id = cursor.fetchone() is not None
+            
+            cursor.execute("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'nbagrid_api_app_gamegrid' 
+                AND column_name = 'id'
+            """)
+            gamegrid_has_id = cursor.fetchone() is not None
+        else:
+            # SQLite uses pragma table_info
+            cursor.execute("PRAGMA table_info(nbagrid_api_app_gridmetadata)")
+            gridmetadata_columns = [row[1] for row in cursor.fetchall()]
+            gridmetadata_has_id = 'id' in gridmetadata_columns
+            
+            cursor.execute("PRAGMA table_info(nbagrid_api_app_gamegrid)")
+            gamegrid_columns = [row[1] for row in cursor.fetchall()]
+            gamegrid_has_id = 'id' in gamegrid_columns
+    
+    # Add id column to GridMetadata if it doesn't exist
+    if not gridmetadata_has_id:
+        if connection.vendor == 'postgresql':
+            schema_editor.execute("ALTER TABLE nbagrid_api_app_gridmetadata ADD COLUMN id SERIAL")
+        else:
+            schema_editor.execute("ALTER TABLE nbagrid_api_app_gridmetadata ADD COLUMN id INTEGER")
+    
+    # Add id column to GameGrid if it doesn't exist
+    if not gamegrid_has_id:
+        if connection.vendor == 'postgresql':
+            schema_editor.execute("ALTER TABLE nbagrid_api_app_gamegrid ADD COLUMN id SERIAL")
+        else:
+            schema_editor.execute("ALTER TABLE nbagrid_api_app_gamegrid ADD COLUMN id INTEGER")
+
+
+def change_primary_keys(apps, schema_editor):
+    """Change primary keys from date to id"""
+    connection = schema_editor.connection
+    
+    if connection.vendor == 'postgresql':
+        # For PostgreSQL, we need to handle the primary key change carefully
+        
+        # Check current primary key constraints
+        with connection.cursor() as cursor:
+            # Check GridMetadata
+            cursor.execute("""
+                SELECT constraint_name 
+                FROM information_schema.table_constraints 
+                WHERE table_name = 'nbagrid_api_app_gridmetadata' 
+                AND constraint_type = 'PRIMARY KEY'
+            """)
+            gridmetadata_pk = cursor.fetchone()
+            
+            # Check GameGrid
+            cursor.execute("""
+                SELECT constraint_name 
+                FROM information_schema.table_constraints 
+                WHERE table_name = 'nbagrid_api_app_gamegrid' 
+                AND constraint_type = 'PRIMARY KEY'
+            """)
+            gamegrid_pk = cursor.fetchone()
+        
+        # Change GridMetadata primary key if date is still the primary key
+        if gridmetadata_pk and 'date' in gridmetadata_pk[0]:
+            schema_editor.execute("""
+                ALTER TABLE nbagrid_api_app_gridmetadata DROP CONSTRAINT nbagrid_api_app_gridmetadata_pkey;
+                ALTER TABLE nbagrid_api_app_gridmetadata ADD PRIMARY KEY (id);
+                ALTER TABLE nbagrid_api_app_gridmetadata ADD CONSTRAINT nbagrid_api_app_gridmetadata_date_unique UNIQUE (date);
+            """)
+        
+        # Change GameGrid primary key if date is still the primary key
+        if gamegrid_pk and 'date' in gamegrid_pk[0]:
+            schema_editor.execute("""
+                ALTER TABLE nbagrid_api_app_gamegrid DROP CONSTRAINT nbagrid_api_app_gamegrid_pkey;
+                ALTER TABLE nbagrid_api_app_gamegrid ADD PRIMARY KEY (id);
+                ALTER TABLE nbagrid_api_app_gamegrid ADD CONSTRAINT nbagrid_api_app_gamegrid_date_unique UNIQUE (date);
+            """)
+
+
+def reverse_primary_keys(apps, schema_editor):
+    """Reverse the primary key changes"""
+    connection = schema_editor.connection
+    
+    if connection.vendor == 'postgresql':
+        # This would be complex to reverse, so we'll leave it as a no-op
+        # In practice, you'd rarely need to reverse this migration
+        pass
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -10,39 +115,15 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # Step 1: Add id fields without making them primary keys yet
-        migrations.AddField(
-            model_name='gridmetadata',
-            name='id',
-            field=models.AutoField(null=True, serialize=False),
-        ),
-        migrations.AddField(
-            model_name='gamegrid',
-            name='id',
-            field=models.AutoField(null=True, serialize=False),
+        # Step 1: Check and add id columns if they don't exist
+        migrations.RunPython(
+            check_and_add_id_columns,
+            reverse_primary_keys,
         ),
         
-        # Step 2: Remove primary key constraints from date fields
-        migrations.AlterField(
-            model_name='gridmetadata',
-            name='date',
-            field=models.DateField(unique=True),
-        ),
-        migrations.AlterField(
-            model_name='gamegrid',
-            name='date',
-            field=models.DateField(unique=True),
-        ),
-        
-        # Step 3: Make id fields the primary keys
-        migrations.AlterField(
-            model_name='gridmetadata',
-            name='id',
-            field=models.AutoField(primary_key=True, serialize=False),
-        ),
-        migrations.AlterField(
-            model_name='gamegrid',
-            name='id',
-            field=models.AutoField(primary_key=True, serialize=False),
+        # Step 2: Change primary keys from date to id
+        migrations.RunPython(
+            change_primary_keys,
+            reverse_primary_keys,
         ),
     ]
