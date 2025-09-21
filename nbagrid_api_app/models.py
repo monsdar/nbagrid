@@ -899,7 +899,8 @@ class GameGrid(ExportModelOperationsMixin("gamegrid"), models.Model):
     Contains metadata about the grid and references to related models.
     """
 
-    date = models.DateField(unique=True, primary_key=True)
+    id = models.AutoField(primary_key=True)
+    date = models.DateField(unique=True)
     grid_size = models.IntegerField(default=3)  # Size of the grid (e.g., 3 for 3x3)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -958,7 +959,8 @@ class GridMetadata(ExportModelOperationsMixin("gridmetadata"), models.Model):
     Model to store additional metadata for each game grid.
     """
 
-    date = models.DateField(unique=True, primary_key=True)
+    id = models.AutoField(primary_key=True)
+    date = models.DateField(unique=True)
     game_title = models.CharField(max_length=40, default="")
 
     def __str__(self):
