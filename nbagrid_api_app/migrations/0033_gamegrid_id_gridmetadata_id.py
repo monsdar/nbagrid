@@ -4,40 +4,83 @@ from django.db import migrations, models
 
 
 def ensure_id_fields_exist(apps, schema_editor):
-    """Ensure id fields exist and are properly configured"""
+    """Ensure id fields exist and are properly configured as primary keys"""
     connection = schema_editor.connection
     
     with connection.cursor() as cursor:
         if connection.vendor == 'postgresql':
-            # Check if id columns exist
+            # Check if id columns exist and their current state
             cursor.execute("""
-                SELECT column_name 
+                SELECT column_name, data_type, is_nullable
                 FROM information_schema.columns 
                 WHERE table_name = 'nbagrid_api_app_gridmetadata' 
                 AND column_name = 'id'
             """)
-            gridmetadata_has_id = cursor.fetchone() is not None
+            gridmetadata_id_info = cursor.fetchone()
             
             cursor.execute("""
-                SELECT column_name 
+                SELECT column_name, data_type, is_nullable
                 FROM information_schema.columns 
                 WHERE table_name = 'nbagrid_api_app_gamegrid' 
                 AND column_name = 'id'
             """)
-            gamegrid_has_id = cursor.fetchone() is not None
+            gamegrid_id_info = cursor.fetchone()
             
-            # Add id columns if they don't exist
-            if not gridmetadata_has_id:
+            # Check current primary key constraints
+            cursor.execute("""
+                SELECT column_name 
+                FROM information_schema.key_column_usage 
+                WHERE table_name = 'nbagrid_api_app_gridmetadata' 
+                AND constraint_name IN (
+                    SELECT constraint_name 
+                    FROM information_schema.table_constraints 
+                    WHERE table_name = 'nbagrid_api_app_gridmetadata' 
+                    AND constraint_type = 'PRIMARY KEY'
+                )
+            """)
+            gridmetadata_pk = cursor.fetchone()
+            
+            cursor.execute("""
+                SELECT column_name 
+                FROM information_schema.key_column_usage 
+                WHERE table_name = 'nbagrid_api_app_gamegrid' 
+                AND constraint_name IN (
+                    SELECT constraint_name 
+                    FROM information_schema.table_constraints 
+                    WHERE table_name = 'nbagrid_api_app_gamegrid' 
+                    AND constraint_type = 'PRIMARY KEY'
+                )
+            """)
+            gamegrid_pk = cursor.fetchone()
+            
+            print(f"GridMetadata id info: {gridmetadata_id_info}")
+            print(f"GameGrid id info: {gamegrid_id_info}")
+            print(f"GridMetadata primary key: {gridmetadata_pk}")
+            print(f"GameGrid primary key: {gamegrid_pk}")
+            
+            # Handle GridMetadata
+            if gridmetadata_id_info is None:
+                # Column doesn't exist, add it
                 cursor.execute("ALTER TABLE nbagrid_api_app_gridmetadata ADD COLUMN id SERIAL PRIMARY KEY")
                 print("Added id column to GridMetadata table")
+            elif gridmetadata_pk is None:
+                # Column exists but no primary key constraint
+                cursor.execute("ALTER TABLE nbagrid_api_app_gridmetadata ADD PRIMARY KEY (id)")
+                print("Added primary key constraint to GridMetadata id column")
             else:
-                print("GridMetadata id column already exists")
+                print("GridMetadata id column already exists with primary key")
                 
-            if not gamegrid_has_id:
+            # Handle GameGrid
+            if gamegrid_id_info is None:
+                # Column doesn't exist, add it
                 cursor.execute("ALTER TABLE nbagrid_api_app_gamegrid ADD COLUMN id SERIAL PRIMARY KEY")
                 print("Added id column to GameGrid table")
+            elif gamegrid_pk is None:
+                # Column exists but no primary key constraint
+                cursor.execute("ALTER TABLE nbagrid_api_app_gamegrid ADD PRIMARY KEY (id)")
+                print("Added primary key constraint to GameGrid id column")
             else:
-                print("GameGrid id column already exists")
+                print("GameGrid id column already exists with primary key")
                 
         else:
             # SQLite handling
@@ -79,16 +122,23 @@ class Migration(migrations.Migration):
             ensure_id_fields_exist,
             reverse_ensure_id_fields,
         ),
-        # Tell Django's migration system about the fields
-        # These operations will be no-ops in the database since the fields already exist
-        migrations.AddField(
-            model_name='gamegrid',
-            name='id',
-            field=models.AutoField(primary_key=True, serialize=False),
-        ),
-        migrations.AddField(
-            model_name='gridmetadata',
-            name='id',
-            field=models.AutoField(primary_key=True, serialize=False),
+        # Use RunSQL with state_operations to tell Django about the fields
+        # The SQL will be no-ops since we handle everything in the Python function above
+        migrations.RunSQL(
+            sql=["SELECT 1;"],  # No-op SQL
+            reverse_sql=["SELECT 1;"],
+            state_operations=[
+                # These operations tell Django's migration system about the fields
+                migrations.AddField(
+                    model_name='gamegrid',
+                    name='id',
+                    field=models.AutoField(primary_key=True, serialize=False),
+                ),
+                migrations.AddField(
+                    model_name='gridmetadata',
+                    name='id',
+                    field=models.AutoField(primary_key=True, serialize=False),
+                ),
+            ],
         ),
     ]
