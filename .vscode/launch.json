@@ -46,7 +46,8 @@
             "console": "integratedTerminal",
             "args": [
                 "update_nba_data",
-                "--all",
+                //"--all",
+                "--players",
                 //"--awards",
                 "--telegram-notify",
                 "--continue-on-error"

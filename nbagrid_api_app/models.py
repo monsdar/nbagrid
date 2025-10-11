@@ -198,6 +198,11 @@ class Player(ExportModelOperationsMixin("player"), models.Model):
         self.draft_number = draft_number
         self.is_undrafted = True if (draft_round + draft_number == 0) else False
         self.is_greatest_75 = True if (player_info["CommonPlayerInfo"][0]["GREATEST_75_FLAG"] == "Y") else False
+        
+        # Update active status based on ROSTERSTATUS field from NBA API
+        roster_status = player_info["CommonPlayerInfo"][0].get("ROSTERSTATUS", "")
+        self.is_active = (roster_status == "Active")
+        
         self.num_seasons = player_info["CommonPlayerInfo"][0]["SEASON_EXP"]
         weight = player_info["CommonPlayerInfo"][0]["WEIGHT"]
         weight = 0 if not weight else int(weight)  # some players have '' as their weight

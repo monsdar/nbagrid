@@ -299,24 +299,27 @@ class Command(BaseCommand):
 
     def _init_players(self, options):
         """Initialize players from static data."""
-        self.stdout.write("Initializing players from static data...")
+        self.stdout.write("Initializing players from NBA API (checking roster status)...")
         
         if options['dry_run']:
             self.stdout.write(self.style.WARNING("DRY RUN: Would initialize players"))
             return
-            
-        all_players = static_players.get_active_players()
+        
+        # Use ALL active players from static data as a starting point
+        all_active_players = static_players.get_active_players()
         created_count = 0
         updated_count = 0
         
-        for player_data in all_players:
+        self.stdout.write(f"Found {len(all_active_players)} players in NBA static data...")
+        
+        for player_data in all_active_players:
+            # Create or get the player (don't set is_active here, will be set by update_player_data_from_nba_stats)
             player, created = Player.objects.update_or_create(
                 stats_id=player_data["id"],
                 defaults={
                     "name": static_players._strip_accents(player_data["full_name"]),
                     "last_name": static_players._strip_accents(player_data["last_name"]),
                     "display_name": player_data["full_name"],
-                    "is_active": True,  # Mark as active when syncing from active players list
                 },
             )
             
@@ -327,18 +330,24 @@ class Command(BaseCommand):
                 updated_count += 1
                 logger.debug(f"Updated player: {player_data['full_name']}")
         
-        # Mark players not in active list as inactive
-        all_static_player_ids = [p["id"] for p in all_players]
-        inactive_count = 0
-        for player in Player.objects.filter(is_active=True).exclude(stats_id__in=all_static_player_ids):
-            player.is_active = False
-            player.save()
-            inactive_count += 1
-            logger.debug(f"Marked player as inactive: {player.name}")
+        # Clean up the inactive players from the database
+        # This is needed because we once added all available static players to the database,
+        # but now we only want to keep the active players.
+        players_deleted_count = 0
+        all_active_players_stats_ids = [player['id'] for player in all_active_players]
+        for player in Player.objects.all():
+            if player.stats_id not in all_active_players_stats_ids:
+                player.delete()
+                players_deleted_count += 1
         
         self.stdout.write(
             self.style.SUCCESS(
-                f"Players initialized: {created_count} created, {updated_count} updated, {inactive_count} marked inactive"
+                f"Players initialized: {created_count} created, {updated_count} updated, {players_deleted_count} deleted"
+            )
+        )
+        self.stdout.write(
+            self.style.WARNING(
+                "Note: is_active status will be set when running --players or --all to fetch ROSTERSTATUS from NBA API"
             )
         )
         
@@ -348,7 +357,7 @@ class Command(BaseCommand):
                 'player_initialization',
                 success_count=created_count + updated_count,
                 error_count=0,
-                details=f"{created_count} created, {updated_count} updated, {inactive_count} marked inactive"
+                details=f"{created_count} created, {updated_count} updated. Run with --players to update is_active status."
             )
         
         # Update timestamp

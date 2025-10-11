@@ -41,6 +41,24 @@ python manage.py update_nba_data --all --verbose
 python manage.py update_nba_data --all --telegram-notify
 ```
 
+#### Player Active Status Detection
+
+The system automatically determines if players are active using the **`ROSTERSTATUS`** field from the NBA Stats API (`CommonPlayerInfo` endpoint):
+
+- **Active players**: `ROSTERSTATUS = "Active"` → `is_active = True`
+- **Inactive players**: `ROSTERSTATUS = "Inactive"` → `is_active = False`
+
+This is more reliable than the `nba_api` static players list, which is often outdated. The `is_active` field is updated when running:
+```bash
+# Update player data (includes ROSTERSTATUS check)
+python manage.py update_nba_data --players
+
+# Or update everything
+python manage.py update_nba_data --all
+```
+
+**Note:** The `--init-only` flag only initializes basic player data from the static list. To get accurate active/inactive status, you must run with `--players` or `--all` to fetch live data from the NBA API.
+
 ### `sync_to_production`
 
 Dedicated command for syncing local data to production (replaces sync_*.py scripts).
