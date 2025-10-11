@@ -89,6 +89,7 @@ class PlayerSchema(Schema):
     draft_number: int = 0
     is_undrafted: bool = False
     is_greatest_75: bool = False
+    is_active: bool = True
     num_seasons: int = 0
     weight_kg: int = 0
     height_cm: int = 0

@@ -310,12 +310,13 @@ class Command(BaseCommand):
         updated_count = 0
         
         for player_data in all_players:
-            player, created = Player.active.update_or_create(
+            player, created = Player.objects.update_or_create(
                 stats_id=player_data["id"],
                 defaults={
                     "name": static_players._strip_accents(player_data["full_name"]),
                     "last_name": static_players._strip_accents(player_data["last_name"]),
                     "display_name": player_data["full_name"],
+                    "is_active": True,  # Mark as active when syncing from active players list
                 },
             )
             
@@ -326,17 +327,18 @@ class Command(BaseCommand):
                 updated_count += 1
                 logger.debug(f"Updated player: {player_data['full_name']}")
         
-        # Clean up inactive players
+        # Mark players not in active list as inactive
         all_static_player_ids = [p["id"] for p in all_players]
-        deleted_count = 0
-        for player in Player.active.exclude(stats_id__in=all_static_player_ids):
+        inactive_count = 0
+        for player in Player.objects.filter(is_active=True).exclude(stats_id__in=all_static_player_ids):
             player.is_active = False
-            deleted_count += 1
-            logger.debug(f"Disabled player: {player.name}")
+            player.save()
+            inactive_count += 1
+            logger.debug(f"Marked player as inactive: {player.name}")
         
         self.stdout.write(
             self.style.SUCCESS(
-                f"Players initialized: {created_count} created, {updated_count} updated, {deleted_count} deleted"
+                f"Players initialized: {created_count} created, {updated_count} updated, {inactive_count} marked inactive"
             )
         )
         
@@ -346,7 +348,7 @@ class Command(BaseCommand):
                 'player_initialization',
                 success_count=created_count + updated_count,
                 error_count=0,
-                details=f"{created_count} created, {updated_count} updated, {deleted_count} deleted"
+                details=f"{created_count} created, {updated_count} updated, {inactive_count} marked inactive"
             )
         
         # Update timestamp
@@ -537,8 +539,8 @@ class Command(BaseCommand):
                     if player_name in player_mappings:
                         player_name = player_mappings[player_name]
 
-                    # Find matching player(s) and update salary
-                    players = Player.active.filter(name__iexact=player_name)
+                    # Find matching player(s) and update salary (check all players, not just active)
+                    players = Player.objects.filter(name__iexact=player_name)
                     if players.exists():
                         for player in players:
                             player.base_salary = salary
@@ -581,8 +583,9 @@ class Command(BaseCommand):
     def _get_players_to_update(self, options) -> List[Player]:
         """Get the list of players to update based on options."""
         if options['player_ids']:
-            return Player.active.filter(stats_id__in=options['player_ids'])
+            return Player.objects.filter(stats_id__in=options['player_ids'])
         else:
+            # By default, only update active players
             return Player.active.all()
 
     def _process_players(self, players, update_func, operation_name, options):

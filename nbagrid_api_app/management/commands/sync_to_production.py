@@ -259,8 +259,9 @@ class Command(BaseCommand):
         
         # Get players to sync
         if options['player_ids']:
-            players = Player.active.filter(stats_id__in=options['player_ids'])
+            players = Player.objects.filter(stats_id__in=options['player_ids'])
         else:
+            # By default, only sync active players
             players = Player.active.all()
         
         total_players = players.count()
@@ -367,6 +368,10 @@ class Command(BaseCommand):
                 placeholders = ','.join(['%s'] * len(options['player_ids']))
                 conditions.append(f"p.stats_id IN ({placeholders})")
                 params.extend(options['player_ids'])
+            else:
+                # By default, only sync active players
+                conditions.append("p.is_active = %s")
+                params.append(True)
             
             if options['team_ids']:
                 placeholders = ','.join(['%s'] * len(options['team_ids']))
