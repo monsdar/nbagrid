@@ -14,7 +14,7 @@ class GridGenerationTest(TestCase):
         
         # Create test players with varied stats
         for i in range(50):
-            Player.objects.create(
+            Player.active.create(
                 stats_id=i,
                 name=f'Test Player {i}',
                 career_ppg=10 + (i % 20),
@@ -48,7 +48,7 @@ class GridGenerationTest(TestCase):
         
         # Add team relationships
         for i in range(0, 50, 5):
-            player = Player.objects.get(stats_id=i)
+            player = Player.active.get(stats_id=i)
             player.teams.add(self.team)
 
     def test_filter_weight_calculation(self):

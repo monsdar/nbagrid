@@ -70,7 +70,7 @@ def get_cached_solutions_for_date(given_date: datetime):
     if given_date not in solutions_cache:
         game_cache_filters = get_cached_game_for_date(given_date)
         filter_static, filter_dynamic = game_cache_filters
-        result_players = Player.objects.all()
+        result_players = Player.active.all()
         both_filters = []
         both_filters.extend(filter_static)
         both_filters.extend(filter_dynamic)
@@ -667,7 +667,7 @@ def get_cell_correct_players(request, year: int, month: int, day: int, row: int,
                     if not cell_data.get("is_correct", False):
                         # Get player info for wrong guess
                         try:
-                            wrong_player = Player.objects.get(stats_id=cell_data["player_id"])
+                            wrong_player = Player.active.get(stats_id=cell_data["player_id"])
                             user_wrong_guesses.append({
                                 "name": wrong_player.name,
                                 "stats": [f.get_player_stats_str(wrong_player) for f in cell["filters"]],
@@ -685,7 +685,7 @@ def get_cell_correct_players(request, year: int, month: int, day: int, row: int,
         
         # Add correct players
         try:
-            matching_players = Player.objects.all()
+            matching_players = Player.active.all()
             for f in cell["filters"]:
                 matching_players = f.apply_filter(matching_players)
             

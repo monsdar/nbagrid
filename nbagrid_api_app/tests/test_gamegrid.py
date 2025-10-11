@@ -21,7 +21,7 @@ class GameGridModelTest(TestCase):
         team = Team.objects.create(stats_id=1, name="Test Team", abbr="TTT")
 
         for i in range(1, 11):
-            player = Player.objects.create(
+            player = Player.active.create(
                 stats_id=i,
                 name=f"Test Player {i}",
                 display_name=f"T. Player {i}",
@@ -44,8 +44,8 @@ class GameGridModelTest(TestCase):
         )
 
         # Create some game results
-        player1 = Player.objects.get(stats_id=1)
-        player2 = Player.objects.get(stats_id=2)
+        player1 = Player.active.get(stats_id=1)
+        player2 = Player.active.get(stats_id=2)
 
         # Create multiple guesses for the same player in cell "0_0"
         GameResult.objects.create(date=self.test_date, cell_key="0_0", player=player1, guess_count=5)

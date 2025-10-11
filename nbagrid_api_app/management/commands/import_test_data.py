@@ -22,7 +22,7 @@ class Command(BaseCommand):
         
         if not import_test_data and not options['force']:
             # Check if database is empty
-            if Player.objects.exists() or Team.objects.exists():
+            if Player.active.exists() or Team.objects.exists():
                 self.stdout.write(
                     self.style.WARNING('Database already contains data. Use --force to override or set IMPORT_TEST_DATA=1')
                 )
@@ -120,7 +120,7 @@ class Command(BaseCommand):
             # Add some variation to the stats (±10% variation)
             varied_stats = self.add_stat_variation(archetype)
             
-            player, created = Player.objects.get_or_create(
+            player, created = Player.active.get_or_create(
                 stats_id=stats_id,
                 defaults={
                     'name': player_name,

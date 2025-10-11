@@ -38,7 +38,7 @@ class GameViewTests(TestCase):
         )
 
         # Create test player with specific attributes for filter testing
-        self.player = Player.objects.create(
+        self.player = Player.active.create(
             stats_id=1,
             name="Test Player",
             position="Guard",
@@ -237,7 +237,7 @@ class PlayerUpdateTests(TestCase):
     def setUp(self):
         self.client = Client()
         # Create a test player
-        self.player = Player.objects.create(
+        self.player = Player.active.create(
             stats_id=1,
             name="Test Player",
             position="Guard",
@@ -271,7 +271,7 @@ class PlayerUpdateTests(TestCase):
         self.assertIn("updated", data["message"].lower())
 
         # Verify the updates
-        updated_player = Player.objects.get(stats_id=self.player.stats_id)
+        updated_player = Player.active.get(stats_id=self.player.stats_id)
         self.assertEqual(updated_player.name, "Updated Player")
         self.assertEqual(updated_player.display_name, "Updated Player Display")
         self.assertEqual(updated_player.position, "Forward")
@@ -298,7 +298,7 @@ class PlayerUpdateTests(TestCase):
         self.assertIn("created", data["message"].lower())
 
         # Verify the new player was created
-        new_player = Player.objects.get(stats_id=999)
+        new_player = Player.active.get(stats_id=999)
         self.assertEqual(new_player.name, "New Player")
         self.assertEqual(new_player.display_name, "New Player Display")
         self.assertEqual(new_player.position, "Center")
@@ -321,7 +321,7 @@ class PlayerUpdateTests(TestCase):
         self.assertIn("created", data["message"].lower())
 
         # Verify the player was created with minimal data
-        new_player = Player.objects.get(stats_id=1000)
+        new_player = Player.active.get(stats_id=1000)
         self.assertEqual(new_player.name, "Minimal Player")
 
     def test_update_player_invalid_data(self):

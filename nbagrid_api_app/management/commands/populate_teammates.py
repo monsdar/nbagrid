@@ -21,7 +21,7 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING('DRY RUN MODE - No changes will be made'))
                         
         # Get all players
-        players = Player.objects.all()
+        players = Player.active.all()
         total_players = players.count()
         
         self.stdout.write(f"Found {total_players} players to process")
@@ -43,7 +43,7 @@ class Command(BaseCommand):
                     # Count what would be added in dry-run mode
                     player_teams = player.teams.all()
                     if player_teams.exists():
-                        potential_teammates = Player.objects.filter(teams__in=player_teams).exclude(id=player.id).distinct()
+                        potential_teammates = Player.active.filter(teams__in=player_teams).exclude(id=player.id).distinct()
                         self.stdout.write(f"  {player.name}: would add {potential_teammates.count()} teammates")
                     else:
                         self.stdout.write(f"  {player.name}: no teams found")

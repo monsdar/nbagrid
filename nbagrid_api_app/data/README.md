@@ -73,7 +73,7 @@ You can also use the Player model methods directly in your code:
 from nbagrid_api_app.models import Player
 
 # Create a player and load all data from NBA API
-player = Player.objects.create(stats_id=1628378, name="Donovan Mitchell")
+player = Player.active.create(stats_id=1628378, name="Donovan Mitchell")
 player.load_from_nba_api()  # Loads basic info, stats, and awards
 
 # Or load data separately

@@ -316,8 +316,8 @@ class GameBuilder(object):
             logger.debug(f"GameGrid for {date} already contains cell_correct_players data, skipping update")
             return game_grid
 
-        # Get all players
-        all_players = Player.objects.all()
+        # Get all active players
+        all_players = Player.active.all()
 
         # Calculate cell player counts
         cell_stats = {}
@@ -371,7 +371,7 @@ class GameBuilder(object):
             temp_weights.pop(idx)
 
         # Go through the weighted list of dynamic filters and tune them to the static filters
-        all_players = Player.objects.all()
+        all_players = Player.active.all()
         for column_filter in weighted_dynamic_order:
             # Do not use the same dynamic filter twice
             curr_filter_name = column_filter.__class__.__name__

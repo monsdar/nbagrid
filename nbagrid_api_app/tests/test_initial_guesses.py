@@ -10,13 +10,13 @@ class InitialGuessesTestCase(TestCase):
         self.team = Team.objects.create(stats_id=1610612737, name="Atlanta Hawks", abbr="ATL")
         
         # Create test players
-        self.player1 = Player.objects.create(
+        self.player1 = Player.active.create(
             stats_id=203076,
             name="John Doe"
         )
         self.player1.teams.add(self.team)
         
-        self.player2 = Player.objects.create(
+        self.player2 = Player.active.create(
             stats_id=203077,
             name="Jane Smith"
         )

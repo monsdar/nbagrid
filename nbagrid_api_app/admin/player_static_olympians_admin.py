@@ -94,7 +94,7 @@ class PlayerStaticOlympiansAdmin(admin.ModelAdmin):
 
         # Update gold medal winners
         for player_name in static_olympic_gold_winners:
-            players = Player.objects.filter(name__iexact=static_players._strip_accents(player_name))
+            players = Player.active.filter(name__iexact=static_players._strip_accents(player_name))
             for player in players:
                 player.is_award_olympic_gold_medal = True
                 player.save()
@@ -102,7 +102,7 @@ class PlayerStaticOlympiansAdmin(admin.ModelAdmin):
 
         # Update silver medal winners
         for player_name in static_olympic_silver_winners:
-            players = Player.objects.filter(name__iexact=static_players._strip_accents(player_name))
+            players = Player.active.filter(name__iexact=static_players._strip_accents(player_name))
             for player in players:
                 player.is_award_olympic_silver_medal = True
                 player.save()
@@ -110,7 +110,7 @@ class PlayerStaticOlympiansAdmin(admin.ModelAdmin):
 
         # Update bronze medal winners
         for player_name in static_olympic_bronze_winners:
-            players = Player.objects.filter(name__iexact=static_players._strip_accents(player_name))
+            players = Player.active.filter(name__iexact=static_players._strip_accents(player_name))
             for player in players:
                 player.is_award_olympic_bronze_medal = True
                 player.save()

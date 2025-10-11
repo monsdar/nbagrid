@@ -2,7 +2,6 @@ import logging
 from datetime import timedelta
 
 from django_prometheus.models import ExportModelOperationsMixin
-from nba_api.stats.endpoints import commonplayerinfo, playerawards, playercareerstats
 
 from django.db import models
 from django.utils import timezone
@@ -11,6 +10,12 @@ from nbagrid_api_app.tracing import trace_operation
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
+
+
+class ActivePlayerManager(models.Manager):
+    """Manager that returns only active players by default."""
+    def get_queryset(self):
+        return super().get_queryset().filter(is_active=True)
 
 
 class Player(ExportModelOperationsMixin("player"), models.Model):
@@ -27,12 +32,17 @@ class Player(ExportModelOperationsMixin("player"), models.Model):
     draft_number = models.IntegerField(default=0)
     is_undrafted = models.BooleanField(default=False)
     is_greatest_75 = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True, help_text="Whether the player is currently active or available for game play")
     num_seasons = models.IntegerField(default=0)
     weight_kg = models.IntegerField(default=0)
     height_cm = models.IntegerField(default=0)
     country = models.CharField(max_length=100, default="")
     position = models.CharField(max_length=20, default="")
     base_salary = models.IntegerField(default=0)  # Base salary in USD
+    
+    # Managers
+    objects = models.Manager()  # Default manager returns all players
+    active = ActivePlayerManager()  # Custom manager returns only active players
 
     # Player Stats
     career_gp = models.IntegerField(default=0)
@@ -132,7 +142,11 @@ class Player(ExportModelOperationsMixin("player"), models.Model):
         return self.teams.filter(abbr=abbr).exists()
 
     def update_player_awards_from_nba_stats(self):
-        awards = playerawards.PlayerAwards(player_id=self.stats_id).get_normalized_dict()
+        from .nba_api_wrapper import get_player_awards
+        awards = get_player_awards(player_id=self.stats_id)
+        if not "PlayerAwards" in awards:
+            logger.info(f"Player {self.name} has no awards, skipping...")
+            return
         for award in awards["PlayerAwards"]:
             award_name = award["DESCRIPTION"]
             if award_name == "NBA Most Improved Player":
@@ -171,7 +185,8 @@ class Player(ExportModelOperationsMixin("player"), models.Model):
         self.save()
 
     def update_player_data_from_nba_stats(self):
-        player_info = commonplayerinfo.CommonPlayerInfo(player_id=self.stats_id).get_normalized_dict()
+        from .nba_api_wrapper import get_common_player_info
+        player_info = get_common_player_info(player_id=self.stats_id)
         draft_year = player_info["CommonPlayerInfo"][0]["DRAFT_YEAR"]
         draft_year = 0 if (draft_year == "Undrafted") else int(draft_year)
         draft_round = player_info["CommonPlayerInfo"][0]["DRAFT_ROUND"]
@@ -195,9 +210,10 @@ class Player(ExportModelOperationsMixin("player"), models.Model):
         self.save()
 
     def update_player_stats_from_nba_stats(self):
-        player_stats = playercareerstats.PlayerCareerStats(
+        from .nba_api_wrapper import get_player_career_stats
+        player_stats = get_player_career_stats(
             player_id=self.stats_id, per_mode36="PerGame", league_id_nullable="00"
-        ).get_normalized_dict()
+        )
         for season in player_stats["SeasonTotalsRegularSeason"]:
             season_team_id = season["TEAM_ID"]
             if Team.objects.filter(stats_id=season_team_id).exists():
@@ -357,7 +373,7 @@ class Player(ExportModelOperationsMixin("player"), models.Model):
                             for teammate_id in valid_player_ids:
                                 if teammate_id != self.stats_id:
                                     try:
-                                        teammate = Player.objects.get(stats_id=teammate_id)
+                                        teammate = Player.active.get(stats_id=teammate_id)
                                         all_teammates.add(teammate)
                                         logger.debug(f"Found teammate: {teammate.name} (played {games_played_together} games together in {season_id})")
                                     except Player.DoesNotExist:
@@ -499,8 +515,8 @@ class GameResult(ExportModelOperationsMixin("gameresult"), models.Model):
         """
         logger.debug(f"Initializing scores for date {date}, cell {cell_key}")
 
-        # Get all possible players for this cell
-        possible_players = Player.objects.all()
+        # Get all possible active players for this cell
+        possible_players = Player.active.all()
 
         # Apply any filters
         if filters:
@@ -569,7 +585,7 @@ class GameResult(ExportModelOperationsMixin("gameresult"), models.Model):
         ranking = []
         for stat in player_stats:
             try:
-                player = Player.objects.get(id=stat['player_id'])
+                player = Player.active.get(id=stat['player_id'])
                 total_guesses = stat['total_guesses'] or 0
                 total_initial_guesses = stat['total_initial_guesses'] or 0
                 total_wrong_guesses = stat['total_wrong_guesses'] or 0
@@ -602,7 +618,7 @@ class GameResult(ExportModelOperationsMixin("gameresult"), models.Model):
         ranking_data = []
         for stat in player_stats:
             try:
-                player = Player.objects.get(id=stat['player_id'])
+                player = Player.active.get(id=stat['player_id'])
                 total_guesses = stat['total_guesses'] or 0
                 total_initial_guesses = stat['total_initial_guesses'] or 0
                 total_wrong_guesses = stat['total_wrong_guesses'] or 0

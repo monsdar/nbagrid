@@ -272,8 +272,8 @@ class CountryFilter(GameFilter):
         num_players_per_country = 30
         countries = [
             country
-            for country in Player.objects.all().values_list("country", flat=True).distinct()
-            if Player.objects.filter(country=country).count() >= num_players_per_country
+            for country in Player.active.all().values_list("country", flat=True).distinct()
+            if Player.active.filter(country=country).count() >= num_players_per_country
         ]
         self.country_name = rng.choice(countries)
 
@@ -478,9 +478,9 @@ class LastNameFilter(GameFilter):
 
     def _get_valid_letters(self):
         """Helper method to get sorted list of valid letters with sufficient players"""
-        # Count players per starting letter using the last_name field
+        # Count players per starting letter using the last_name field (only active players)
         letter_counts = {}
-        for last_name in Player.objects.values_list("last_name", flat=True):
+        for last_name in Player.active.values_list("last_name", flat=True):
             if last_name:
                 first_letter = last_name[0].upper()
                 letter_counts[first_letter] = letter_counts.get(first_letter, 0) + 1
@@ -508,7 +508,7 @@ class PlayedWithPlayerFilter(GameFilter):
     def __init__(self, seed: int = 0):
         rng = random.Random(seed)
         # Get a random player who has been an All-Star and has teammates
-        all_star_players_with_teammates = Player.objects.filter(
+        all_star_players_with_teammates = Player.active.filter(
             is_award_all_star=True,
             teammates__isnull=False
         ).distinct()
@@ -517,12 +517,12 @@ class PlayedWithPlayerFilter(GameFilter):
             self.target_player = rng.choice(all_star_players_with_teammates)
         else:
             # Fallback to any All-Star player if no teammates data exists yet
-            all_star_players = Player.objects.filter(is_award_all_star=True)
+            all_star_players = Player.active.filter(is_award_all_star=True)
             if all_star_players.exists():
                 self.target_player = rng.choice(all_star_players)
             else:
-                # Ultimate fallback to any player if no All-Stars exist
-                self.target_player = rng.choice(list(Player.objects.all()))
+                # Ultimate fallback to any active player if no All-Stars exist
+                self.target_player = rng.choice(list(Player.active.all()))
 
     def apply_filter(self, players: Manager[Player]) -> Manager[Player]:
         # Get players who have played with the target player
@@ -554,7 +554,7 @@ class TeamCountFilter(DynamicGameFilter):
         player_ids = players.values_list("stats_id", flat=True)
 
         # Get the full list of players from the DB again and count their teams
-        all_matching_players = Player.objects.filter(stats_id__in=player_ids)
+        all_matching_players = Player.active.filter(stats_id__in=player_ids)
         all_matching_players = all_matching_players.annotate(num_teams=Count("teams", distinct=True))
 
         if "comparison_type" in self.config and self.config["comparison_type"] == "lower":
@@ -879,7 +879,7 @@ def gamefilter_from_json(filter_instance, filter_data):
         if target_player_name:
             try:
                 from nbagrid_api_app.models import Player
-                filter_instance.target_player = Player.objects.get(name=target_player_name)
+                filter_instance.target_player = Player.active.get(name=target_player_name)
             except Player.DoesNotExist:
                 # If target player doesn't exist, keep the current one
                 pass
@@ -930,7 +930,7 @@ def create_filter_from_db(db_filter):
         filter_obj = filter_class(0)  # Seed doesn't matter for reconstruction
         if target_player_name is not None:
             try:
-                filter_obj.target_player = Player.objects.get(name=target_player_name)
+                filter_obj.target_player = Player.active.get(name=target_player_name)
             except Player.DoesNotExist:
                 # If target player doesn't exist, keep the randomly selected one
                 pass

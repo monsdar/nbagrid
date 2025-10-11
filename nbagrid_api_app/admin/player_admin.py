@@ -145,7 +145,7 @@ class PlayerAdmin(PlayerStaticOlympiansAdmin, PlayerStaticAllNbaAdmin, PlayerSal
         all_players = static_players.get_active_players()
         logger.info(f"Initing {len(all_players)} players...")
         for player in all_players:
-            (new_player, has_created) = Player.objects.update_or_create(
+            (new_player, has_created) = Player.active.update_or_create(
                 stats_id=player["id"],
                 defaults={
                     "name": static_players._strip_accents(player["full_name"]),
@@ -158,15 +158,15 @@ class PlayerAdmin(PlayerStaticOlympiansAdmin, PlayerStaticAllNbaAdmin, PlayerSal
                 logger.info(f"...created new player: {player['full_name']}")
 
         # Check for players that aren't in the static_players list and delete them
-        all_players = Player.objects.all().values_list("stats_id", flat=True)
+        all_players = Player.active.all().values_list("stats_id", flat=True)
         all_static_player_ids = [static_player["id"] for static_player in static_players.get_active_players()]
         for player in all_players:
             if player not in all_static_player_ids:
-                Player.objects.filter(stats_id=player).delete()
-                logger.info(f"...deleted player: {player.name}")
+                player.is_active = False
+                logger.info(f"...disabled player: {player.name}")
 
     def sync_player_stats(self):
-        all_players = Player.objects.all()
+        all_players = Player.active.all()
         logger.info(f"Updating {len(all_players)} players...")
         for player in all_players:
             try:
@@ -179,7 +179,7 @@ class PlayerAdmin(PlayerStaticOlympiansAdmin, PlayerStaticAllNbaAdmin, PlayerSal
             time.sleep(0.25)  # wait a bit before doing the next API request to not run into stats.nba rate limits
 
     def sync_player_awards(self):
-        all_players = Player.objects.all()
+        all_players = Player.active.all()
         logger.info(f"Updating {len(all_players)} players...")
         for player in all_players:
             try:
@@ -192,7 +192,7 @@ class PlayerAdmin(PlayerStaticOlympiansAdmin, PlayerStaticAllNbaAdmin, PlayerSal
             time.sleep(0.25)  # wait a bit before doing the next API request to not run into stats.nba rate limits
 
     def sync_player_data(self):
-        all_players = Player.objects.all()
+        all_players = Player.active.all()
         logger.info(f"Updating {len(all_players)} players...")
         for player in all_players:
             try:

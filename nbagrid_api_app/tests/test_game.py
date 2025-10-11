@@ -20,7 +20,7 @@ def populate_teams(num_teams: int = 30):
 def populate_players(num_players: int = 100):
     random.seed(0)
     for index in range(num_players):
-        player = Player.objects.create(stats_id=index, name=f"Player {index}")
+        player = Player.active.create(stats_id=index, name=f"Player {index}")
         player.teams.set(random.sample(list(Team.objects.all()), random.randint(1, 5)))
         player.career_gp = random.gauss(400, 300)
         player.num_seasons = random.gauss(10, 5)
@@ -92,13 +92,13 @@ class GameBuilderTest(TestCase):
 
 class PlayerTest(TestCase):
     def test_has_played_for_team(self):
-        player = Player.objects.create(stats_id=1, name="Lebron James")
+        player = Player.active.create(stats_id=1, name="Lebron James")
         team = Team.objects.create(stats_id=1, name="Cavaliers", abbr="CLE")
         player.teams.add(team)
         self.assertTrue(player.has_played_for_team("CLE"))
 
     def test_has_not_played_for_team(self):
-        player = Player.objects.create(stats_id=1, name="Lebron James")
+        player = Player.active.create(stats_id=1, name="Lebron James")
         self.assertFalse(player.has_played_for_team("CLE"))
 
     @tag("nba_api_access")
@@ -109,14 +109,14 @@ class PlayerTest(TestCase):
     def test_load_player_data(self):
         """Test loading real NBA player data from the NBA API using the model's load_from_nba_api method."""
         # Test with Donovan Mitchell - you can uncomment other players to test with them
-        # player = Player.objects.create(stats_id=202681, name='Kyrie Irving')
-        # player = Player.objects.create(stats_id=2544, name='LeBron James')
-        player = Player.objects.create(stats_id=1628378, name="Donovan Mitchell")
-        # player = Player.objects.create(stats_id=201142, name='Kevin Durant')
-        # player = Player.objects.create(stats_id=201566, name='Russell Westbrook')
-        # player = Player.objects.create(stats_id=203999, name='Nikola Jokic')
-        # player = Player.objects.create(stats_id=203507, name='Giannis Antetokounmpo')
-        # player = Player.objects.create(stats_id=1629029, name='Luka Doncic')
+        # player = Player.active.create(stats_id=202681, name='Kyrie Irving')
+        # player = Player.active.create(stats_id=2544, name='LeBron James')
+        player = Player.active.create(stats_id=1628378, name="Donovan Mitchell")
+        # player = Player.active.create(stats_id=201142, name='Kevin Durant')
+        # player = Player.active.create(stats_id=201566, name='Russell Westbrook')
+        # player = Player.active.create(stats_id=203999, name='Nikola Jokic')
+        # player = Player.active.create(stats_id=203507, name='Giannis Antetokounmpo')
+        # player = Player.active.create(stats_id=1629029, name='Luka Doncic')
 
         # Use the model's consolidated method to load all data from NBA API
         player.load_from_nba_api()
@@ -149,11 +149,11 @@ class GameResultTests(TestCase):
         self.team2 = Team.objects.create(stats_id=2, name="Team 2", abbr="T2")
 
         # Create test players
-        self.player1 = Player.objects.create(stats_id=1, name="Player 1")
+        self.player1 = Player.active.create(stats_id=1, name="Player 1")
         self.player1.teams.add(self.team1)
-        self.player2 = Player.objects.create(stats_id=2, name="Player 2")
+        self.player2 = Player.active.create(stats_id=2, name="Player 2")
         self.player2.teams.add(self.team2)
-        self.player3 = Player.objects.create(stats_id=3, name="Player 3")
+        self.player3 = Player.active.create(stats_id=3, name="Player 3")
         self.player3.teams.add(self.team1)
 
         # Set test date
@@ -288,7 +288,7 @@ class GameFilterTests(TestCase):
             filter_obj = create_filter_from_db(db_filter)
 
             # Verify the filter can be reconstructed and works
-            players = Player.objects.all()
+            players = Player.active.all()
             filtered_players = filter_obj.apply_filter(players)
             self.assertGreater(len(filtered_players), 0)
 

@@ -20,7 +20,7 @@ class PlayerModelTests(TestCase):
         ]
 
         for i, name in enumerate(test_players):
-            Player.objects.create(stats_id=i + 1, name=name, display_name=name)
+            Player.active.create(stats_id=i + 1, name=name, display_name=name)
 
     def test_generate_random_name_consistency(self):
         """Test that the same seed always generates the same name"""
@@ -51,8 +51,8 @@ class PlayerModelTests(TestCase):
     def test_generate_random_name_with_long_names(self):
         """Test that the method handles long names correctly by truncating if necessary"""
         # Create a player with a very long name to force truncation
-        Player.objects.all().delete()
-        Player.objects.create(
+        Player.active.all().delete()
+        Player.active.create(
             stats_id=999,
             name="Supercalifragilisticexpialidocious Basketballplayer",
             display_name="Supercalifragilisticexpialidocious Basketballplayer",

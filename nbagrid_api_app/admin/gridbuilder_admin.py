@@ -120,7 +120,7 @@ class GridBuilderAdmin(admin.ModelAdmin):
 
                         if row_filter and col_filter:
                             # Get players that match both filters
-                            matching_players = Player.objects.all()
+                            matching_players = Player.active.all()
                             initial_count = matching_players.count()
                             logger.info(f"Initial player count: {initial_count}")
 
@@ -263,7 +263,7 @@ class GridBuilderAdmin(admin.ModelAdmin):
                     filter_data["config"]["selected_letter"] = filter_instance.selected_letter
             elif isinstance(filter_instance, PlayedWithPlayerFilter):
                 # Get all All-Star players who have teammates
-                all_star_players_with_teammates = Player.objects.filter(
+                all_star_players_with_teammates = Player.active.filter(
                     is_award_all_star=True,
                     teammates__isnull=False
                 ).distinct()
@@ -295,7 +295,7 @@ class GridBuilderAdmin(admin.ModelAdmin):
                     filter_data["config"]["target_player"] = next_player.name
                 else:
                     # Fallback to any All-Star player if no teammates data exists
-                    all_star_players = Player.objects.filter(is_award_all_star=True)
+                    all_star_players = Player.active.filter(is_award_all_star=True)
                     logger.info(f"Fallback: Found {all_star_players.count()} All-Star players")
                     
                     if all_star_players.exists():
@@ -479,7 +479,7 @@ class GridBuilderAdmin(admin.ModelAdmin):
                 return JsonResponse({"error": "Could not create filter instances"}, status=400)
 
             # Get players that match both filters
-            matching_players = Player.objects.all()
+            matching_players = Player.active.all()
             matching_players = row_filter.apply_filter(matching_players)
             matching_players = col_filter.apply_filter(matching_players)
 
@@ -526,7 +526,7 @@ class GridBuilderAdmin(admin.ModelAdmin):
 
         try:
             # Get All-Star players who have teammates, sorted alphabetically
-            all_star_players_with_teammates = Player.objects.filter(
+            all_star_players_with_teammates = Player.active.filter(
                 is_award_all_star=True,
                 teammates__isnull=False
             ).distinct().order_by('name')
@@ -541,7 +541,7 @@ class GridBuilderAdmin(admin.ModelAdmin):
 
             # If no players with teammates, fallback to all All-Star players
             if not players_data:
-                all_star_players = Player.objects.filter(is_award_all_star=True).order_by('name')
+                all_star_players = Player.active.filter(is_award_all_star=True).order_by('name')
                 for player in all_star_players:
                     players_data.append({
                         "id": player.id,
@@ -592,7 +592,7 @@ class GridBuilderAdmin(admin.ModelAdmin):
                 filter_instance.team_name = team.name
                 filter_data["config"]["team_name"] = team.name
             elif selection_type == "player" and isinstance(filter_instance, PlayedWithPlayerFilter):
-                player = Player.objects.get(id=selection_id)
+                player = Player.active.get(id=selection_id)
                 filter_instance.target_player = player
                 filter_data["config"]["target_player"] = player.name
             else:

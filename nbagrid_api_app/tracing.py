@@ -194,7 +194,7 @@ def trace_operation_context(operation_name, **attributes):
     Example:
         with trace_operation_context("database_query", table="players", operation="select"):
             # Database operation code
-            players = Player.objects.filter(name__icontains=name)
+            players = Player.active.filter(name__icontains=name)
     """
     # If tracing is not enabled, just yield a dummy span
     if not is_tracing_enabled():
@@ -252,7 +252,7 @@ def trace_database_query(query_type, table=None, **attributes):
     Example:
         @trace_database_query("select", table="players")
         def get_player_by_name(name):
-            return Player.objects.filter(name__icontains=name)
+            return Player.active.filter(name__icontains=name)
     """
     def decorator(func):
         @wraps(func)

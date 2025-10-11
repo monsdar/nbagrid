@@ -422,13 +422,13 @@ def handle_player_guess(request, game_grid, game_state: GameState, requested_dat
 
         # check if player exists, we need it later
         try:
-            player = Player.objects.get(stats_id=player_id)
+            player = Player.active.get(stats_id=player_id)
         except Player.DoesNotExist:
             logger.error(f"Cannot handle guess: Player {player_id} not found")
             return JsonResponse({"error": "Player not found"}, status=404)
 
         cell = game_grid[row][col]
-        is_correct = all(f.apply_filter(Player.objects.filter(stats_id=player_id)).exists() for f in cell["filters"])
+        is_correct = all(f.apply_filter(Player.active.filter(stats_id=player_id)).exists() for f in cell["filters"])
 
         # Create new cell data for this guess
         cell_data = CellData(player_id=player_id, player_name=player.name, is_correct=is_correct)
@@ -629,7 +629,7 @@ def get_correct_players(game_grid, game_state):
             for cell_data in cell_data_list:
                 if not cell_data["is_correct"]:
                     try:
-                        wrong_player = Player.objects.get(stats_id=cell_data["player_id"])
+                        wrong_player = Player.active.get(stats_id=cell_data["player_id"])
                         correct_players[cell_key].append(
                             {
                                 "name": wrong_player.name,
@@ -640,8 +640,8 @@ def get_correct_players(game_grid, game_state):
                     except Player.DoesNotExist:
                         pass
 
-            # Add correct players
-            matching_players = Player.objects.all()
+            # Add correct players (only active players)
+            matching_players = Player.active.all()
             for f in cell["filters"]:
                 matching_players = f.apply_filter(matching_players)
             # Include player stats for each matching player
@@ -808,7 +808,7 @@ def search_players(request):
         return JsonResponse([], safe=False)
 
     with trace_operation_context("database_query", table="players", operation="select", query_type="search"):
-        players = Player.objects.filter(name__icontains=name)[:5]
+        players = Player.active.filter(name__icontains=name)[:5]
     
     # Add result information to span
     add_span_attribute("search.result_count", len(players))

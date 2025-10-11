@@ -38,12 +38,12 @@ class Command(BaseCommand):
             try:
                 # Try to get existing player
                 try:
-                    player = Player.objects.get(stats_id=stats_id)
+                    player = Player.active.get(stats_id=stats_id)
                     self.stdout.write(f"Found existing player: {player.name} (ID: {stats_id})")
                 except Player.DoesNotExist:
                     if create_player:
                         name = player_name if player_name else f"Player {stats_id}"
-                        player = Player.objects.create(stats_id=stats_id, name=name)
+                        player = Player.active.create(stats_id=stats_id, name=name)
                         self.stdout.write(f"Created new player: {name} (ID: {stats_id})")
                     else:
                         self.stdout.write(

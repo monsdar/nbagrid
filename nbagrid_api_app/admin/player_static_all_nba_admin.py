@@ -89,7 +89,7 @@ class PlayerStaticAllNbaAdmin(admin.ModelAdmin):
 
         # Update first team winners
         for player_name in static_all_nba_first_team:
-            players = Player.objects.filter(name__iexact=static_players._strip_accents(player_name))
+            players = Player.active.filter(name__iexact=static_players._strip_accents(player_name))
             for player in players:
                 player.is_award_all_nba_first = True
                 player.save()
@@ -97,7 +97,7 @@ class PlayerStaticAllNbaAdmin(admin.ModelAdmin):
 
         # Update second team winners
         for player_name in static_all_nba_second_team:
-            players = Player.objects.filter(name__iexact=static_players._strip_accents(player_name))
+            players = Player.active.filter(name__iexact=static_players._strip_accents(player_name))
             for player in players:
                 player.is_award_all_nba_second = True
                 player.save()
@@ -105,7 +105,7 @@ class PlayerStaticAllNbaAdmin(admin.ModelAdmin):
 
         # Update third team winners
         for player_name in static_all_nba_third_team:
-            players = Player.objects.filter(name__iexact=static_players._strip_accents(player_name))
+            players = Player.active.filter(name__iexact=static_players._strip_accents(player_name))
             for player in players:
                 player.is_award_all_nba_third = True
                 player.save()
@@ -113,7 +113,7 @@ class PlayerStaticAllNbaAdmin(admin.ModelAdmin):
 
         # Update rookie team winners
         for player_name in static_all_nba_rookie_team:
-            players = Player.objects.filter(name__iexact=static_players._strip_accents(player_name))
+            players = Player.active.filter(name__iexact=static_players._strip_accents(player_name))
             for player in players:
                 player.is_award_all_rookie = True
                 player.save()
@@ -121,7 +121,7 @@ class PlayerStaticAllNbaAdmin(admin.ModelAdmin):
 
         # Update defensive team winners
         for player_name in static_all_nba_defensive_team:
-            players = Player.objects.filter(name__iexact=static_players._strip_accents(player_name))
+            players = Player.active.filter(name__iexact=static_players._strip_accents(player_name))
             for player in players:
                 player.is_award_all_defensive = True
                 player.save()

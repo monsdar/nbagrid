@@ -17,7 +17,7 @@ class GameResultTests(TestCase):
         # Create test players
         players = []
         for i in range(9):  # Create 9 players
-            player = Player.objects.create(stats_id=i, name=f"Player{i}", display_name=f"Player{i}")
+            player = Player.active.create(stats_id=i, name=f"Player{i}", display_name=f"Player{i}")
             players.append(player)
 
         # Create some historical game results to establish pick counts
@@ -69,7 +69,7 @@ class GameResultTests(TestCase):
         players = []
         positions = ["PG", "SG", "SF", "PF", "C"]
         for i in range(5):
-            player = Player.objects.create(stats_id=i, name=f"Player{i}", display_name=f"Player{i}", position=positions[i])
+            player = Player.active.create(stats_id=i, name=f"Player{i}", display_name=f"Player{i}", position=positions[i])
             players.append(player)
 
         # Create some historical picks

@@ -94,7 +94,7 @@ class PlayerSalarySpotracAdmin(admin.ModelAdmin):
                     player_name = player_mappings[player_name]
 
                 # Find matching player(s) and update salary
-                players = Player.objects.filter(name__iexact=player_name)
+                players = Player.active.filter(name__iexact=player_name)
                 if players.exists():
                     for player in players:
                         player.base_salary = salary

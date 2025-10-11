@@ -275,7 +275,7 @@ class OfflineGridGenerator:
         try:
             from nbagrid_api_app.models import Player
             
-            all_players = Player.objects.all()
+            all_players = Player.active.all()
             cell_counts = []
             
             # Calculate player counts for each cell
