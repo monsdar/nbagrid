@@ -261,8 +261,8 @@ class Command(BaseCommand):
         if options['player_ids']:
             players = Player.objects.filter(stats_id__in=options['player_ids'])
         else:
-            # By default, only sync active players
-            players = Player.active.all()
+            # Sync all players we have in our local database
+            players = Player.objects.all()
         
         total_players = players.count()
         
