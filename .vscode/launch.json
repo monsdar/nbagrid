@@ -39,6 +39,36 @@
             ]
         },
         {
+            "name": "Python Debugger: Update Player Data",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/manage.py",
+            "console": "integratedTerminal",
+            "args": [
+                "update_nba_data",
+                "--all",
+                //"--awards",
+                "--telegram-notify",
+                "--continue-on-error"
+                //"--player-ids",
+                //#"1629638"
+            ]
+        },
+        {
+            "name": "Python Debugger: Sync Player Data with Production",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/manage.py",
+            "console": "integratedTerminal",
+            "args": [
+                "update_nba_data",
+                "--init-only",
+                "--sync-to-production",
+                "--production-url=${config:NBAGRID_API_URL}",
+                "--api-key=${config:NBAGRID_API_TOKEN}"
+            ]
+        },
+        {
             "name": "Python Debugger: Optimize entity images",
             "type": "debugpy",
             "request": "launch",

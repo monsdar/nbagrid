@@ -392,6 +392,16 @@ def get_player_career_stats(player_id: int, **kwargs) -> Dict[str, Any]:
     from nba_api.stats.endpoints import PlayerCareerStats
     return nba_api_wrapper.get_stats(PlayerCareerStats, player_id=player_id, **kwargs)
 
+def get_player_awards(player_id: int, **kwargs) -> Dict[str, Any]:
+    """Get player awards with robust error handling."""
+    from nba_api.stats.endpoints import PlayerAwards
+    return nba_api_wrapper.get_stats(PlayerAwards, player_id=player_id, **kwargs)
+
+def get_common_player_info(player_id: int, **kwargs) -> Dict[str, Any]:
+    """Get common player info with robust error handling."""
+    from nba_api.stats.endpoints import CommonPlayerInfo
+    return nba_api_wrapper.get_stats(CommonPlayerInfo, player_id=player_id, **kwargs)
+
 def get_team_roster(team_id: str, season: str, **kwargs) -> Dict[str, Any]:
     """Get team roster with robust error handling."""
     from nba_api.stats.endpoints import CommonTeamRoster

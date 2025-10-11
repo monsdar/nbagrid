@@ -17,3 +17,6 @@ opentelemetry-exporter-otlp-proto-grpc
 opentelemetry-exporter-prometheus
 opentelemetry-instrumentation-logging
 opentelemetry-instrumentation-requests
+
+# Telegram notifications
+python-telegram-bot
