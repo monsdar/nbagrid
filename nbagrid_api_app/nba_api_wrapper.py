@@ -38,7 +38,11 @@ class NBAAPIWrapper:
         # Retry configuration
         self.max_retries = 3
         self.base_delay = 1.0  # Base delay in seconds
-        self.max_delay = 60.0  # Maximum delay in seconds
+        self.max_delay = 120.0  # Maximum delay in seconds (increased for NBA API)
+        
+        # Rate limit specific configuration
+        self.rate_limit_base_delay = 60.0  # Base delay for rate limit retries
+        self.rate_limit_max_delay = 300.0  # Maximum delay for rate limit retries (5 minutes)
         
         # Cache configuration
         self.default_cache_timeout = 3600 * 10  # 10 hours default
@@ -172,9 +176,15 @@ class NBAAPIWrapper:
         except Exception as e:
             logger.warning(f"File cache set error: {e}")
     
-    def _exponential_backoff(self, attempt: int) -> float:
+    def _exponential_backoff(self, attempt: int, is_rate_limit: bool = False) -> float:
         """Calculate delay for exponential backoff with jitter."""
-        delay = min(self.base_delay * (2 ** attempt), self.max_delay)
+        if is_rate_limit:
+            # Use longer delays for rate limiting
+            delay = min(self.rate_limit_base_delay * (2 ** attempt), self.rate_limit_max_delay)
+        else:
+            # Use standard delays for other errors
+            delay = min(self.base_delay * (2 ** attempt), self.max_delay)
+        
         # Add jitter to prevent thundering herd
         jitter = random.uniform(0, 0.1 * delay)
         return delay + jitter
@@ -184,20 +194,31 @@ class NBAAPIWrapper:
         error_str = str(error).lower()
         
         # Check for rate limiting indicators
-        if any(indicator in error_str for indicator in ['rate limit', 'too many requests', '429', 'timeout']):
+        rate_limit_indicators = [
+            'rate limit', 'too many requests', '429', 'timeout', 
+            'blocked', 'forbidden', 'access denied', 'quota exceeded',
+            'throttled', 'service unavailable', '503'
+        ]
+        
+        is_rate_limit = any(indicator in error_str for indicator in rate_limit_indicators)
+        
+        if is_rate_limit:
             self.rate_limited_calls += 1
             logger.warning(f"Rate limit detected on attempt {attempt + 1}/{max_attempts}: {error}")
             
             if attempt < max_attempts - 1:
-                wait_time = self._exponential_backoff(attempt)
-                logger.info(f"Waiting {wait_time:.1f} seconds before retry...")
+                wait_time = self._exponential_backoff(attempt, is_rate_limit=True)
+                logger.info(f"Rate limit detected - waiting {wait_time:.1f} seconds before retry...")
                 time.sleep(wait_time)
                 return True  # Retry
         
         # Check for other retryable errors
-        elif any(indicator in error_str for indicator in ['timeout', 'connection', 'network']):
-            logger.warning(f"Network error on attempt {attempt + 1}/{max_attempts}: {error}")
+        elif any(indicator in error_str for indicator in ['timeout', 'connection', 'network', '500', '502', '504']):
+            logger.warning(f"Network/server error on attempt {attempt + 1}/{max_attempts}: {error}")
             if attempt < max_attempts - 1:
+                wait_time = self._exponential_backoff(attempt, is_rate_limit=False)
+                logger.info(f"Network error - waiting {wait_time:.1f} seconds before retry...")
+                time.sleep(wait_time)
                 return True  # Retry
         
         # Log non-retryable errors
