@@ -142,7 +142,7 @@ class Player(ExportModelOperationsMixin("player"), models.Model):
         return self.teams.filter(abbr=abbr).exists()
 
     def update_player_awards_from_nba_stats(self):
-        from .nba_api_wrapper import get_player_awards
+        from nbagrid_api_app.nba_api_wrapper import get_player_awards
         awards = get_player_awards(player_id=self.stats_id)
         if not "PlayerAwards" in awards:
             logger.info(f"Player {self.name} has no awards, skipping...")
@@ -185,7 +185,7 @@ class Player(ExportModelOperationsMixin("player"), models.Model):
         self.save()
 
     def update_player_data_from_nba_stats(self):
-        from .nba_api_wrapper import get_common_player_info
+        from nbagrid_api_app.nba_api_wrapper import get_common_player_info
         player_info = get_common_player_info(player_id=self.stats_id)
         draft_year = player_info["CommonPlayerInfo"][0]["DRAFT_YEAR"]
         draft_year = 0 if (draft_year == "Undrafted") else int(draft_year)
@@ -215,7 +215,7 @@ class Player(ExportModelOperationsMixin("player"), models.Model):
         self.save()
 
     def update_player_stats_from_nba_stats(self):
-        from .nba_api_wrapper import get_player_career_stats
+        from nbagrid_api_app.nba_api_wrapper import get_player_career_stats
         player_stats = get_player_career_stats(
             player_id=self.stats_id, per_mode36="PerGame", league_id_nullable="00"
         )
@@ -315,7 +315,7 @@ class Player(ExportModelOperationsMixin("player"), models.Model):
         Returns:
             A list of actual teammates found
         """
-        from .nba_api_wrapper import get_player_career_stats, get_league_dash_lineups
+        from nbagrid_api_app.nba_api_wrapper import get_player_career_stats, get_league_dash_lineups
         
         # Get the player's career stats to see which teams they played for in each season
         career_data = get_player_career_stats(self.stats_id, per_mode36="PerGame")

@@ -44,6 +44,16 @@ class NBAAPIWrapper:
         self.rate_limit_base_delay = 60.0  # Base delay for rate limit retries
         self.rate_limit_max_delay = 300.0  # Maximum delay for rate limit retries (5 minutes)
         
+        # Timeout configuration for NBA API calls
+        # Use short timeouts to quickly detect throttling and implement retry logic
+        self.request_timeout = 5.0  # Short timeout to quickly detect throttling
+        self.connect_timeout = 5.0  # Short connection timeout
+        
+        # Throttling detection and retry configuration
+        self.throttle_detection_timeout = 5.0  # Timeout to detect throttling
+        self.throttle_retry_delay = 60.0  # Wait 60 seconds when throttling is detected
+        self.max_throttle_retries = 3  # Maximum retries for throttling
+        
         # Cache configuration
         self.default_cache_timeout = 3600 * 10  # 10 hours default
         self.cache_prefix = "nba_api"
@@ -51,6 +61,9 @@ class NBAAPIWrapper:
         # File-based persistent cache configuration
         self.persistent_cache_dir = os.path.join(settings.BASE_DIR, 'nba_api_cache')
         self._ensure_cache_directory()
+        
+        # Configure NBA API timeouts
+        self._configure_nba_api_timeouts()
         
         # Track API calls for monitoring
         self.total_calls = 0
@@ -100,12 +113,36 @@ class NBAAPIWrapper:
         except Exception as e:
             logger.warning(f"Could not create cache directory: {e}")
     
+    def _configure_nba_api_timeouts(self):
+        """Configure NBA API with custom timeouts."""
+        try:
+            import requests
+            import urllib3
+            
+            # Set default timeout for all requests
+            requests.adapters.DEFAULT_TIMEOUT = self.request_timeout
+            
+            # Configure urllib3 to use shorter timeouts for throttling detection
+            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+            
+            # Set up a custom session with short timeouts
+            self._session = requests.Session()
+            self._session.timeout = self.request_timeout
+            
+            logger.debug(f"Configured NBA API timeouts: {self.request_timeout}s (throttling detection)")
+            
+        except Exception as e:
+            logger.warning(f"Could not configure NBA API timeouts: {e}")
+    
     def _get_cache_key(self, endpoint: str, params: Dict[str, Any]) -> str:
         """Generate a cache key for the API call."""
         # Create a deterministic cache key from endpoint and sorted parameters
         sorted_params = sorted(params.items())
         param_str = "&".join(f"{k}={v}" for k, v in sorted_params)
-        return f"{self.cache_prefix}:{endpoint}:{param_str}"
+        # URL-encode the parameter string to make it compatible with memcached
+        import urllib.parse
+        encoded_param_str = urllib.parse.quote(param_str, safe='')
+        return f"{self.cache_prefix}:{endpoint}:{encoded_param_str}"
     
     def _get_file_cache_path(self, cache_key: str) -> str:
         """Generate a safe file path for persistent caching."""
@@ -197,10 +234,17 @@ class NBAAPIWrapper:
         rate_limit_indicators = [
             'rate limit', 'too many requests', '429', 'timeout', 
             'blocked', 'forbidden', 'access denied', 'quota exceeded',
-            'throttled', 'service unavailable', '503'
+            'throttled', 'service unavailable', '503', 'read timed out',
+            'connection timeout', 'read timeout', 'timeout=30'
+        ]
+        
+        # Check for throttling indicators (when API is slow but not explicitly rate limited)
+        throttle_indicators = [
+            'timeout', 'read timed out', 'connection timeout', 'read timeout'
         ]
         
         is_rate_limit = any(indicator in error_str for indicator in rate_limit_indicators)
+        is_throttling = any(indicator in error_str for indicator in throttle_indicators)
         
         if is_rate_limit:
             self.rate_limited_calls += 1
@@ -212,8 +256,18 @@ class NBAAPIWrapper:
                 time.sleep(wait_time)
                 return True  # Retry
         
+        # Check for throttling (timeout errors that might indicate API throttling)
+        elif is_throttling:
+            logger.warning(f"Throttling detected on attempt {attempt + 1}/{max_attempts}: {error}")
+            if attempt < max_attempts - 1:
+                # Use fixed delay for throttling detection
+                wait_time = self.throttle_retry_delay
+                logger.info(f"Throttling detected - waiting {wait_time:.1f} seconds before retry...")
+                time.sleep(wait_time)
+                return True  # Retry
+        
         # Check for other retryable errors
-        elif any(indicator in error_str for indicator in ['timeout', 'connection', 'network', '500', '502', '504']):
+        elif any(indicator in error_str for indicator in ['connection', 'network', '500', '502', '504']):
             logger.warning(f"Network/server error on attempt {attempt + 1}/{max_attempts}: {error}")
             if attempt < max_attempts - 1:
                 wait_time = self._exponential_backoff(attempt, is_rate_limit=False)
@@ -281,6 +335,7 @@ class NBAAPIWrapper:
                 self._set_cached_response(cache_key, response_data, cache_timeout)
                 
                 # Log success
+                self.total_calls += 1
                 self.successful_calls += 1
                 logger.debug(f"API call successful: {api_call.__name__}")
                 
@@ -289,6 +344,16 @@ class NBAAPIWrapper:
             except Exception as error:
                 last_error = error
                 self.failed_calls += 1
+                
+                # Handle specific timeout exceptions
+                if hasattr(error, '__class__') and 'timeout' in str(error.__class__).lower():
+                    logger.warning(f"Timeout error detected: {error}")
+                    # Treat timeout as rate limiting for longer retry delays
+                    if attempt < self.max_retries - 1:
+                        wait_time = self._exponential_backoff(attempt, is_rate_limit=True)
+                        logger.info(f"Timeout error - waiting {wait_time:.1f} seconds before retry...")
+                        time.sleep(wait_time)
+                        continue
                 
                 # Check if we should retry
                 if self._handle_api_error(error, attempt, self.max_retries):
@@ -414,9 +479,86 @@ def get_player_career_stats(player_id: int, **kwargs) -> Dict[str, Any]:
     return nba_api_wrapper.get_stats(PlayerCareerStats, player_id=player_id, **kwargs)
 
 def get_player_awards(player_id: int, **kwargs) -> Dict[str, Any]:
-    """Get player awards with robust error handling."""
+    """Get player awards with robust error handling and throttling detection."""
     from nba_api.stats.endpoints import PlayerAwards
-    return nba_api_wrapper.get_stats(PlayerAwards, player_id=player_id, **kwargs)
+    import json
+    import time
+    
+    # Implement retry logic directly for this function since we need raw JSON
+    last_error = None
+    
+    for attempt in range(nba_api_wrapper.max_retries):
+        try:
+            # Check rate limits before making the call
+            nba_api_wrapper._check_rate_limit()
+            
+            # Enforce minimum delay between calls
+            nba_api_wrapper._enforce_minimum_delay()
+            
+            # Make the API call with short timeout for throttling detection
+            logger.debug(f"Making PlayerAwards API call for player {player_id} (attempt {attempt + 1}/{nba_api_wrapper.max_retries})")
+            endpoint = PlayerAwards(player_id=player_id, timeout=nba_api_wrapper.throttle_detection_timeout, **kwargs)
+            
+            # Get raw JSON response
+            raw_json = endpoint.get_json()
+            parsed = json.loads(raw_json)
+            
+            # Handle the new API format where data is in resultSets[0]['rowSet']
+            if 'resultSets' in parsed and len(parsed['resultSets']) > 0:
+                result_set = parsed['resultSets'][0]
+                headers = result_set.get('headers', [])
+                row_set = result_set.get('rowSet', [])
+                
+                # Convert the row-based format back to the old object-based format
+                awards = []
+                for row in row_set:
+                    award = {}
+                    for i, header in enumerate(headers):
+                        if i < len(row):
+                            award[header] = row[i]
+                    awards.append(award)
+                
+                # Log the result for debugging
+                if len(awards) == 0:
+                    logger.debug(f"Player {player_id} has no awards")
+                else:
+                    logger.debug(f"Player {player_id} has {len(awards)} awards")
+                
+                # Update wrapper stats
+                nba_api_wrapper.total_calls += 1
+                nba_api_wrapper.successful_calls += 1
+                
+                # Return in the old format for compatibility
+                return {'PlayerAwards': awards}
+            
+            # Fallback if no resultSets found
+            logger.debug(f"Player {player_id}: No resultSets found in response")
+            nba_api_wrapper.total_calls += 1
+            nba_api_wrapper.successful_calls += 1
+            return {'PlayerAwards': []}
+            
+        except Exception as error:
+            last_error = error
+            nba_api_wrapper.total_calls += 1
+            nba_api_wrapper.failed_calls += 1
+            
+            # Check if we should retry using the wrapper's error handling
+            if nba_api_wrapper._handle_api_error(error, attempt, nba_api_wrapper.max_retries):
+                continue
+            else:
+                break
+    
+    # If we get here, all retries failed
+    error_msg = str(last_error).lower()
+    
+    # Check if it's a timeout error (throttling detected)
+    if 'timeout' in error_msg or 'read timed out' in error_msg:
+        logger.warning(f"Throttling detected for player {player_id}: {last_error}")
+        # Return empty awards for throttling cases
+        return {'PlayerAwards': []}
+    else:
+        logger.error(f"Error getting player awards for player {player_id}: {last_error}")
+        return {'PlayerAwards': []}
 
 def get_common_player_info(player_id: int, **kwargs) -> Dict[str, Any]:
     """Get common player info with robust error handling."""

@@ -540,23 +540,26 @@ class Command(BaseCommand):
                         reactivated_count += 1
                         logger.info(f"Reactivated inactive player: {teammate.name} (found as teammate of {player.name})")
                 
-                # Check for teammates that don't exist in our database
-                # This requires getting the teammate IDs from the NBA API and checking if they exist
-                teammate_ids = self._get_teammate_ids_from_api(player)
-                for teammate_id in teammate_ids:
+                # Check for current season teammates that don't exist in our database
+                # This requires getting the current season teammate IDs from the NBA API and checking if they exist
+                current_season_teammate_ids = self._get_current_season_teammate_ids_from_api(player)
+                for teammate_id in current_season_teammate_ids:
                     try:
                         # Check if teammate exists in our database
                         existing_teammate = Player.objects.get(stats_id=teammate_id)
-                        # If they exist but are inactive, they would have been handled above
+                        # If they exist but are inactive, reactivate them
                         if not existing_teammate.is_active:
-                            continue
+                            existing_teammate.is_active = True
+                            existing_teammate.save()
+                            reactivated_count += 1
+                            logger.info(f"Reactivated inactive current season teammate: {existing_teammate.name} (found as teammate of {player.name})")
                     except Player.DoesNotExist:
                         # Teammate doesn't exist in our database, create them
                         try:
                             new_teammate = self._create_missing_teammate(teammate_id)
                             if new_teammate:
                                 created_count += 1
-                                logger.info(f"Created missing teammate: {new_teammate.name} (found as teammate of {player.name})")
+                                logger.info(f"Created missing current season teammate: {new_teammate.name} (found as teammate of {player.name})")
                         except Exception as e:
                             logger.warning(f"Failed to create missing teammate with stats_id {teammate_id}: {e}")
                             error_count += 1
@@ -597,8 +600,8 @@ class Command(BaseCommand):
         LastUpdated.update_timestamp('player_teammates', 'update_nba_data command')
 
     def _get_teammate_ids_from_api(self, player):
-        """Get teammate IDs from NBA API for a player."""
-        from .nba_api_wrapper import get_player_career_stats, get_league_dash_lineups
+        """Get teammate IDs from NBA API for a player (all seasons)."""
+        from nbagrid_api_app.nba_api_wrapper import get_player_career_stats, get_league_dash_lineups
         
         teammate_ids = set()
         
@@ -609,7 +612,7 @@ class Command(BaseCommand):
             if 'SeasonTotalsRegularSeason' not in career_data:
                 return teammate_ids
             
-            # Process each season
+            # Process all seasons to get complete teammate history
             for season_data in career_data['SeasonTotalsRegularSeason']:
                 season_id = season_data.get('SEASON_ID', '')
                 team_id = season_data.get('TEAM_ID', '')
@@ -619,16 +622,20 @@ class Command(BaseCommand):
                 if team_id == 0 or games_played == 0:
                     continue
                 
+                logger.debug(f"Processing {player.name} - Season {season_id}, Team {team_id}, Games: {games_played}")
+                
                 try:
-                    # Get team lineups for this season
+                    # Get team lineups for this season (Regular Season only)
                     lineups_data = get_league_dash_lineups(
                         team_id=int(team_id), 
                         season=season_id,
                         group_quantity="5",
-                        per_mode_detailed="PerGame"
+                        per_mode_detailed="PerGame",
+                        season_type_all_star="Regular Season"  # Only regular season games
                     )
                     
                     lineups = lineups_data.get('Lineups', [])
+                    logger.debug(f"Found {len(lineups)} lineups for team {team_id} in {season_id}")
                     
                     # Process each lineup to find teammates
                     for lineup in lineups:
@@ -651,6 +658,7 @@ class Command(BaseCommand):
                                     teammate_id = int(pid)
                                     if teammate_id != player.stats_id:  # Don't include the player themselves
                                         teammate_ids.add(teammate_id)
+                                        logger.debug(f"Found teammate ID: {teammate_id} from season {season_id}")
                                         
                 except Exception as e:
                     logger.warning(f"Error getting lineups for team {team_id} in {season_id}: {e}")
@@ -659,11 +667,85 @@ class Command(BaseCommand):
         except Exception as e:
             logger.warning(f"Error getting teammate IDs for {player.name}: {e}")
             
+        logger.info(f"Found {len(teammate_ids)} total teammates for {player.name}")
+        return teammate_ids
+
+    def _get_current_season_teammate_ids_from_api(self, player):
+        """Get current season teammate IDs from NBA API for a player."""
+        from nbagrid_api_app.nba_api_wrapper import get_player_career_stats, get_league_dash_lineups
+        
+        teammate_ids = set()
+        current_season = "2025-26"  # Current season to find active teammates
+        
+        try:
+            # Get the player's career stats to see which teams they played for in each season
+            career_data = get_player_career_stats(player.stats_id, per_mode36="PerGame")
+            
+            if 'SeasonTotalsRegularSeason' not in career_data:
+                return teammate_ids
+            
+            # Process only the current season
+            for season_data in career_data['SeasonTotalsRegularSeason']:
+                season_id = season_data.get('SEASON_ID', '')
+                team_id = season_data.get('TEAM_ID', '')
+                games_played = season_data.get('GP', 0)
+                
+                # Skip if not current season, total entries, or seasons with no games
+                if season_id != current_season or team_id == 0 or games_played == 0:
+                    continue
+                
+                logger.debug(f"Processing {player.name} - Current season {season_id}, Team {team_id}, Games: {games_played}")
+                
+                try:
+                    # Get team lineups for current season only (Regular Season only)
+                    lineups_data = get_league_dash_lineups(
+                        team_id=int(team_id), 
+                        season=season_id,
+                        group_quantity="5",
+                        per_mode_detailed="PerGame",
+                        season_type_all_star="Regular Season"  # Only regular season games
+                    )
+                    
+                    lineups = lineups_data.get('Lineups', [])
+                    logger.debug(f"Found {len(lineups)} lineups for team {team_id} in {season_id}")
+                    
+                    # Process each lineup to find teammates
+                    for lineup in lineups:
+                        group_id = lineup.get('GROUP_ID', '')
+                        games_played_together = lineup.get('GP', 0)
+                        
+                        # Skip lineups with no games played together
+                        if games_played_together == 0:
+                            continue
+                        
+                        # Parse GROUP_ID to extract player IDs
+                        if group_id and group_id.startswith('-') and group_id.endswith('-'):
+                            # Remove leading and trailing dashes, then split by dash
+                            player_ids_str = group_id[1:-1]
+                            player_ids = player_ids_str.split('-')
+                            
+                            # Convert to integers and filter out invalid IDs
+                            for pid in player_ids:
+                                if pid.isdigit():
+                                    teammate_id = int(pid)
+                                    if teammate_id != player.stats_id:  # Don't include the player themselves
+                                        teammate_ids.add(teammate_id)
+                                        logger.debug(f"Found current season teammate ID: {teammate_id}")
+                                        
+                except Exception as e:
+                    logger.warning(f"Error getting lineups for team {team_id} in {season_id}: {e}")
+                    continue
+                    
+        except Exception as e:
+            logger.warning(f"Error getting current season teammate IDs for {player.name}: {e}")
+            
+        if teammate_ids:
+            logger.info(f"Found {len(teammate_ids)} current season teammates for {player.name}")
         return teammate_ids
 
     def _create_missing_teammate(self, stats_id):
-        """Create a missing teammate player from NBA API data."""
-        from .nba_api_wrapper import get_common_player_info
+        """Create a missing teammate player from NBA API data (current season only)."""
+        from nbagrid_api_app.nba_api_wrapper import get_common_player_info
         from nba_api.stats.static import players as static_players
         
         try:
@@ -676,6 +758,32 @@ class Command(BaseCommand):
                 
             player_data = player_info['CommonPlayerInfo'][0]
             
+            # Additional validation: Check if player is currently active and has a valid team
+            # This is a safety check since we're only processing current season teammates
+            # but we want to be extra sure we don't create inactive players or players without teams
+            from nba_api.stats.static import players as static_players_api
+            
+            try:
+                # Check if player is in the active players list
+                active_players = static_players_api.get_active_players()
+                is_currently_active = any(p['id'] == stats_id for p in active_players)
+                
+                if not is_currently_active:
+                    logger.warning(f"Player with stats_id {stats_id} is not currently active, skipping creation")
+                    return None
+                
+                # Additional check: Verify the player has a valid current team
+                current_team_id = player_data.get('TEAM_ID', 0)
+                current_team_name = player_data.get('TEAM_NAME', '')
+                
+                if current_team_id == 0 or not current_team_name:
+                    logger.warning(f"Player with stats_id {stats_id} has no current team (Team ID: {current_team_id}, Team: {current_team_name}), skipping creation")
+                    return None
+                    
+            except Exception as e:
+                logger.warning(f"Could not verify active status for stats_id {stats_id}: {e}")
+                # Continue with creation but log the warning
+            
             # Create the player
             player, created = Player.objects.get_or_create(
                 stats_id=stats_id,
@@ -683,12 +791,12 @@ class Command(BaseCommand):
                     'name': static_players._strip_accents(player_data.get('DISPLAY_FIRST_LAST', '')),
                     'last_name': static_players._strip_accents(player_data.get('LAST_NAME', '')),
                     'display_name': player_data.get('DISPLAY_FIRST_LAST', ''),
-                    'is_active': True,  # If they're found as a teammate, they should be active
+                    'is_active': True,  # If they're found as a current season teammate, they should be active
                 }
             )
             
             if created:
-                logger.info(f"Created missing teammate: {player.name} (stats_id: {stats_id})")
+                logger.info(f"Created missing current season teammate: {player.name} (stats_id: {stats_id})")
             else:
                 # Player already exists, just make sure they're active
                 if not player.is_active:
