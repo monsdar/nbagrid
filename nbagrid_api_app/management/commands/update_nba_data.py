@@ -19,8 +19,45 @@ from django.db import transaction
 from django.utils import timezone
 
 from nbagrid_api_app.models import Player, Team, LastUpdated
-from nbagrid_api_app.telegram_notifications import NBADataUpdateSummary, send_nba_update_notification
 from nba_api.stats.static import players as static_players, teams as static_teams
+
+# Import telegram notifications conditionally
+try:
+    from nbagrid_api_app.telegram_notifications import NBADataUpdateSummary, send_nba_update_notification
+    TELEGRAM_AVAILABLE = True
+except ImportError:
+    # Create a dummy class if telegram is not available
+    class NBADataUpdateSummary:
+        def __init__(self):
+            self.operations = []
+            self.errors = []
+            self.start_time = None
+            self.end_time = None
+        
+        def set_start_time(self, start_time):
+            self.start_time = start_time
+            
+        def set_end_time(self, end_time):
+            self.end_time = end_time
+            
+        def add_operation(self, name, success_count=0, error_count=0, details=""):
+            self.operations.append({
+                'name': name,
+                'success_count': success_count,
+                'error_count': error_count,
+                'details': details
+            })
+            
+        def add_error(self, error):
+            self.errors.append(error)
+            
+        def generate_telegram_message(self):
+            return "NBA data update completed"
+    
+    def send_nba_update_notification(summary):
+        return False
+    
+    TELEGRAM_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -202,18 +239,26 @@ class Command(BaseCommand):
         
         # Validate Telegram options
         if options['telegram_notify']:
-            # Check if configuration is available (either from env vars or command line)
-            from django.conf import settings
-            bot_token = options.get('telegram_bot_token') or getattr(settings, 'TELEGRAM_BOT_TOKEN', None)
-            chat_id = options.get('telegram_chat_id') or getattr(settings, 'TELEGRAM_CHAT_ID', None)
-            
-            if not bot_token or not chat_id:
+            if not TELEGRAM_AVAILABLE:
                 self.stdout.write(
                     self.style.WARNING(
-                        "Telegram notification requested but TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID not configured. "
+                        "Telegram notification requested but telegram module not available. "
                         "Notification will be skipped."
                     )
                 )
+            else:
+                # Check if configuration is available (either from env vars or command line)
+                from django.conf import settings
+                bot_token = options.get('telegram_bot_token') or getattr(settings, 'TELEGRAM_BOT_TOKEN', None)
+                chat_id = options.get('telegram_chat_id') or getattr(settings, 'TELEGRAM_CHAT_ID', None)
+                
+                if not bot_token or not chat_id:
+                    self.stdout.write(
+                        self.style.WARNING(
+                            "Telegram notification requested but TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID not configured. "
+                            "Notification will be skipped."
+                        )
+                    )
         
         # If no specific options are given, default to --all
         if not any([
@@ -453,19 +498,209 @@ class Command(BaseCommand):
         LastUpdated.update_timestamp('player_awards', 'update_nba_data command')
 
     def _update_player_teammates(self, options):
-        """Update player teammates relationships."""
+        """Update player teammates relationships and check for inactive/missing players."""
         self.stdout.write("Updating player teammates...")
         
         players = self._get_players_to_update(options)
-        self._process_players(
-            players,
-            lambda p: p.populate_teammates(),
-            "player teammates",
-            options
+        
+        # Track teammate-related operations
+        reactivated_count = 0
+        created_count = 0
+        error_count = 0
+        
+        total_players = players.count()
+        self.stdout.write(f"Processing {total_players} players for teammate updates...")
+        
+        if options['dry_run']:
+            self.stdout.write(
+                self.style.WARNING(f"DRY RUN: Would update teammates for {total_players} players")
+            )
+            return
+        
+        for i, player in enumerate(players, 1):
+            try:
+                # Get teammates before updating (to track changes)
+                old_teammates = set(player.teammates.all())
+                
+                # Update teammates using the existing method
+                teammates = player.populate_teammates()
+                
+                # Get new teammates after updating
+                new_teammates = set(player.teammates.all())
+                
+                # Check for teammates that were added
+                added_teammates = new_teammates - old_teammates
+                
+                # Process each new teammate
+                for teammate in added_teammates:
+                    # Check if teammate was inactive and reactivate them
+                    if not teammate.is_active:
+                        teammate.is_active = True
+                        teammate.save()
+                        reactivated_count += 1
+                        logger.info(f"Reactivated inactive player: {teammate.name} (found as teammate of {player.name})")
+                
+                # Check for teammates that don't exist in our database
+                # This requires getting the teammate IDs from the NBA API and checking if they exist
+                teammate_ids = self._get_teammate_ids_from_api(player)
+                for teammate_id in teammate_ids:
+                    try:
+                        # Check if teammate exists in our database
+                        existing_teammate = Player.objects.get(stats_id=teammate_id)
+                        # If they exist but are inactive, they would have been handled above
+                        if not existing_teammate.is_active:
+                            continue
+                    except Player.DoesNotExist:
+                        # Teammate doesn't exist in our database, create them
+                        try:
+                            new_teammate = self._create_missing_teammate(teammate_id)
+                            if new_teammate:
+                                created_count += 1
+                                logger.info(f"Created missing teammate: {new_teammate.name} (found as teammate of {player.name})")
+                        except Exception as e:
+                            logger.warning(f"Failed to create missing teammate with stats_id {teammate_id}: {e}")
+                            error_count += 1
+                
+                # Show progress every 50 players
+                if i % 50 == 0 or i == total_players:
+                    self.stdout.write(f"Progress: {i}/{total_players} players processed...")
+                    
+            except Exception as e:
+                error_count += 1
+                logger.error(f"Failed to update teammates for {player.name}: {e}")
+                
+                if not options['continue_on_error']:
+                    self.stdout.write(
+                        self.style.ERROR(f"Stopping due to error. Use --continue-on-error to continue processing.")
+                    )
+                    raise CommandError(f"Failed to update teammates for {player.name}: {e}")
+        
+        # Report results
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"Completed teammate updates: {total_players} players processed, "
+                f"{reactivated_count} players reactivated, {created_count} new players created, "
+                f"{error_count} errors"
+            )
         )
+        
+        # Track in summary
+        if hasattr(self, 'summary'):
+            self.summary.add_operation(
+                'player_teammates',
+                success_count=total_players - error_count,
+                error_count=error_count,
+                details=f"Processed {total_players} players, reactivated {reactivated_count}, created {created_count}"
+            )
         
         # Update timestamp
         LastUpdated.update_timestamp('player_teammates', 'update_nba_data command')
+
+    def _get_teammate_ids_from_api(self, player):
+        """Get teammate IDs from NBA API for a player."""
+        from .nba_api_wrapper import get_player_career_stats, get_league_dash_lineups
+        
+        teammate_ids = set()
+        
+        try:
+            # Get the player's career stats to see which teams they played for in each season
+            career_data = get_player_career_stats(player.stats_id, per_mode36="PerGame")
+            
+            if 'SeasonTotalsRegularSeason' not in career_data:
+                return teammate_ids
+            
+            # Process each season
+            for season_data in career_data['SeasonTotalsRegularSeason']:
+                season_id = season_data.get('SEASON_ID', '')
+                team_id = season_data.get('TEAM_ID', '')
+                games_played = season_data.get('GP', 0)
+                
+                # Skip total entries and seasons with no games
+                if team_id == 0 or games_played == 0:
+                    continue
+                
+                try:
+                    # Get team lineups for this season
+                    lineups_data = get_league_dash_lineups(
+                        team_id=int(team_id), 
+                        season=season_id,
+                        group_quantity="5",
+                        per_mode_detailed="PerGame"
+                    )
+                    
+                    lineups = lineups_data.get('Lineups', [])
+                    
+                    # Process each lineup to find teammates
+                    for lineup in lineups:
+                        group_id = lineup.get('GROUP_ID', '')
+                        games_played_together = lineup.get('GP', 0)
+                        
+                        # Skip lineups with no games played together
+                        if games_played_together == 0:
+                            continue
+                        
+                        # Parse GROUP_ID to extract player IDs
+                        if group_id and group_id.startswith('-') and group_id.endswith('-'):
+                            # Remove leading and trailing dashes, then split by dash
+                            player_ids_str = group_id[1:-1]
+                            player_ids = player_ids_str.split('-')
+                            
+                            # Convert to integers and filter out invalid IDs
+                            for pid in player_ids:
+                                if pid.isdigit():
+                                    teammate_id = int(pid)
+                                    if teammate_id != player.stats_id:  # Don't include the player themselves
+                                        teammate_ids.add(teammate_id)
+                                        
+                except Exception as e:
+                    logger.warning(f"Error getting lineups for team {team_id} in {season_id}: {e}")
+                    continue
+                    
+        except Exception as e:
+            logger.warning(f"Error getting teammate IDs for {player.name}: {e}")
+            
+        return teammate_ids
+
+    def _create_missing_teammate(self, stats_id):
+        """Create a missing teammate player from NBA API data."""
+        from .nba_api_wrapper import get_common_player_info
+        from nba_api.stats.static import players as static_players
+        
+        try:
+            # Get player info from NBA API
+            player_info = get_common_player_info(stats_id)
+            
+            if not player_info or 'CommonPlayerInfo' not in player_info:
+                logger.warning(f"No player info found for stats_id {stats_id}")
+                return None
+                
+            player_data = player_info['CommonPlayerInfo'][0]
+            
+            # Create the player
+            player, created = Player.objects.get_or_create(
+                stats_id=stats_id,
+                defaults={
+                    'name': static_players._strip_accents(player_data.get('DISPLAY_FIRST_LAST', '')),
+                    'last_name': static_players._strip_accents(player_data.get('LAST_NAME', '')),
+                    'display_name': player_data.get('DISPLAY_FIRST_LAST', ''),
+                    'is_active': True,  # If they're found as a teammate, they should be active
+                }
+            )
+            
+            if created:
+                logger.info(f"Created missing teammate: {player.name} (stats_id: {stats_id})")
+            else:
+                # Player already exists, just make sure they're active
+                if not player.is_active:
+                    player.is_active = True
+                    player.save()
+                    logger.info(f"Reactivated existing player: {player.name} (stats_id: {stats_id})")
+            
+            return player
+            
+        except Exception as e:
+            logger.error(f"Failed to create missing teammate with stats_id {stats_id}: {e}")
+            return None
 
     def _update_player_salaries(self, options):
         """Update player salaries from Spotrac."""
@@ -682,6 +917,10 @@ class Command(BaseCommand):
             return
         
         try:
+            if not TELEGRAM_AVAILABLE:
+                self.stdout.write(self.style.WARNING("Telegram module not available, skipping notification"))
+                return
+                
             # Override Telegram settings if provided via command line
             from nbagrid_api_app.telegram_notifications import TelegramNotifier
             
