@@ -166,6 +166,11 @@ class Command(BaseCommand):
         
         # Utility options
         parser.add_argument(
+            '--current-season-only',
+            action='store_true',
+            help='When used with --teammates or --all, only process current season data (faster, focuses on recent changes)'
+        )
+        parser.add_argument(
             '--dry-run',
             action='store_true',
             help='Show what would be done without making changes'
@@ -283,11 +288,16 @@ class Command(BaseCommand):
             if options['teams']: operations.append("Teams") 
             if options['stats']: operations.append("Player stats")
             if options['awards']: operations.append("Player awards")
-            if options['teammates']: operations.append("Player teammates")
+            teammate_text = "Player teammates"
+            if options.get('current_season_only'):
+                teammate_text += " (current season only)"
+            if options['teammates']: operations.append(teammate_text)
             if options['salaries']: operations.append("Player salaries")
             if options['init_only']: operations.append("Initialize only (no API calls)")
         
         self.stdout.write(f"Operations: {', '.join(operations)}")
+        if options.get('current_season_only'):
+            self.stdout.write(f"Current season only mode: Enabled")
         self.stdout.write(f"Continue on error: {options['continue_on_error']}")
         
         if options['player_ids']:
@@ -334,9 +344,11 @@ class Command(BaseCommand):
             if not options['init_only']:
                 self._update_player_awards(options)
                 
+        # Handle teammates updates
         if options['all'] or options['teammates']:
             if not options['init_only']:
-                self._update_player_teammates(options)
+                current_season_only = options.get('current_season_only', False)
+                self._update_player_teammates(options, current_season_only=current_season_only)
                 
         if options['all'] or options['salaries']:
             if not options['init_only']:
@@ -497,9 +509,17 @@ class Command(BaseCommand):
         # Update timestamp
         LastUpdated.update_timestamp('player_awards', 'update_nba_data command')
 
-    def _update_player_teammates(self, options):
-        """Update player teammates relationships and check for inactive/missing players."""
-        self.stdout.write("Updating player teammates...")
+    def _update_player_teammates(self, options, current_season_only=False):
+        """Update player teammates relationships and check for inactive/missing players.
+        
+        Args:
+            options: Command options dictionary
+            current_season_only: If True, only update teammates for current season (faster)
+        """
+        if current_season_only:
+            self.stdout.write("Updating player teammates for current season only...")
+        else:
+            self.stdout.write("Updating player teammates...")
         
         players = self._get_players_to_update(options)
         
@@ -512,57 +532,98 @@ class Command(BaseCommand):
         self.stdout.write(f"Processing {total_players} players for teammate updates...")
         
         if options['dry_run']:
+            mode_text = "current season only" if current_season_only else "all seasons"
             self.stdout.write(
-                self.style.WARNING(f"DRY RUN: Would update teammates for {total_players} players")
+                self.style.WARNING(f"DRY RUN: Would update teammates ({mode_text}) for {total_players} players")
             )
             return
         
         for i, player in enumerate(players, 1):
             try:
-                # Get teammates before updating (to track changes)
-                old_teammates = set(player.teammates.all())
-                
-                # Update teammates using the existing method
-                teammates = player.populate_teammates()
-                
-                # Get new teammates after updating
-                new_teammates = set(player.teammates.all())
-                
-                # Check for teammates that were added
-                added_teammates = new_teammates - old_teammates
-                
-                # Process each new teammate
-                for teammate in added_teammates:
-                    # Check if teammate was inactive and reactivate them
-                    if not teammate.is_active:
-                        teammate.is_active = True
-                        teammate.save()
-                        reactivated_count += 1
-                        logger.info(f"Reactivated inactive player: {teammate.name} (found as teammate of {player.name})")
-                
-                # Check for current season teammates that don't exist in our database
-                # This requires getting the current season teammate IDs from the NBA API and checking if they exist
-                current_season_teammate_ids = self._get_current_season_teammate_ids_from_api(player)
-                for teammate_id in current_season_teammate_ids:
-                    try:
-                        # Check if teammate exists in our database
-                        existing_teammate = Player.objects.get(stats_id=teammate_id)
-                        # If they exist but are inactive, reactivate them
-                        if not existing_teammate.is_active:
-                            existing_teammate.is_active = True
-                            existing_teammate.save()
-                            reactivated_count += 1
-                            logger.info(f"Reactivated inactive current season teammate: {existing_teammate.name} (found as teammate of {player.name})")
-                    except Player.DoesNotExist:
-                        # Teammate doesn't exist in our database, create them
+                if current_season_only:
+                    # Current season only mode: Get teammates from current season API data
+                    current_season_teammate_ids = self._get_current_season_teammate_ids_from_api(player)
+                    
+                    # Get existing teammates before updating
+                    old_teammates = set(player.teammates.all())
+                    current_season_teammates = set()
+                    
+                    # Process each current season teammate ID
+                    for teammate_id in current_season_teammate_ids:
                         try:
-                            new_teammate = self._create_missing_teammate(teammate_id)
-                            if new_teammate:
-                                created_count += 1
-                                logger.info(f"Created missing current season teammate: {new_teammate.name} (found as teammate of {player.name})")
-                        except Exception as e:
-                            logger.warning(f"Failed to create missing teammate with stats_id {teammate_id}: {e}")
-                            error_count += 1
+                            # Check if teammate exists in our database
+                            existing_teammate = Player.objects.get(stats_id=teammate_id)
+                            current_season_teammates.add(existing_teammate)
+                            
+                            # If they exist but are inactive, reactivate them
+                            if not existing_teammate.is_active:
+                                existing_teammate.is_active = True
+                                existing_teammate.save()
+                                reactivated_count += 1
+                                logger.info(f"Reactivated inactive current season teammate: {existing_teammate.name} (found as teammate of {player.name})")
+                        except Player.DoesNotExist:
+                            # Teammate doesn't exist in our database, create them
+                            try:
+                                new_teammate = self._create_missing_teammate(teammate_id)
+                                if new_teammate:
+                                    current_season_teammates.add(new_teammate)
+                                    created_count += 1
+                                    logger.info(f"Created missing current season teammate: {new_teammate.name} (found as teammate of {player.name})")
+                            except Exception as e:
+                                logger.warning(f"Failed to create missing teammate with stats_id {teammate_id}: {e}")
+                                error_count += 1
+                    
+                    # Update teammates relationship: add current season teammates to existing ones
+                    # We don't remove old teammates, just add new current season ones
+                    if current_season_teammates:
+                        player.teammates.add(*current_season_teammates)
+                        logger.debug(f"Added {len(current_season_teammates)} current season teammates for {player.name}")
+                else:
+                    # Full history mode: Use existing populate_teammates method
+                    # Get teammates before updating (to track changes)
+                    old_teammates = set(player.teammates.all())
+                    
+                    # Update teammates using the existing method (processes all seasons)
+                    teammates = player.populate_teammates()
+                    
+                    # Get new teammates after updating
+                    new_teammates = set(player.teammates.all())
+                    
+                    # Check for teammates that were added
+                    added_teammates = new_teammates - old_teammates
+                    
+                    # Process each new teammate
+                    for teammate in added_teammates:
+                        # Check if teammate was inactive and reactivate them
+                        if not teammate.is_active:
+                            teammate.is_active = True
+                            teammate.save()
+                            reactivated_count += 1
+                            logger.info(f"Reactivated inactive player: {teammate.name} (found as teammate of {player.name})")
+                    
+                    # Check for current season teammates that don't exist in our database
+                    # This requires getting the current season teammate IDs from the NBA API and checking if they exist
+                    current_season_teammate_ids = self._get_current_season_teammate_ids_from_api(player)
+                    for teammate_id in current_season_teammate_ids:
+                        try:
+                            # Check if teammate exists in our database
+                            existing_teammate = Player.objects.get(stats_id=teammate_id)
+                            # If they exist but are inactive, reactivate them
+                            if not existing_teammate.is_active:
+                                existing_teammate.is_active = True
+                                existing_teammate.save()
+                                reactivated_count += 1
+                                logger.info(f"Reactivated inactive current season teammate: {existing_teammate.name} (found as teammate of {player.name})")
+                        except Player.DoesNotExist:
+                            # Teammate doesn't exist in our database, create them
+                            try:
+                                new_teammate = self._create_missing_teammate(teammate_id)
+                                if new_teammate:
+                                    created_count += 1
+                                    logger.info(f"Created missing current season teammate: {new_teammate.name} (found as teammate of {player.name})")
+                            except Exception as e:
+                                logger.warning(f"Failed to create missing teammate with stats_id {teammate_id}: {e}")
+                                error_count += 1
                 
                 # Show progress every 50 players
                 if i % 50 == 0 or i == total_players:
@@ -579,9 +640,10 @@ class Command(BaseCommand):
                     raise CommandError(f"Failed to update teammates for {player.name}: {e}")
         
         # Report results
+        mode_text = " (current season only)" if current_season_only else ""
         self.stdout.write(
             self.style.SUCCESS(
-                f"Completed teammate updates: {total_players} players processed, "
+                f"Completed teammate updates{mode_text}: {total_players} players processed, "
                 f"{reactivated_count} players reactivated, {created_count} new players created, "
                 f"{error_count} errors"
             )
@@ -589,11 +651,15 @@ class Command(BaseCommand):
         
         # Track in summary
         if hasattr(self, 'summary'):
+            operation_name = 'player_teammates_current_season' if current_season_only else 'player_teammates'
+            details = f"Processed {total_players} players, reactivated {reactivated_count}, created {created_count}"
+            if current_season_only:
+                details += " (current season only)"
             self.summary.add_operation(
-                'player_teammates',
+                operation_name,
                 success_count=total_players - error_count,
                 error_count=error_count,
-                details=f"Processed {total_players} players, reactivated {reactivated_count}, created {created_count}"
+                details=details
             )
         
         # Update timestamp

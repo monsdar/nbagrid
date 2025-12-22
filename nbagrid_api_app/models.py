@@ -219,10 +219,12 @@ class Player(ExportModelOperationsMixin("player"), models.Model):
         player_stats = get_player_career_stats(
             player_id=self.stats_id, per_mode36="PerGame", league_id_nullable="00"
         )
+        teams = Team.objects.all()
         for season in player_stats["SeasonTotalsRegularSeason"]:
             season_team_id = season["TEAM_ID"]
-            if Team.objects.filter(stats_id=season_team_id).exists():
-                self.teams.add(Team.objects.get(stats_id=season_team_id))
+            curr_team = teams.filter(stats_id=season_team_id).first()   
+            if curr_team:
+                self.teams.add(curr_team)
 
         if player_stats["CareerTotalsRegularSeason"]:
             career_totals = player_stats["CareerTotalsRegularSeason"][0]

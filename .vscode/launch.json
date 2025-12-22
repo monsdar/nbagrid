@@ -47,6 +47,7 @@
             "args": [
                 "update_nba_data",
                 "--all",
+                "--current-season-only",
                 //"--players",
                 //"--awards",
                 "--telegram-notify",

@@ -55,7 +55,7 @@ class NBAAPIWrapper:
         self.max_throttle_retries = 3  # Maximum retries for throttling
         
         # Cache configuration
-        self.default_cache_timeout = 3600 * 10  # 10 hours default
+        self.default_cache_timeout = 3600 * 24 * 3  # 3 days default
         self.cache_prefix = "nba_api"
         
         # File-based persistent cache configuration
@@ -156,7 +156,7 @@ class NBAAPIWrapper:
         try:
             cached = cache.get(cache_key)
             if cached:
-                logger.debug(f"Django cache hit for {cache_key}")
+                logger.info(f"Cache hit (Django): {cache_key[:100]}...")  # Log first 100 chars of key
                 return cached
         except Exception as e:
             logger.warning(f"Django cache error: {e}")
@@ -170,7 +170,7 @@ class NBAAPIWrapper:
                 if file_age < self.default_cache_timeout:
                     with open(file_path, 'r', encoding='utf-8') as f:
                         cached_data = json.load(f)['data']
-                        logger.debug(f"File cache hit for {cache_key}")
+                        logger.info(f"Cache hit (file): {cache_key[:100]}...")  # Log first 100 chars of key
                         # Also update Django cache for faster future access
                         try:
                             cache.set(cache_key, cached_data, self.default_cache_timeout)
@@ -308,7 +308,10 @@ class NBAAPIWrapper:
         if not force_refresh:
             cached_response = self._get_cached_response(cache_key)
             if cached_response:
+                logger.debug(f"Returning cached response for {api_call.__name__}")
                 return cached_response
+            else:
+                logger.debug(f"Cache miss for {api_call.__name__}, making API call...")
         
         # Make API call with retries
         last_error = None
@@ -326,10 +329,56 @@ class NBAAPIWrapper:
                 response = api_call(**kwargs)
                 
                 # Convert to normalized dict if it's an NBA API response object
-                if hasattr(response, 'get_normalized_dict'):
-                    response_data = response.get_normalized_dict()
-                else:
-                    response_data = response
+                try:
+                    if hasattr(response, 'get_normalized_dict'):
+                        response_data = response.get_normalized_dict()
+                    else:
+                        response_data = response
+                    
+                    # Validate that we got actual data
+                    if not response_data:
+                        raise ValueError(f"Empty response from {api_call.__name__}")
+                    
+                except (ValueError, TypeError, AttributeError, json.JSONDecodeError) as parse_error:
+                    # Try to get more information about the error
+                    error_details = str(parse_error)
+                    error_type = type(parse_error).__name__
+                    
+                    # Try to inspect the raw response if possible
+                    raw_response_info = None
+                    if hasattr(response, 'get_json'):
+                        try:
+                            raw_json = response.get_json()
+                            raw_response_info = raw_json[:500] if raw_json else 'EMPTY'
+                        except Exception as e:
+                            raw_response_info = f"Could not get JSON: {e}"
+                    elif hasattr(response, 'response'):
+                        try:
+                            if hasattr(response.response, 'text'):
+                                raw_response_info = response.response.text[:500] if response.response.text else 'EMPTY'
+                            else:
+                                raw_response_info = str(response.response)[:500]
+                        except Exception as e:
+                            raw_response_info = f"Could not get response text: {e}"
+                    elif hasattr(response, 'get_dict'):
+                        try:
+                            raw_response_info = str(response.get_dict())[:500]
+                        except:
+                            pass
+                    
+                    if raw_response_info:
+                        logger.warning(f"Raw response from {api_call.__name__} with params {kwargs}: {raw_response_info}")
+                    
+                    # Check if it's a JSON parsing error (empty response)
+                    if 'Expecting value' in error_details or 'JSONDecodeError' in error_type or 'JSON' in error_type:
+                        logger.error(
+                            f"JSON parsing error for {api_call.__name__} with params {kwargs}: {error_details}. "
+                            f"This may indicate the endpoint changed, parameters are invalid, or the API returned an empty response."
+                        )
+                        # Re-raise with more context
+                        raise ValueError(f"Empty or invalid JSON response from {api_call.__name__}: {error_details}")
+                    else:
+                        raise
                 
                 # Cache successful response
                 self._set_cached_response(cache_key, response_data, cache_timeout)
@@ -397,9 +446,16 @@ class NBAAPIWrapper:
         Returns:
             API response data
         """
+        # Use endpoint class name for better cache key uniqueness
+        endpoint_name = endpoint_class.__name__ if hasattr(endpoint_class, '__name__') else str(endpoint_class)
+        
         def api_call(**call_kwargs):
             endpoint = endpoint_class(**call_kwargs)
             return endpoint
+        
+        # Override the cache key generation to use endpoint class name
+        # We'll pass it through a custom wrapper that has the right name
+        api_call.__name__ = endpoint_name
         
         return self.call_api(api_call, cache_timeout, force_refresh, **kwargs)
     
@@ -479,10 +535,19 @@ def get_player_career_stats(player_id: int, **kwargs) -> Dict[str, Any]:
     return nba_api_wrapper.get_stats(PlayerCareerStats, player_id=player_id, **kwargs)
 
 def get_player_awards(player_id: int, **kwargs) -> Dict[str, Any]:
-    """Get player awards with robust error handling and throttling detection."""
+    """Get player awards with robust error handling, throttling detection, and caching."""
     from nba_api.stats.endpoints import PlayerAwards
     import json
     import time
+    
+    # Generate cache key for this API call
+    cache_key = nba_api_wrapper._get_cache_key('get_player_awards', {'player_id': player_id, **kwargs})
+    
+    # Check cache first
+    cached_response = nba_api_wrapper._get_cached_response(cache_key)
+    if cached_response:
+        logger.debug(f"Cache hit for player awards (player_id: {player_id})")
+        return cached_response
     
     # Implement retry logic directly for this function since we need raw JSON
     last_error = None
@@ -528,14 +593,26 @@ def get_player_awards(player_id: int, **kwargs) -> Dict[str, Any]:
                 nba_api_wrapper.total_calls += 1
                 nba_api_wrapper.successful_calls += 1
                 
-                # Return in the old format for compatibility
-                return {'PlayerAwards': awards}
+                # Prepare response in the old format for compatibility
+                response = {'PlayerAwards': awards}
+                
+                # Cache the successful response
+                nba_api_wrapper._set_cached_response(cache_key, response)
+                
+                return response
             
             # Fallback if no resultSets found
             logger.debug(f"Player {player_id}: No resultSets found in response")
             nba_api_wrapper.total_calls += 1
             nba_api_wrapper.successful_calls += 1
-            return {'PlayerAwards': []}
+            
+            # Prepare empty response
+            response = {'PlayerAwards': []}
+            
+            # Cache the empty response as well (to avoid repeated API calls for players with no awards)
+            nba_api_wrapper._set_cached_response(cache_key, response)
+            
+            return response
             
         except Exception as error:
             last_error = error
@@ -558,6 +635,13 @@ def get_player_awards(player_id: int, **kwargs) -> Dict[str, Any]:
         return {'PlayerAwards': []}
     else:
         logger.error(f"Error getting player awards for player {player_id}: {last_error}")
+        
+        # Try to return cached data as fallback even if expired
+        cached_response = nba_api_wrapper._get_cached_response(cache_key)
+        if cached_response:
+            logger.warning(f"Returning cached data as fallback for player {player_id}")
+            return cached_response
+        
         return {'PlayerAwards': []}
 
 def get_common_player_info(player_id: int, **kwargs) -> Dict[str, Any]:
@@ -578,6 +662,11 @@ def get_team_dash_lineups(team_id: int, season: str, **kwargs) -> Dict[str, Any]
 def get_league_dash_lineups(team_id: int, season: str, **kwargs) -> Dict[str, Any]:
     """Get league dash lineups with robust error handling. Returns more lineups than team dash lineups."""
     from nba_api.stats.endpoints import LeagueDashLineups
+    
+    # Explicitly set league_id_nullable if not provided (required by some NBA API versions)
+    if 'league_id_nullable' not in kwargs:
+        kwargs['league_id_nullable'] = '00'  # Default to NBA
+    
     return nba_api_wrapper.get_stats(LeagueDashLineups, team_id_nullable=team_id, season=season, **kwargs)
 
 def clear_nba_api_cache():
