@@ -69,6 +69,11 @@ class GameViewTests(TestCase):
             self.mock_static_filters,
             self.mock_dynamic_filters,
         )
+        # Mock get_filters_from_db to return the filters directly
+        self.mock_game_builder.return_value.get_filters_from_db.return_value = (
+            self.mock_static_filters,
+            self.mock_dynamic_filters,
+        )
 
         # Setup datetime mock
         self.datetime_patcher = patch("nbagrid_api_app.views.datetime")

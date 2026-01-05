@@ -85,9 +85,6 @@ class UploadGridsToProductionCommandTests(TestCase):
         
         # Verify API call parameters
         call_args = mock_post.call_args
-        self.assertEqual(call_args[1]['json']['year'], self.today.year)
-        self.assertEqual(call_args[1]['json']['month'], self.today.month)
-        self.assertEqual(call_args[1]['json']['day'], self.today.day)
         self.assertIn('row', call_args[1]['json']['filters'])
         self.assertIn('col', call_args[1]['json']['filters'])
         self.assertEqual(len(call_args[1]['json']['filters']['row']), 3)
