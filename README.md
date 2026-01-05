@@ -146,6 +146,24 @@ This command:
 - If a grid already exists, exits without making changes
 - Logs success or failure for monitoring
 
+#### Generate for Next Missing Date
+
+To generate a grid for the next date that doesn't have one (useful for batch generation):
+
+```bash
+python manage.py generate_tomorrow_grid --next-missing
+```
+
+This finds the first date (starting from tomorrow) without a grid and generates one for that date. It automatically:
+- Uses all existing grids before that date to calculate filter weights
+- Ensures variety by making recently used filters less likely to be selected
+- Reports how many historical grids were used for weight calculation
+
+This is particularly useful when:
+- Pre-generating multiple days' worth of grids
+- Filling in gaps from failed previous generations
+- Batch generating grids for testing or deployment
+
 ### Setting Up Automated Grid Generation
 
 For production environments, set up a cron job to run this command nightly. This ensures grids are ready before users need them.
@@ -157,6 +175,9 @@ Add to your crontab (`crontab -e`):
 ```bash
 # Generate tomorrow's grid at midnight every day
 0 0 * * * cd /path/to/nbagrid_api && /path/to/venv/bin/python manage.py generate_tomorrow_grid >> /var/log/nbagrid_cron.log 2>&1
+
+# Or use --next-missing to automatically fill any gaps
+0 0 * * * cd /path/to/nbagrid_api && /path/to/venv/bin/python manage.py generate_tomorrow_grid --next-missing >> /var/log/nbagrid_cron.log 2>&1
 ```
 
 #### Windows Task Scheduler
@@ -166,8 +187,21 @@ Add to your crontab (`crontab -e`):
 3. Set trigger to "Daily" at midnight
 4. Action: "Start a program"
 5. Program: `C:\path\to\python.exe`
-6. Arguments: `manage.py generate_tomorrow_grid`
+6. Arguments: `manage.py generate_tomorrow_grid` (or add `--next-missing` to fill gaps)
 7. Start in: `E:\Projects\nbagrid\nbagrid_api`
+
+#### Batch Generation for Multiple Days
+
+To pre-generate grids for multiple days ahead:
+
+```bash
+# Generate up to 7 days ahead (run multiple times)
+for i in {1..7}; do
+  python manage.py generate_tomorrow_grid --next-missing
+done
+```
+
+Each run will find and fill the next missing date, using all previous grids to ensure variety.
 
 ### Fallback Behavior
 

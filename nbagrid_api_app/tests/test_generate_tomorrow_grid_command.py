@@ -193,3 +193,90 @@ class GenerateTomorrowGridCommandTests(TestCase):
             self.assertIn("Static filters:", output)
             self.assertIn("Dynamic filters:", output)
 
+    def test_command_next_missing_finds_first_gap(self):
+        """Test that --next-missing finds the first date without a grid."""
+        # Create grids for tomorrow and day after tomorrow
+        tomorrow = datetime.now().date() + timedelta(days=1)
+        day_after = tomorrow + timedelta(days=1)
+        day_after_that = day_after + timedelta(days=1)
+        
+        # Create grids for tomorrow and day after tomorrow (skipping day_after_that)
+        GameFilterDB.objects.create(
+            date=tomorrow,
+            filter_type="static",
+            filter_class="TeamFilter",
+            filter_config={"team_abbreviation": "LAL"},
+            filter_index=0,
+        )
+        GameFilterDB.objects.create(
+            date=day_after,
+            filter_type="static",
+            filter_class="TeamFilter",
+            filter_config={"team_abbreviation": "BOS"},
+            filter_index=0,
+        )
+        
+        with patch('nbagrid_api_app.management.commands.generate_tomorrow_grid.GameBuilder') as mock_builder_class:
+            mock_static = [MockFilter("GSW")]
+            mock_dynamic = [MockFilter("MIA")]
+            
+            mock_builder = MagicMock()
+            mock_builder.get_tuned_filters.return_value = (mock_static, mock_dynamic)
+            mock_builder_class.return_value = mock_builder
+            
+            out = StringIO()
+            call_command('generate_tomorrow_grid', '--next-missing', stdout=out)
+            
+            output = out.getvalue()
+            # Should find and generate for day_after_that
+            self.assertIn(str(day_after_that), output)
+            self.assertIn("Found next missing date", output)
+            self.assertIn("Successfully generated grid", output)
+
+    def test_command_next_missing_with_no_gaps(self):
+        """Test that --next-missing handles case where all dates have grids."""
+        # Create grids for many days ahead
+        for i in range(1, 366):  # Fill 365 days
+            future_date = datetime.now().date() + timedelta(days=i)
+            GameFilterDB.objects.create(
+                date=future_date,
+                filter_type="static",
+                filter_class="TeamFilter",
+                filter_config={"team_abbreviation": "LAL"},
+                filter_index=0,
+            )
+        
+        out = StringIO()
+        call_command('generate_tomorrow_grid', '--next-missing', stdout=out)
+        
+        output = out.getvalue()
+        self.assertIn("All dates up to 365 days ahead already have grids", output)
+
+    def test_command_next_missing_uses_historical_weights(self):
+        """Test that --next-missing reports using historical grids for weights."""
+        # Create a grid for yesterday to provide historical context
+        yesterday = datetime.now().date() - timedelta(days=1)
+        GameFilterDB.objects.create(
+            date=yesterday,
+            filter_type="static",
+            filter_class="TeamFilter",
+            filter_config={"team_abbreviation": "LAL"},
+            filter_index=0,
+        )
+        
+        with patch('nbagrid_api_app.management.commands.generate_tomorrow_grid.GameBuilder') as mock_builder_class:
+            mock_static = [MockFilter("GSW")]
+            mock_dynamic = [MockFilter("MIA")]
+            
+            mock_builder = MagicMock()
+            mock_builder.get_tuned_filters.return_value = (mock_static, mock_dynamic)
+            mock_builder_class.return_value = mock_builder
+            
+            out = StringIO()
+            call_command('generate_tomorrow_grid', '--next-missing', stdout=out)
+            
+            output = out.getvalue()
+            # Should mention using existing grids for weights
+            self.assertIn("existing grid", output.lower())
+            self.assertIn("calculate filter weights", output.lower())
+
