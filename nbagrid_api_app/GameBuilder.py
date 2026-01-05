@@ -130,6 +130,13 @@ class GameBuilder(object):
             filter_class = filter_obj.__class__.__name__
             if filter_class in self.high_priority_filters:
                 weights[filter_type_desc] = self.high_priority_filters[filter_class]
+            
+            # Apply fun factor: higher fun_factor = lower weight = more likely to be selected
+            # fun_factor of 2.0 halves the weight (making it twice as likely)
+            # fun_factor of 0.5 doubles the weight (making it half as likely)
+            fun_factor = filter_obj.get_fun_factor()
+            if fun_factor > 0:
+                weights[filter_type_desc] = weights[filter_type_desc] / fun_factor
 
         return weights
 
@@ -227,23 +234,47 @@ class GameBuilder(object):
                 return (static_filters, dynamic_filters)
         return (None, None)
 
+    def _get_serializable_config(self, filter_obj):
+        """Convert filter configuration to a JSON-serializable format.
+        
+        Handles special cases where filter attributes contain non-serializable objects
+        (like Django model instances) and converts them to serializable representations.
+        
+        Args:
+            filter_obj: A GameFilter instance
+            
+        Returns:
+            A dictionary that can be safely serialized to JSON
+        """
+        config = filter_obj.__dict__.copy()
+        
+        # Handle PlayedWithPlayerFilter which contains a Player object
+        if filter_obj.__class__.__name__ == "PlayedWithPlayerFilter":
+            if "target_player" in config:
+                # Convert Player object to player name
+                config["target_player"] = config["target_player"].name
+        
+        return config
+
     @trace_operation("GameBuilder.store_filters_in_db")
     def store_filters_in_db(self, requested_date, static_filters, dynamic_filters):
         # Save filters to database
         for idx, filter_obj in enumerate(static_filters):
+            filter_config = self._get_serializable_config(filter_obj)
             GameFilterDB.objects.create(
                 date=requested_date,
                 filter_type="static",
                 filter_class=filter_obj.__class__.__name__,
-                filter_config=filter_obj.__dict__,
+                filter_config=filter_config,
                 filter_index=idx,
             )
         for idx, filter_obj in enumerate(dynamic_filters):
+            filter_config = self._get_serializable_config(filter_obj)
             GameFilterDB.objects.create(
                 date=requested_date,
                 filter_type="dynamic",
                 filter_class=filter_obj.__class__.__name__,
-                filter_config=filter_obj.__dict__,
+                filter_config=filter_config,
                 filter_index=idx,
             )
         # Create/update the GameGrid for this date

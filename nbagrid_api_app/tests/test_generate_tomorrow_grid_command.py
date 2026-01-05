@@ -252,9 +252,9 @@ class GenerateTomorrowGridCommandTests(TestCase):
         output = out.getvalue()
         self.assertIn("All dates up to 365 days ahead already have grids", output)
 
-    def test_command_next_missing_uses_historical_weights(self):
-        """Test that --next-missing reports using historical grids for weights."""
-        # Create a grid for yesterday to provide historical context
+    def test_command_next_missing_uses_recent_weights(self):
+        """Test that --next-missing reports using recent grids (last 7 days) for weights."""
+        # Create a grid for yesterday to provide recent context
         yesterday = datetime.now().date() - timedelta(days=1)
         GameFilterDB.objects.create(
             date=yesterday,
@@ -276,7 +276,27 @@ class GenerateTomorrowGridCommandTests(TestCase):
             call_command('generate_tomorrow_grid', '--next-missing', stdout=out)
             
             output = out.getvalue()
-            # Should mention using existing grids for weights
-            self.assertIn("existing grid", output.lower())
-            self.assertIn("calculate filter weights", output.lower())
+            # Should mention using recent grids (last 7 days) for variety
+            self.assertIn("last 7 days", output.lower())
+            self.assertIn("ensure variety", output.lower())
+    
+    def test_command_next_missing_no_recent_grids(self):
+        """Test that --next-missing handles case with no recent grids."""
+        # Don't create any recent grids - simulate first week of generation
+        
+        with patch('nbagrid_api_app.management.commands.generate_tomorrow_grid.GameBuilder') as mock_builder_class:
+            mock_static = [MockFilter("GSW")]
+            mock_dynamic = [MockFilter("MIA")]
+            
+            mock_builder = MagicMock()
+            mock_builder.get_tuned_filters.return_value = (mock_static, mock_dynamic)
+            mock_builder_class.return_value = mock_builder
+            
+            out = StringIO()
+            call_command('generate_tomorrow_grid', '--next-missing', stdout=out)
+            
+            output = out.getvalue()
+            # Should mention no recent grids found
+            self.assertIn("no recent grids", output.lower())
+            self.assertIn("without weight adjustments", output.lower())
 

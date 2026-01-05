@@ -679,3 +679,93 @@ class LastNameFilterTest(TestCase):
         # Should include players with last names starting with 'D'
         d_players = filtered_players.filter(last_name="Durant")
         self.assertEqual(d_players.count(), 1)
+
+
+class FunFactorTest(TestCase):
+    def test_default_fun_factor(self):
+        """Test that filters have a default fun factor of 1.0."""
+        # Test various filters to ensure they have the default fun factor if not overridden
+        position_filter = PositionFilter(seed=0)
+        all_nba_filter = AllNbaFilter()
+        all_defensive_filter = AllDefensiveFilter()
+        all_rookie_filter = AllRookieFilter()
+        nba_champ_filter = NbaChampFilter()
+        all_star_filter = AllStarFilter()
+        top10_draft_filter = Top10DraftpickFilter()
+        
+        # These should have default fun factor of 1.0
+        self.assertEqual(position_filter.get_fun_factor(), 1.0)
+        self.assertEqual(all_nba_filter.get_fun_factor(), 1.0)
+        self.assertEqual(all_defensive_filter.get_fun_factor(), 1.0)
+        self.assertEqual(all_rookie_filter.get_fun_factor(), 1.0)
+        self.assertEqual(nba_champ_filter.get_fun_factor(), 1.0)
+        self.assertEqual(all_star_filter.get_fun_factor(), 1.0)
+        self.assertEqual(top10_draft_filter.get_fun_factor(), 1.0)
+
+    def test_custom_fun_factors(self):
+        """Test that filters with custom fun factors return the expected values."""
+        # Create test teams and players for filters that need them
+        Team.objects.create(stats_id=1, name="Team 1", abbr="T1")
+        for i in range(15):
+            Player.active.create(
+                stats_id=i, 
+                name=f"Test Player {i}", 
+                last_name=f"Player{i}",
+                is_award_all_star=True
+            )
+        
+        # Test filters with custom fun factors
+        team_filter = TeamFilter(seed=0)
+        lastname_filter = LastNameFilter(seed=0)
+        from nbagrid_api_app.GameFilter import PlayedWithPlayerFilter
+        played_with_filter = PlayedWithPlayerFilter(seed=0)
+        
+        # These should have custom fun factors (values set in GameFilter.py)
+        self.assertEqual(team_filter.get_fun_factor(), 2.5)  # More fun
+        self.assertEqual(lastname_filter.get_fun_factor(), 2.0)  # More fun
+        self.assertEqual(played_with_filter.get_fun_factor(), 3.0)  # Very fun
+
+    def test_dynamic_filter_default_fun_factor(self):
+        """Test that DynamicGameFilter has default fun factor of 1.0."""
+        ppg_filter = DynamicGameFilter(
+            {
+                "field": "career_ppg",
+                "description": "Career points per game:",
+                "initial_min_value": 10,
+                "initial_max_value": 30,
+                "initial_value_step": 2,
+                "widen_step": 2,
+                "narrow_step": 2,
+            }
+        )
+        
+        self.assertEqual(ppg_filter.get_fun_factor(), 1.0)
+
+    def test_fun_factor_positive_values(self):
+        """Test that fun factors are positive numbers."""
+        from nbagrid_api_app.GameFilter import get_static_filters, get_dynamic_filters
+        
+        # Create a test team for filters that need it
+        Team.objects.create(stats_id=1, name="Test Team", abbr="TT")
+        
+        # Create some test players for filters that need it
+        for i in range(15):
+            Player.active.create(
+                stats_id=i, 
+                name=f"Test Player {i}", 
+                last_name=f"Player{i}",
+                is_award_all_star=True
+            )
+        
+        # Get all static and dynamic filters
+        static_filters = get_static_filters(seed=0)
+        dynamic_filters = get_dynamic_filters(seed=0)
+        
+        # Check that all fun factors are positive
+        for filter_obj in static_filters:
+            fun_factor = filter_obj.get_fun_factor()
+            self.assertGreater(fun_factor, 0, f"{filter_obj.__class__.__name__} has non-positive fun factor: {fun_factor}")
+        
+        for filter_obj in dynamic_filters:
+            fun_factor = filter_obj.get_fun_factor()
+            self.assertGreater(fun_factor, 0, f"{filter_obj.__class__.__name__} has non-positive fun factor: {fun_factor}")

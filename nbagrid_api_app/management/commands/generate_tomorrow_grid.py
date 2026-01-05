@@ -64,14 +64,23 @@ class Command(BaseCommand):
         
         self.stdout.write(f"No grid found for {target_date}. Generating new grid...")
         
-        # Get count of existing grids before this date for reporting
-        existing_grids_count = GameFilterDB.objects.filter(
+        # Get count of existing grids from the last 7 days for reporting
+        # (This matches the default lookback window in GameBuilder.get_filter_weights)
+        lookback_days = 7
+        cutoff_date = target_date - timedelta(days=lookback_days)
+        recent_grids_count = GameFilterDB.objects.filter(
+            date__gte=cutoff_date,
             date__lt=target_date
         ).values('date').distinct().count()
         
-        self.stdout.write(
-            f"Using {existing_grids_count} existing grid(s) before {target_date} to calculate filter weights..."
-        )
+        if recent_grids_count > 0:
+            self.stdout.write(
+                f"Using {recent_grids_count} grid(s) from the last {lookback_days} days to ensure variety..."
+            )
+        else:
+            self.stdout.write(
+                f"No recent grids found in the last {lookback_days} days - generating without weight adjustments..."
+            )
         
         try:
             # Create GameBuilder with target date timestamp as seed for consistency

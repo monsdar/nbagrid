@@ -155,9 +155,9 @@ python manage.py generate_tomorrow_grid --next-missing
 ```
 
 This finds the first date (starting from tomorrow) without a grid and generates one for that date. It automatically:
-- Uses all existing grids before that date to calculate filter weights
+- Uses grids from the last 7 days to calculate filter weights
 - Ensures variety by making recently used filters less likely to be selected
-- Reports how many historical grids were used for weight calculation
+- Reports how many recent grids were used for weight calculation
 
 This is particularly useful when:
 - Pre-generating multiple days' worth of grids
@@ -201,7 +201,7 @@ for i in {1..7}; do
 done
 ```
 
-Each run will find and fill the next missing date, using all previous grids to ensure variety.
+Each run will find and fill the next missing date, using grids from the last 7 days to ensure variety.
 
 ### Fallback Behavior
 
