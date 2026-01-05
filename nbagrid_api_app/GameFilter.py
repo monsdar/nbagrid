@@ -632,7 +632,7 @@ def get_dynamic_filters(seed: int = 0) -> list[DynamicGameFilter]:
                 "field": "base_salary",
                 "description": "Salary 24/25 more than",
                 "stats_desc": "Salary 24/25:",
-                "initial_min_value": 20000000,
+                "initial_min_value": 15000000,
                 "initial_max_value": 40000000,
                 "initial_value_step": 5000000,
                 "widen_step": 5000000,
@@ -646,7 +646,7 @@ def get_dynamic_filters(seed: int = 0) -> list[DynamicGameFilter]:
             {
                 "field": "career_ppg",
                 "description": "Career points per game:",
-                "initial_min_value": 18,
+                "initial_min_value": 14,
                 "initial_max_value": 26,
                 "initial_value_step": 1,
                 "widen_step": 1,
@@ -706,7 +706,7 @@ def get_dynamic_filters(seed: int = 0) -> list[DynamicGameFilter]:
                 "narrow_step": 1,
                 "comparison_type": "higher",
                 "unit": "seasons",
-                "fun_factor": 0.5,
+                "fun_factor": 0.25,
                 "detailed_desc": "This filter selects players who have played at least a certain number of NBA seasons.\n\nA player is credited with a season if they appeared in at least one regular season game during that year.\n\nSuspended seasons and lockout-shortened seasons still count as full seasons.",
             }, seed=seed
         ),
@@ -722,42 +722,43 @@ def get_dynamic_filters(seed: int = 0) -> list[DynamicGameFilter]:
                 "narrow_step": 1,
                 "comparison_type": "lower",
                 "unit": "seasons",
-                "fun_factor": 0.5,
+                "fun_factor": 0.25,
                 "detailed_desc": "This filter selects players who have played at most a certain number of NBA seasons. This includes any season where a player played at least one game. This does not include G-League or International games.",
             }, seed=seed
         ),
-        DynamicGameFilter(
-            {
-                "field": "height_cm",
-                "description": "Taller than",
-                "stats_desc": "Height:",
-                "initial_min_value": 200,
-                "initial_max_value": 210,
-                "initial_value_step": 5,
-                "widen_step": 5,
-                "narrow_step": 5,
-                "unit": "cm",
-                "comparison_type": "higher",
-                "fun_factor": 0.5,
-                "detailed_desc": "This filter selects players who are taller than a certain height in centimeters.",
-            }, seed=seed
-        ),
-        DynamicGameFilter(
-            {
-                "field": "height_cm",
-                "description": "Smaller than",
-                "stats_desc": "Height:",
-                "initial_min_value": 180,
-                "initial_max_value": 195,
-                "initial_value_step": 5,
-                "widen_step": 5,
-                "narrow_step": 5,
-                "unit": "cm",
-                "comparison_type": "lower",
-                "fun_factor": 0.5,
-                "detailed_desc": "This filter selects players who are shorter than a certain height in centimeters.",
-            }, seed=seed
-        ),
+        # NOTE: Height filter was not very fun to play
+        # DynamicGameFilter(
+        #     {
+        #         "field": "height_cm",
+        #         "description": "Taller than",
+        #         "stats_desc": "Height:",
+        #         "initial_min_value": 200,
+        #         "initial_max_value": 210,
+        #         "initial_value_step": 5,
+        #         "widen_step": 5,
+        #         "narrow_step": 5,
+        #         "unit": "cm",
+        #         "comparison_type": "higher",
+        #         "fun_factor": 0.25,
+        #         "detailed_desc": "This filter selects players who are taller than a certain height in centimeters.",
+        #     }, seed=seed
+        # ),
+        # DynamicGameFilter(
+        #     {
+        #         "field": "height_cm",
+        #         "description": "Smaller than",
+        #         "stats_desc": "Height:",
+        #         "initial_min_value": 180,
+        #         "initial_max_value": 195,
+        #         "initial_value_step": 5,
+        #         "widen_step": 5,
+        #         "narrow_step": 5,
+        #         "unit": "cm",
+        #         "comparison_type": "lower",
+        #         "fun_factor": 0.25,
+        #         "detailed_desc": "This filter selects players who are shorter than a certain height in centimeters.",
+        #     }, seed=seed
+        # ),
         # NOTE: Weight filter was not very fun to play,
         #       as it's hard to estimate and not something
         #       a user cares about when looking at nba stats
@@ -775,8 +776,8 @@ def get_dynamic_filters(seed: int = 0) -> list[DynamicGameFilter]:
             {
                 "field": "career_high_pts",
                 "description": "Career high points:",
-                "initial_min_value": 40,
-                "initial_max_value": 60,
+                "initial_min_value": 30,
+                "initial_max_value": 50,
                 "initial_value_step": 5,
                 "widen_step": 5,
                 "narrow_step": 5,
@@ -788,11 +789,11 @@ def get_dynamic_filters(seed: int = 0) -> list[DynamicGameFilter]:
             {
                 "field": "career_high_reb",
                 "description": "Career high rebounds:",
-                "initial_min_value": 15,
-                "initial_max_value": 25,
-                "initial_value_step": 5,
-                "widen_step": 5,
-                "narrow_step": 5,
+                "initial_min_value": 12,
+                "initial_max_value": 20,
+                "initial_value_step": 2,
+                "widen_step": 2,
+                "narrow_step": 2,
                 "fun_factor": 2.0,
                 "detailed_desc": "This filter selects players who have caught at least a certain number of rebounds in a single game. This includes regular season and playoff games.",
             }, seed=seed
@@ -801,11 +802,11 @@ def get_dynamic_filters(seed: int = 0) -> list[DynamicGameFilter]:
             {
                 "field": "career_high_ast",
                 "description": "Career high assists:",
-                "initial_min_value": 15,
-                "initial_max_value": 25,
-                "initial_value_step": 5,
-                "widen_step": 5,
-                "narrow_step": 5,
+                "initial_min_value": 10,
+                "initial_max_value": 20,
+                "initial_value_step": 2,
+                "widen_step": 2,
+                "narrow_step": 2,
                 "fun_factor": 2.0,
                 "detailed_desc": "This filter selects players who have passed at least a certain number of assists in a single game. This includes regular season and playoff games.",
             }, seed=seed
@@ -844,7 +845,7 @@ def get_dynamic_filters(seed: int = 0) -> list[DynamicGameFilter]:
                 "initial_value_step": 1,
                 "widen_step": 1,
                 "narrow_step": 1,
-                "fun_factor": 0.5,
+                "fun_factor": 0.25,
                 "detailed_desc": "This filter selects players who played for at least a certain number of NBA teams. This includes any team where a player played at least one game.",
             }, seed=seed
         ),
@@ -857,7 +858,7 @@ def get_dynamic_filters(seed: int = 0) -> list[DynamicGameFilter]:
                 "widen_step": 1,
                 "narrow_step": 1,
                 "comparison_type": "lower",
-                "fun_factor": 0.5,
+                "fun_factor": 0.25,
                 "detailed_desc": "This filter selects players who played for at most a certain number of NBA teams. This includes any team where a player played at least one game.",
             }, seed=seed
         ),

@@ -16,6 +16,7 @@ logger.setLevel(logging.INFO)
 class GameBuilder(object):
     def __init__(self, random_seed: int = 0):
         self.random_seed = random_seed
+        self.rng = random.Random(random_seed)  # Create Random instance once and reuse it
         self.dynamic_filters = get_dynamic_filters(self.random_seed)
         self.static_filters = get_static_filters(self.random_seed)
         self.min_num_results = 5
@@ -40,12 +41,10 @@ class GameBuilder(object):
         Returns:
             Randomly selected item based on weights
         """
-        # Create a new random instance to avoid interference from global random state resets
-        rng = random.Random(self.random_seed)
-        
+        # Use the instance's random generator (maintains state across calls)
         # Handle edge case: if all weights are zero, return random choice
         if all(w == 0 for w in weights):
-            return rng.choice(items)
+            return self.rng.choice(items)
         
         # Convert weights to probabilities (inverse of weights)
         # Skip zero weights to avoid division by zero
@@ -53,11 +52,11 @@ class GameBuilder(object):
         
         if not valid_pairs:
             # If no valid weights, return random choice
-            return rng.choice(items)
+            return self.rng.choice(items)
         
         valid_items, valid_weights = zip(*valid_pairs)
         total = sum(1.0 / w for w in valid_weights)
-        r = rng.random() * total
+        r = self.rng.random() * total
         upto = 0
         for item, weight in valid_pairs:
             upto += 1.0 / weight

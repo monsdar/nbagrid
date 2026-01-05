@@ -15,17 +15,35 @@
                 "nbagrid_api_app"
             ]
         },
+        // Clean up current grids:
+        //     python .\manage.py shell
+        //     from nbagrid_api_app.models import GameFilterDB
+        //     from datetime import datetime
+        //     GameFilterDB.objects.all().filter(date__gte=datetime.now()).delete()
+        // Generate 30 new grids:
+        //     1..30 | ForEach-Object { python manage.py generate_tomorrow_grid --next-missing }
         {
-            "name": "Python Debugger: Generate Grids",
+            "name": "Python Debugger: Generate Grid",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/manage.py",
             "console": "integratedTerminal",
             "args": [
-                "generate_grids",
-                "5",
-                "--quality-threshold",
-                "80.0"
+                "generate_tomorrow_grid",
+                "--next-missing"
+            ]
+        },
+        {
+            "name": "Python Debugger: Upload local grids to production",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/manage.py",
+            "console": "integratedTerminal",
+            "args": [
+                "upload_grids_to_production",
+                "--all-future",
+                "--api-url=${config:NBAGRID_API_URL}",
+                "--api-key=${config:NBAGRID_API_TOKEN}"
             ]
         },
         {
