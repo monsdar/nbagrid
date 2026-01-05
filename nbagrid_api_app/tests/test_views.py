@@ -336,3 +336,125 @@ class PlayerUpdateTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 422)
+
+
+class GetGameFiltersTests(TestCase):
+    """Test the refactored get_game_filters function to ensure it only reads from DB."""
+
+    def setUp(self):
+        """Set up test data."""
+        from nbagrid_api_app.models import GameFilterDB
+        from nbagrid_api_app.GameFilter import TeamFilter
+
+        # Create test player
+        self.player = Player.active.create(
+            stats_id=1,
+            name="Test Player",
+            position="Guard",
+            country="USA",
+            career_ppg=20,
+            career_rpg=6,
+            career_apg=4,
+            career_gp=200,
+        )
+
+        self.test_date = datetime(2025, 4, 15)
+        
+        # Create a grid in the database for testing
+        self.static_filters_data = [
+            {"class": "TeamFilter", "config": {"team_abbreviation": "LAL"}, "index": 0},
+            {"class": "TeamFilter", "config": {"team_abbreviation": "BOS"}, "index": 1},
+            {"class": "TeamFilter", "config": {"team_abbreviation": "GSW"}, "index": 2},
+        ]
+        
+        self.dynamic_filters_data = [
+            {"class": "TeamFilter", "config": {"team_abbreviation": "MIA"}, "index": 0},
+            {"class": "TeamFilter", "config": {"team_abbreviation": "CHI"}, "index": 1},
+            {"class": "TeamFilter", "config": {"team_abbreviation": "NYK"}, "index": 2},
+        ]
+
+    def tearDown(self):
+        """Clean up test data."""
+        from nbagrid_api_app.models import GameFilterDB
+        GameFilterDB.objects.all().delete()
+        Player.active.all().delete()
+
+    @patch('nbagrid_api_app.views.GameBuilder')
+    def test_get_game_filters_from_database(self, mock_builder_class):
+        """Test that get_game_filters retrieves filters from database when they exist."""
+        from nbagrid_api_app.models import GameFilterDB
+        from nbagrid_api_app.views import get_game_filters
+        
+        # Create mock filters to return
+        mock_static = [MockFilter("LAL"), MockFilter("BOS"), MockFilter("GSW")]
+        mock_dynamic = [MockFilter("MIA"), MockFilter("CHI"), MockFilter("NYK")]
+        
+        # Mock the builder to return filters from database
+        mock_builder = mock_builder_class.return_value
+        mock_builder.get_filters_from_db.return_value = (mock_static, mock_dynamic)
+        
+        # Get filters
+        static_filters, dynamic_filters = get_game_filters(self.test_date)
+        
+        # Verify filters were retrieved
+        self.assertIsNotNone(static_filters)
+        self.assertIsNotNone(dynamic_filters)
+        self.assertEqual(len(static_filters), 3)
+        self.assertEqual(len(dynamic_filters), 3)
+        self.assertEqual(static_filters, mock_static)
+        self.assertEqual(dynamic_filters, mock_dynamic)
+
+    @patch('nbagrid_api_app.views.GameBuilder')
+    @patch('nbagrid_api_app.views.get_random_past_game_filters')
+    def test_get_game_filters_fallback_when_no_grid(self, mock_fallback, mock_builder_class):
+        """Test that get_game_filters falls back to random past game when no grid exists."""
+        from nbagrid_api_app.views import get_game_filters
+        
+        # Mock the builder to return None from get_filters_from_db
+        mock_builder = mock_builder_class.return_value
+        mock_builder.get_filters_from_db.return_value = (None, None)
+        
+        # Mock the fallback to return some filters
+        mock_filters = (
+            [MockFilter("LAL"), MockFilter("BOS"), MockFilter("GSW")],
+            [MockFilter("MIA"), MockFilter("CHI"), MockFilter("NYK")]
+        )
+        mock_fallback.return_value = mock_filters
+        
+        # Try to get filters for a date with no grid
+        static_filters, dynamic_filters = get_game_filters(self.test_date)
+        
+        # Verify fallback was called
+        mock_fallback.assert_called_once()
+        
+        # Verify filters were returned from fallback
+        self.assertEqual(static_filters, mock_filters[0])
+        self.assertEqual(dynamic_filters, mock_filters[1])
+
+    @patch('nbagrid_api_app.views.GameBuilder')
+    @patch('nbagrid_api_app.views.get_random_past_game_filters')
+    def test_get_game_filters_does_not_call_get_tuned_filters(self, mock_fallback, mock_builder_class):
+        """Test that get_game_filters does NOT call get_tuned_filters (no on-demand generation)."""
+        from nbagrid_api_app.views import get_game_filters
+        
+        # Setup mocks
+        mock_builder = mock_builder_class.return_value
+        mock_builder.get_filters_from_db.return_value = (None, None)
+        
+        mock_filters = (
+            [MockFilter("LAL"), MockFilter("BOS"), MockFilter("GSW")],
+            [MockFilter("MIA"), MockFilter("CHI"), MockFilter("NYK")]
+        )
+        mock_fallback.return_value = mock_filters
+        
+        # Get filters for a date with no grid
+        get_game_filters(self.test_date)
+        
+        # Verify get_tuned_filters was NOT called (this is the key change)
+        mock_builder.get_tuned_filters.assert_not_called()
+        
+        # Verify get_filters_from_db WAS called
+        mock_builder.get_filters_from_db.assert_called_once()
+        
+        # Verify fallback WAS called
+        mock_fallback.assert_called_once()

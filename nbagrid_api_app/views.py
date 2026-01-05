@@ -176,15 +176,16 @@ def get_random_past_game_filters(requested_date: datetime, builder: GameBuilder)
 
 @trace_operation("views.get_game_filters")
 def get_game_filters(requested_date: datetime) -> tuple[list[GameFilter], list[GameFilter]]:
-    """Get or create game filters for the requested date."""
+    """Get game filters for the requested date from the database."""
     # Create a GameBuilder with the requested date's timestamp as seed
     builder = GameBuilder(requested_date.timestamp())
     
-    try:
-        # Get the filters - this will either retrieve from DB or create new ones
-        filters = builder.get_tuned_filters(requested_date, num_iterations=10, reuse_cached_game=True)
-    except Exception as e:
-        filters = get_random_past_game_filters(requested_date, builder) # Last resort, simply copy a random past game
+    # Try to get existing filters from database
+    filters = builder.get_filters_from_db(requested_date)
+    if not filters[0] or not filters[1]:
+        # No grid exists - use random past game as fallback
+        logger.warning(f"No grid found for {requested_date.date()}, using random past game fallback")
+        filters = get_random_past_game_filters(requested_date, builder)
 
     # Initialize scores for all cells if this is a new game and no completions exist
     # AND no initial game results exist for this date

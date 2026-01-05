@@ -128,6 +128,56 @@ isort --check-only .
 flake8 .
 ```
 
+## Grid Generation
+
+The application requires daily grids to be pre-generated for gameplay. This is handled by a management command designed to run on a nightly schedule.
+
+### Generate Tomorrow's Grid
+
+To manually generate a grid for tomorrow:
+
+```bash
+python manage.py generate_tomorrow_grid
+```
+
+This command:
+- Checks if a grid already exists for tomorrow's date
+- If not, generates a new grid using the `GameBuilder`
+- If a grid already exists, exits without making changes
+- Logs success or failure for monitoring
+
+### Setting Up Automated Grid Generation
+
+For production environments, set up a cron job to run this command nightly. This ensures grids are ready before users need them.
+
+#### Linux/Unix Cron Setup
+
+Add to your crontab (`crontab -e`):
+
+```bash
+# Generate tomorrow's grid at midnight every day
+0 0 * * * cd /path/to/nbagrid_api && /path/to/venv/bin/python manage.py generate_tomorrow_grid >> /var/log/nbagrid_cron.log 2>&1
+```
+
+#### Windows Task Scheduler
+
+1. Open Task Scheduler
+2. Create a new Basic Task
+3. Set trigger to "Daily" at midnight
+4. Action: "Start a program"
+5. Program: `C:\path\to\python.exe`
+6. Arguments: `manage.py generate_tomorrow_grid`
+7. Start in: `E:\Projects\nbagrid\nbagrid_api`
+
+### Fallback Behavior
+
+If grid generation fails or the cron job doesn't run:
+- Users will see a random past game as a fallback
+- No new grid will be available for that date
+- The system will continue to function, but with recycled content
+
+Monitor your cron logs regularly to ensure grids are being generated successfully.
+
 ## Continuous Integration
 
 The project uses GitHub Actions for automated testing and code quality checks:
