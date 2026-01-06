@@ -88,8 +88,8 @@ class Command(BaseCommand):
         parser.add_argument(
             '--delay',
             type=float,
-            default=0.1,
-            help='Delay between API calls in seconds (default: 0.1)'
+            default=0.0,
+            help='Delay between API calls in seconds (default: 0.0)'
         )
         parser.add_argument(
             '--timeout',
@@ -398,6 +398,11 @@ class Command(BaseCommand):
                 if hasattr(value, 'isoformat'):  # datetime objects
                     value = value.isoformat()
                 data[field.name] = value
+        
+        # Add teammates as a list of stats_ids (ManyToMany field)
+        teammate_stats_ids = list(player.teammates.values_list('stats_id', flat=True))
+        if teammate_stats_ids:
+            data['teammates'] = teammate_stats_ids
         
         return data
 
