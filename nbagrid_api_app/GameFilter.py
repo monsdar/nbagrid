@@ -101,6 +101,12 @@ class DynamicGameFilter(GameFilter):
             feet, inches = cm_to_feet_inches(stat_value)
             return f"{description} {stat_value}{unit} ({feet}′{inches}″)"
 
+        # Special handling for num_seasons to convert experience years to actual season number
+        # SEASON_EXP from NBA API represents years of experience (0 for rookie)
+        # A player in their 4th season has 3 years of experience, so we add 1 for display
+        if field == "num_seasons":
+            stat_value = stat_value + 1
+
         return f"{description} {stat_value}{unit}"
 
     def get_desc(self) -> str:

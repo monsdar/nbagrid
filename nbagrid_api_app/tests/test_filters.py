@@ -61,6 +61,128 @@ class DynamicGameFilterTest(TestCase):
         filtered_players = filter.apply_filter(Player.active.all())
         self.assertEqual(filtered_players.count(), 2)
 
+    def test_num_seasons_display(self):
+        """Test that num_seasons displays actual season number (experience + 1).
+        
+        This test verifies the fix for the issue where a player with 3 years of 
+        experience (SEASON_EXP=3, in their 4th season) was showing as "Total seasons: 3" 
+        instead of "Total seasons: 4", which was confusing for users.
+        """
+        # Create test players with different experience levels
+        # Player 1: Rookie (0 years experience, in 1st season)
+        rookie = Player.active.create(stats_id=1, name="Rookie Player", num_seasons=0)
+        
+        # Player 2: 2nd year player (1 year experience, in 2nd season)
+        second_year = Player.active.create(stats_id=2, name="Second Year", num_seasons=1)
+        
+        # Player 3: Christian Braun scenario (3 years experience, in 4th season)
+        fourth_year = Player.active.create(stats_id=3, name="Christian Braun", num_seasons=3)
+        
+        # Player 4: Veteran (10 years experience, in 11th season)
+        veteran = Player.active.create(stats_id=4, name="Veteran Player", num_seasons=10)
+
+        # Create filters for "More than" and "No more than" seasons
+        more_than_filter = DynamicGameFilter(
+            {
+                "field": "num_seasons",
+                "description": "More than ",
+                "stats_desc": "Total seasons:",
+                "initial_min_value": 9,
+                "initial_max_value": 15,
+                "comparison_type": "higher",
+                "unit": "seasons",
+            }
+        )
+        
+        no_more_than_filter = DynamicGameFilter(
+            {
+                "field": "num_seasons",
+                "description": "No more than ",
+                "stats_desc": "Total seasons:",
+                "initial_min_value": 1,
+                "initial_max_value": 3,
+                "comparison_type": "lower",
+                "unit": "seasons",
+            }
+        )
+
+        # Test player stats display - should show actual season number (experience + 1)
+        self.assertEqual(
+            more_than_filter.get_player_stats_str(rookie),
+            "Total seasons: 1 seasons",
+            "Rookie with 0 years experience should show as 1 season"
+        )
+        
+        self.assertEqual(
+            more_than_filter.get_player_stats_str(second_year),
+            "Total seasons: 2 seasons",
+            "2nd year player with 1 year experience should show as 2 seasons"
+        )
+        
+        self.assertEqual(
+            more_than_filter.get_player_stats_str(fourth_year),
+            "Total seasons: 4 seasons",
+            "4th year player with 3 years experience should show as 4 seasons (fix for Christian Braun issue)"
+        )
+        
+        self.assertEqual(
+            more_than_filter.get_player_stats_str(veteran),
+            "Total seasons: 11 seasons",
+            "Veteran with 10 years experience should show as 11 seasons"
+        )
+        
+        # Verify the same display for "No more than" filter
+        self.assertEqual(
+            no_more_than_filter.get_player_stats_str(fourth_year),
+            "Total seasons: 4 seasons",
+            "Display should be consistent across different season filters"
+        )
+
+    def test_num_seasons_filter_logic(self):
+        """Test that the num_seasons filter logic works correctly with the display fix.
+        
+        Verifies that players are correctly filtered based on their experience level,
+        and that the display correctly shows the actual season number.
+        """
+        # Create test players
+        Player.active.create(stats_id=1, name="Rookie", num_seasons=0)       # In 1st season
+        Player.active.create(stats_id=2, name="2nd Year", num_seasons=1)     # In 2nd season
+        Player.active.create(stats_id=3, name="3rd Year", num_seasons=2)     # In 3rd season
+        Player.active.create(stats_id=4, name="4th Year", num_seasons=3)     # In 4th season
+        Player.active.create(stats_id=5, name="5th Year", num_seasons=4)     # In 5th season
+
+        # Test "No more than 3 seasons" filter
+        # This should filter for num_seasons < 3 (experience 0, 1, 2 -> seasons 1, 2, 3)
+        no_more_than_filter = DynamicGameFilter(
+            {
+                "field": "num_seasons",
+                "description": "No more than ",
+                "stats_desc": "Total seasons:",
+                "comparison_type": "lower",
+                "unit": "seasons",
+            }
+        )
+        no_more_than_filter.current_value = 3
+
+        filtered = no_more_than_filter.apply_filter(Player.active.all())
+        self.assertEqual(filtered.count(), 3, "Should include players with 0, 1, 2 years experience")
+        
+        # Verify the display shows correct season numbers for filtered players
+        player_with_2_exp = Player.active.get(num_seasons=2)
+        self.assertEqual(
+            no_more_than_filter.get_player_stats_str(player_with_2_exp),
+            "Total seasons: 3 seasons",
+            "Player with 2 years experience (in 3rd season) passes 'No more than 3 seasons' filter"
+        )
+        
+        # Verify a player who doesn't pass shows correct season number
+        player_with_3_exp = Player.active.get(num_seasons=3)
+        self.assertEqual(
+            no_more_than_filter.get_player_stats_str(player_with_3_exp),
+            "Total seasons: 4 seasons",
+            "Player with 3 years experience (in 4th season) fails 'No more than 3 seasons' filter - display shows why"
+        )
+
 
 class PositionFilterTest(TestCase):
     def test_position_filter(self):
