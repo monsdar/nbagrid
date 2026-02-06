@@ -1063,6 +1063,32 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING("DRY RUN: Would sync to production"))
             return
         
+        # Determine what will be synced
+        sync_players = options.get('all') or options.get('players')
+        sync_teams = options.get('all') or options.get('teams')
+        sync_player_teams = options.get('all') or options.get('players')
+        
+        # Show what will be synced
+        sync_items = []
+        if sync_players:
+            sync_items.append("players")
+        if sync_teams:
+            sync_items.append("teams")
+        if sync_player_teams:
+            sync_items.append("player-team relationships")
+        
+        if sync_items:
+            self.stdout.write(f"Will sync: {', '.join(sync_items)}")
+        else:
+            self.stdout.write(
+                self.style.WARNING(
+                    "WARNING: No data will be synced! "
+                    "To sync player-team relationships (e.g., after a trade), "
+                    "use --players or --all flag."
+                )
+            )
+            return
+        
         # Import the sync functionality
         from django.core.management import call_command
         
@@ -1071,9 +1097,9 @@ class Command(BaseCommand):
                 'sync_to_production',
                 production_url=options['production_url'],
                 api_key=options['api_key'],
-                players=options.get('all') or options.get('players'),
-                teams=options.get('all') or options.get('teams'),
-                player_teams=options.get('all') or options.get('players'),
+                players=sync_players,
+                teams=sync_teams,
+                player_teams=sync_player_teams,
                 verbosity=2 if options['verbose'] else 1
             )
         except Exception as e:

@@ -321,6 +321,17 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING("No player-team relationships found to sync"))
             return
         
+        # Log a sample of relationships for debugging
+        if options['verbose']:
+            self.stdout.write(f"Sample relationships to sync (first 5):")
+            for player_stats_id, team_stats_id in relationships[:5]:
+                try:
+                    player = Player.objects.get(stats_id=player_stats_id)
+                    team = Team.objects.get(stats_id=team_stats_id)
+                    self.stdout.write(f"  - {player.name} ({player_stats_id}) -> {team.abbr} ({team_stats_id})")
+                except:
+                    self.stdout.write(f"  - Player {player_stats_id} -> Team {team_stats_id}")
+        
         if options['dry_run']:
             self.stdout.write(self.style.WARNING(f"DRY RUN: Would sync {total_relationships} relationships"))
             return

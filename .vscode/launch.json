@@ -81,11 +81,11 @@
             "program": "${workspaceFolder}/manage.py",
             "console": "integratedTerminal",
             "args": [
-                "update_nba_data",
-                "--init-only",
-                "--sync-to-production",
+                "sync_to_production",
+                "--all",
                 "--production-url=${config:NBAGRID_API_URL}",
-                "--api-key=${config:NBAGRID_API_TOKEN}"
+                "--api-key=${config:NBAGRID_API_TOKEN}",
+                //"--verbose"
             ]
         },
         {
