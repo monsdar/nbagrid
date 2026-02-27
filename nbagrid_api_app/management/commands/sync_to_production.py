@@ -100,7 +100,7 @@ class Command(BaseCommand):
         parser.add_argument(
             '--max-retries',
             type=int,
-            default=3,
+            default=10,
             help='Maximum number of retries for failed requests (default: 3)'
         )
         
@@ -457,7 +457,7 @@ class Command(BaseCommand):
                 
             except requests.exceptions.RequestException as e:
                 if attempt < max_retries:
-                    wait_time = 2 ** attempt  # Exponential backoff
+                    wait_time = 0.2 #** attempt  # Exponential backoff
                     logger.warning(
                         f"Error syncing {description} (attempt {attempt + 1}/{max_retries + 1}): {e}. "
                         f"Retrying in {wait_time}s..."
