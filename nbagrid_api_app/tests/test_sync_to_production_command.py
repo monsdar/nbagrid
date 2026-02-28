@@ -67,10 +67,12 @@ class SyncToProductionCommandTests(TestCase):
         
         return mock_response
 
-    @patch('nbagrid_api_app.management.commands.sync_to_production.requests.post')
-    def test_player_teams_synced_via_relationships(self, mock_post):
+    @patch('nbagrid_api_app.management.commands.sync_to_production.requests.Session')
+    def test_player_teams_synced_via_relationships(self, mock_session_cls):
         """Test that player teams are synced via relationship endpoints."""
-        mock_post.return_value = self._create_mock_response()
+        mock_session = MagicMock()
+        mock_session_cls.return_value = mock_session
+        mock_session.post.return_value = self._create_mock_response()
 
         out = StringIO()
         call_command(
@@ -83,17 +85,19 @@ class SyncToProductionCommandTests(TestCase):
         )
 
         # Player 101 has 2 teams, so we should have 2 relationship endpoint calls
-        self.assertEqual(mock_post.call_count, 2)
+        self.assertEqual(mock_session.post.call_count, 2)
         
         # Verify the relationship endpoints were called
-        called_urls = [call[0][0] for call in mock_post.call_args_list]
+        called_urls = [call[0][0] for call in mock_session.post.call_args_list]
         self.assertIn('http://test.com/player/101/team/1', called_urls)
         self.assertIn('http://test.com/player/101/team/2', called_urls)
 
-    @patch('nbagrid_api_app.management.commands.sync_to_production.requests.post')
-    def test_sync_players_includes_all_players(self, mock_post):
+    @patch('nbagrid_api_app.management.commands.sync_to_production.requests.Session')
+    def test_sync_players_includes_all_players(self, mock_session_cls):
         """Test that all players (including inactive) are synced by default."""
-        mock_post.return_value = self._create_mock_response()
+        mock_session = MagicMock()
+        mock_session_cls.return_value = mock_session
+        mock_session.post.return_value = self._create_mock_response()
 
         out = StringIO()
         call_command(
@@ -108,12 +112,14 @@ class SyncToProductionCommandTests(TestCase):
 
         # Should sync all 3 players
         self.assertIn('3 successful', output)
-        self.assertEqual(mock_post.call_count, 3)
+        self.assertEqual(mock_session.post.call_count, 3)
 
-    @patch('nbagrid_api_app.management.commands.sync_to_production.requests.post')
-    def test_sync_teams_successful(self, mock_post):
+    @patch('nbagrid_api_app.management.commands.sync_to_production.requests.Session')
+    def test_sync_teams_successful(self, mock_session_cls):
         """Test syncing teams to production."""
-        mock_post.return_value = self._create_mock_response()
+        mock_session = MagicMock()
+        mock_session_cls.return_value = mock_session
+        mock_session.post.return_value = self._create_mock_response()
 
         out = StringIO()
         call_command(
@@ -128,12 +134,14 @@ class SyncToProductionCommandTests(TestCase):
 
         # Should sync all 3 teams
         self.assertIn('3 successful', output)
-        self.assertEqual(mock_post.call_count, 3)
+        self.assertEqual(mock_session.post.call_count, 3)
 
-    @patch('nbagrid_api_app.management.commands.sync_to_production.requests.post')
-    def test_sync_player_teams_relationships(self, mock_post):
+    @patch('nbagrid_api_app.management.commands.sync_to_production.requests.Session')
+    def test_sync_player_teams_relationships(self, mock_session_cls):
         """Test syncing player-team relationships."""
-        mock_post.return_value = self._create_mock_response()
+        mock_session = MagicMock()
+        mock_session_cls.return_value = mock_session
+        mock_session.post.return_value = self._create_mock_response()
 
         out = StringIO()
         call_command(
@@ -149,12 +157,14 @@ class SyncToProductionCommandTests(TestCase):
         # Should only sync active players' relationships (player1 and player2)
         # player1 has 2 teams, player2 has 1 team = 3 relationships
         self.assertIn('3 successful', output)
-        self.assertEqual(mock_post.call_count, 3)
+        self.assertEqual(mock_session.post.call_count, 3)
 
-    @patch('nbagrid_api_app.management.commands.sync_to_production.requests.post')
-    def test_sync_specific_player_by_id(self, mock_post):
+    @patch('nbagrid_api_app.management.commands.sync_to_production.requests.Session')
+    def test_sync_specific_player_by_id(self, mock_session_cls):
         """Test syncing a specific player by ID."""
-        mock_post.return_value = self._create_mock_response()
+        mock_session = MagicMock()
+        mock_session_cls.return_value = mock_session
+        mock_session.post.return_value = self._create_mock_response()
 
         out = StringIO()
         call_command(
@@ -170,15 +180,18 @@ class SyncToProductionCommandTests(TestCase):
 
         # Should only sync player1
         self.assertIn('1 successful', output)
-        self.assertEqual(mock_post.call_count, 1)
+        self.assertEqual(mock_session.post.call_count, 1)
 
         # Verify the correct player was synced
-        json_data = mock_post.call_args[1]['json']
+        json_data = mock_session.post.call_args[1]['json']
         self.assertEqual(json_data['stats_id'], 101)
 
-    @patch('nbagrid_api_app.management.commands.sync_to_production.requests.post')
-    def test_dry_run_mode(self, mock_post):
+    @patch('nbagrid_api_app.management.commands.sync_to_production.requests.Session')
+    def test_dry_run_mode(self, mock_session_cls):
         """Test dry run mode doesn't make actual API calls."""
+        mock_session = MagicMock()
+        mock_session_cls.return_value = mock_session
+
         out = StringIO()
         call_command(
             'sync_to_production',
@@ -195,13 +208,14 @@ class SyncToProductionCommandTests(TestCase):
         self.assertIn('DRY RUN', output)
 
         # Verify no actual API calls were made
-        mock_post.assert_not_called()
+        mock_session.post.assert_not_called()
 
-    @patch('nbagrid_api_app.management.commands.sync_to_production.requests.post')
-    def test_api_error_handling(self, mock_post):
+    @patch('nbagrid_api_app.management.commands.sync_to_production.requests.Session')
+    def test_api_error_handling(self, mock_session_cls):
         """Test handling of API errors."""
-        # Mock an error response
-        mock_post.return_value = self._create_mock_response(status_code=500)
+        mock_session = MagicMock()
+        mock_session_cls.return_value = mock_session
+        mock_session.post.return_value = self._create_mock_response(status_code=500)
 
         out = StringIO()
         call_command(
@@ -216,10 +230,12 @@ class SyncToProductionCommandTests(TestCase):
         # Should have failed syncs reported
         self.assertIn('error', output.lower())
 
-    @patch('nbagrid_api_app.management.commands.sync_to_production.requests.post')
-    def test_sync_all_flag(self, mock_post):
+    @patch('nbagrid_api_app.management.commands.sync_to_production.requests.Session')
+    def test_sync_all_flag(self, mock_session_cls):
         """Test --all flag syncs players, teams, and relationships."""
-        mock_post.return_value = self._create_mock_response()
+        mock_session = MagicMock()
+        mock_session_cls.return_value = mock_session
+        mock_session.post.return_value = self._create_mock_response()
 
         out = StringIO()
         call_command(
@@ -233,18 +249,20 @@ class SyncToProductionCommandTests(TestCase):
         output = out.getvalue()
 
         # Should sync teams (3), players (3), and relationships (3) = 9 total calls
-        self.assertEqual(mock_post.call_count, 9)
+        self.assertEqual(mock_session.post.call_count, 9)
         self.assertIn('Teams sync completed', output)
         self.assertIn('Players sync completed', output)
         self.assertIn('Relationships sync completed', output)
 
-    @patch('nbagrid_api_app.management.commands.sync_to_production.requests.post')
-    def test_serialize_player_includes_teammates(self, mock_post):
+    @patch('nbagrid_api_app.management.commands.sync_to_production.requests.Session')
+    def test_serialize_player_includes_teammates(self, mock_session_cls):
         """Test that player serialization includes teammates field."""
         # Add a teammate relationship
         self.player1.teammates.add(self.player2)
 
-        mock_post.return_value = self._create_mock_response()
+        mock_session = MagicMock()
+        mock_session_cls.return_value = mock_session
+        mock_session.post.return_value = self._create_mock_response()
 
         out = StringIO()
         call_command(
@@ -257,21 +275,23 @@ class SyncToProductionCommandTests(TestCase):
         )
 
         # Get the serialized data for player1
-        json_data = mock_post.call_args[1]['json']
+        json_data = mock_session.post.call_args[1]['json']
 
         # Assert teammates field is present and contains correct stats_ids
         self.assertIn('teammates', json_data, "Player data should include 'teammates' field")
         self.assertIsInstance(json_data['teammates'], list, "Teammates should be a list")
         self.assertIn(102, json_data['teammates'], "Player should have teammate with stats_id 102")
 
-    @patch('nbagrid_api_app.management.commands.sync_to_production.requests.post')
-    def test_player_traded_to_new_team(self, mock_post):
+    @patch('nbagrid_api_app.management.commands.sync_to_production.requests.Session')
+    def test_player_traded_to_new_team(self, mock_session_cls):
         """Test that when a player is traded, the new team relationship is synced."""
         # Simulate Dennis Schroder trade scenario:
         # Player was on team1 and team2, now also on team3 (traded)
         self.player1.teams.add(self.team3)
 
-        mock_post.return_value = self._create_mock_response()
+        mock_session = MagicMock()
+        mock_session_cls.return_value = mock_session
+        mock_session.post.return_value = self._create_mock_response()
 
         out = StringIO()
         call_command(
@@ -284,10 +304,10 @@ class SyncToProductionCommandTests(TestCase):
         )
 
         # Player now has 3 teams, so we should have 3 relationship endpoint calls
-        self.assertEqual(mock_post.call_count, 3, "Should sync all 3 team relationships")
+        self.assertEqual(mock_session.post.call_count, 3, "Should sync all 3 team relationships")
         
         # Verify all team relationships were synced
-        called_urls = [call[0][0] for call in mock_post.call_args_list]
+        called_urls = [call[0][0] for call in mock_session.post.call_args_list]
         self.assertIn('http://test.com/player/101/team/1', called_urls)
         self.assertIn('http://test.com/player/101/team/2', called_urls)
         self.assertIn('http://test.com/player/101/team/3', called_urls, "New team relationship should be synced")

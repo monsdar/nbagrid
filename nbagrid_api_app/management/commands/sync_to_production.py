@@ -100,7 +100,7 @@ class Command(BaseCommand):
         parser.add_argument(
             '--max-retries',
             type=int,
-            default=10,
+            default=3,
             help='Maximum number of retries for failed requests (default: 3)'
         )
         
@@ -197,14 +197,22 @@ class Command(BaseCommand):
 
     def _sync_data(self, options):
         """Sync data based on options."""
-        if options['all'] or options['teams']:
-            self._sync_teams(options)
-            
-        if options['all'] or options['players']:
-            self._sync_players(options)
-            
-        if options['all'] or options['player_teams']:
-            self._sync_player_teams(options)
+        self._session = requests.Session()
+        self._session.headers.update({
+            "Content-Type": "application/json",
+            "X-API-Key": options['api_key'],
+        })
+        try:
+            if options['all'] or options['teams']:
+                self._sync_teams(options)
+
+            if options['all'] or options['players']:
+                self._sync_players(options)
+
+            if options['all'] or options['player_teams']:
+                self._sync_player_teams(options)
+        finally:
+            self._session.close()
 
     def _sync_teams(self, options):
         """Sync team data to production."""
@@ -434,20 +442,15 @@ class Command(BaseCommand):
     def _sync_entity_to_production(self, endpoint: str, data: Dict[str, Any], description: str, options) -> bool:
         """Sync a single entity to production with retry logic."""
         url = options['production_url'] + endpoint
-        headers = {
-            "Content-Type": "application/json",
-            "X-API-Key": options['api_key']
-        }
         
         max_retries = options['max_retries']
         timeout = options['timeout']
         
         for attempt in range(max_retries + 1):
             try:
-                response = requests.post(
+                response = self._session.post(
                     url,
                     json=data,
-                    headers=headers,
                     timeout=timeout
                 )
                 response.raise_for_status()
@@ -457,7 +460,7 @@ class Command(BaseCommand):
                 
             except requests.exceptions.RequestException as e:
                 if attempt < max_retries:
-                    wait_time = 0.2 #** attempt  # Exponential backoff
+                    wait_time = 0.2 * (2 ** attempt)
                     logger.warning(
                         f"Error syncing {description} (attempt {attempt + 1}/{max_retries + 1}): {e}. "
                         f"Retrying in {wait_time}s..."
