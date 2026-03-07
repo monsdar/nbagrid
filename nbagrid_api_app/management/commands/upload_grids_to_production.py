@@ -93,9 +93,8 @@ class Command(BaseCommand):
         # Get grid metadata if it exists
         try:
             metadata = GridMetadata.objects.get(date=target_date)
-            game_title = metadata.game_title
         except GridMetadata.DoesNotExist:
-            game_title = f"Grid for {target_date}"
+            pass
         
         return {
             'year': target_date.year,
@@ -104,8 +103,7 @@ class Command(BaseCommand):
             'filters': {
                 'row': row_filters,
                 'col': col_filters
-            },
-            'game_title': game_title
+            }
         }
 
     def upload_grid(self, grid_data: Dict[str, Any], api_url: str, api_key: str, 
@@ -120,7 +118,6 @@ class Command(BaseCommand):
         
         if dry_run:
             self.stdout.write(f"[DRY RUN] Would upload grid for {grid_date}")
-            self.stdout.write(f"  Title: {grid_data.get('game_title', 'N/A')}")
             self.stdout.write(f"  Static filters: {list(grid_data['filters']['row'].keys())}")
             self.stdout.write(f"  Dynamic filters: {list(grid_data['filters']['col'].keys())}")
             return {'status': 'success', 'message': 'Dry run mode'}
@@ -128,7 +125,6 @@ class Command(BaseCommand):
         # Prepare payload
         payload = {
             'filters': grid_data['filters'],
-            'game_title': grid_data.get('game_title'),
             'force': force
         }
         

@@ -53,7 +53,6 @@ class GridUploader:
             # Prepare the upload payload
             payload = {
                 'filters': filters,
-                'game_title': f"Pre-generated Grid #{grid_number} (Quality: {quality_score:.3f})",
                 'force': force
             }
             
