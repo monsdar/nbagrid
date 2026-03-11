@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 from django.core.management import call_command
 from django.test import TestCase
 
-from nbagrid_api_app.models import GameFilterDB, GridMetadata
+from nbagrid_api_app.models import GameFilterDB
 
 
 class UploadGridsToProductionCommandTests(TestCase):
@@ -24,7 +24,6 @@ class UploadGridsToProductionCommandTests(TestCase):
     def tearDown(self):
         """Clean up test data."""
         GameFilterDB.objects.all().delete()
-        GridMetadata.objects.all().delete()
 
     def _create_test_grid(self, target_date):
         """Helper method to create a complete test grid for a given date."""
@@ -47,12 +46,6 @@ class UploadGridsToProductionCommandTests(TestCase):
                 filter_config={'config': {'min_games': 10}, 'current_value': i},
                 filter_index=i
             )
-        
-        # Create metadata
-        GridMetadata.objects.create(
-            date=target_date,
-            game_title=f'Test Grid for {target_date}'
-        )
 
     def _create_mock_response(self, status_code=200, json_data=None):
         """Helper to create a mock HTTP response."""
@@ -227,8 +220,8 @@ class UploadGridsToProductionCommandTests(TestCase):
             self.assertEqual(filters['col'][str(i)]['class'], 'DynamicGameFilter')
 
     @patch('nbagrid_api_app.management.commands.upload_grids_to_production.requests.post')
-    def test_game_title_included(self, mock_post):
-        """Test that game title from metadata is included in the upload."""
+    def test_game_title_not_included(self, mock_post):
+        """Uploads should not include metadata like game_title."""
         mock_post.return_value = self._create_mock_response()
         
         out = StringIO()
@@ -236,7 +229,7 @@ class UploadGridsToProductionCommandTests(TestCase):
                     '--api-key', 'testkey', stdout=out)
         
         call_args = mock_post.call_args
-        self.assertEqual(call_args[1]['json']['game_title'], f'Test Grid for {self.today}')
+        self.assertNotIn('game_title', call_args[1]['json'])
 
     @patch('nbagrid_api_app.management.commands.upload_grids_to_production.requests.post')
     def test_api_headers_set_correctly(self, mock_post):
